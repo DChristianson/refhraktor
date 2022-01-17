@@ -409,71 +409,95 @@ ball_resp_loop_0
             ldx ball_voffset             ;3  41
             jmp playfield_loop_0
 
+
 playfield_loop_0_hm
 playfield_loop_0
             sta WSYNC                    ;3   0
-            sta HMOVE                    ;3  73
-            lda PLAYFIELD_COLORS,y       ;4   4
-            sta COLUBK                   ;3   7
-            lda P0_WALLS,y               ;4  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
-            lda P2_WALLS,y               ;4  25
-            sta PF2                      ;3  28
-            inx                          ;2  30
-            beq playfield_loop_0_to_1    ;2  32
-            SLEEP 30                     ;30 62
+            lda P0_WALLS,y               ;4   4
+            sbne _skip_0                 ;2   6
+            sta HMOVE                    ;3   9
+            jmp _shim_0                  ;3  12
+_skip_0
+            SLEEP 5                      ;5  12
+_shim_0
+            sta PF0                      ;3  15
+            lda P1_WALLS,y               ;4  19
+            sta PF1                      ;3  22
+            lda PLAYFIELD_COLORS,y       ;4  26
+            sta COLUBK                   ;3  29
+            lda P2_WALLS,y               ;4  33
+            sta PF2                      ;3  36
+            inx                          ;2  38
+            beq playfield_loop_0_to_1    ;2  40
+            SLEEP 23                     ;20 60
+            lda #$00                     ;2  62
             iny                          ;2  64
-            cpy display_playfield_limit  ;3  67
-            bcc playfield_loop_0_hm      ;3  70
+            sta COLUBK                   ;3  67
+            jmp playfield_loop_0_hm      ;3  70
 
 playfield_loop_0_to_1
-            SLEEP 26                     ;26 59     
+            SLEEP 18                     ;26 59     
             jmp playfield_loop_1_e       ;3  62 
 
 playfield_loop_1_hm
             sta WSYNC                    ;3   0
-            sta HMOVE                    ;3  73
-            lda PLAYFIELD_COLORS,y       ;4   4
-            sta COLUBK                   ;3   7
-            lda P0_WALLS,y               ;4  11
-            sta PF0                      ;3  14
+            lda P0_WALLS,y               ;4   4
+            sbne _skip_1                 ;2   6
+            sta HMOVE                    ;3   9
+            jmp _shim_1                  ;3  12
+_skip_1
+            SLEEP 5                      ;5  12
+_shim_1
+            sta PF0                      ;3  15
+            lda P1_WALLS,y               ;4  19
+            sta PF1                      ;3  39
+            lda PLAYFIELD_COLORS,y       ;4  29
+            sta COLUBK                   ;3  32
+            lda P2_WALLS,y               ;4  43
+            sta PF2                      ;3  46
             ; ball update 
-            lda BALL_GRAPHICS,x          ;4  18
-            sta GRP0                     ;3  21
-            sta GRP1                     ;3  24
-            lda P1_WALLS,y               ;4  28
-            sta PF1                      ;3  31
-            lda P2_WALLS,y               ;4  35
-            sta PF2                      ;3  38
-            SLEEP 12                     ;12 50
-            lda CXP0FB                   ;3  52
-            pha                          ;3  55
-            inx                          ;2  58
-            cpx #BALL_HEIGHT             ;2  60
-            bcs playfield_loop_2_e       ;2  62
+            lda BALL_GRAPHICS,x          ;4  19
+            sta GRP0                     ;3  22
+            sta GRP1                     ;3  25
+            SLEEP 5                      ;5  
+            lda CXP0FB                   ;3  54
+            pha                          ;3  57
+            inx                          ;2  59
+            cpx #BALL_HEIGHT             ;2  61
+            sbcs playfield_loop_1_to_2   ;2  62
 playfield_loop_1_e
+            lda #$00
             iny                          ;2  64
-            cpy display_playfield_limit  ;3  67
-            jmp playfield_loop_1_hm      ;3  70
+            sta COLUBK
+            jmp playfield_loop_1_hm      ;3  71 
+
+playfield_loop_1_to_2
+            lda #$00                     ;
+            iny                          ;2  64 / 68
+            sta COLUBK
 
 playfield_loop_2_hm
             sta WSYNC                    ;3   0
-            sta HMOVE                    ;3  73
-            lda PLAYFIELD_COLORS,y       ;4   4
-            sta COLUBK                   ;3   7
-            lda P0_WALLS,y               ;4  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
-            lda P2_WALLS,y               ;4  25
-            sta PF2                      ;3  28
-            SLEEP 34                     ;34 62
-playfield_loop_2_e
-            iny                          ;2  64
-            cpy display_playfield_limit  ;3  67
-            bcc playfield_loop_2_hm      ;2  69
+            lda P0_WALLS,y               ;4   4
+            sbne _skip_2                 ;2   6
+            sta HMOVE                    ;3   9
+            jmp _shim_2                  ;3  12
+_skip_2
+            SLEEP 5                      ;5  12
+_shim_2
+            sta PF0                      ;3  15
+            lda P1_WALLS,y               ;4  19
+            sta PF1                      ;3  22
+            lda PLAYFIELD_COLORS,y       ;4  26
+            sta COLUBK                   ;3  29
+            lda P2_WALLS,y               ;4  33
+            sta PF2                      ;3  36
+            SLEEP 24                     ;24 60
+            lda #$00                     ;
+            iny                          ;2  64 / 68
+            cpy display_playfield_limit  ;3  67 / 71
+            sta COLUBK
+            sbcc playfield_loop_2_hm      ;2  69 / 73
 
 playfield_end
 
@@ -593,7 +617,7 @@ P2_WALLS
     ORG $FC00
 P1_WALLS
     byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-    byte #$fc,#$f8,#$f0,#$c0,#$80,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     
@@ -609,30 +633,30 @@ P1_WALLS
     
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$80,#$c0,#$f0,#$f8,#$fc
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
     
     ORG $FD00
 P0_WALLS
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
+    byte #$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
 
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
 
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
 
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90,#$f0,#$90
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00,#$ff,#$ff,#$ff,#$00
 
     ORG $FE00
 PLAYFIELD_COLORS

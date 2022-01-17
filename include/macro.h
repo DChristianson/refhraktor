@@ -166,5 +166,76 @@ VERSION_MACRO         = 109
       REPEND
    ENDM
 
+;-------------------------------------------------------
+; SAME PAGE BRANCH CHECK
+; Original author: John Payson
+;
+; Usage: sbeq, sbne, etc just like a normal beq, bne, etc.
+;        A message will be output if the target of the branch
+;        is not on the same page.
+;
+            mac sbcc
+                bcc     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
 
+            mac sbcs
+                bcs     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbeq
+                beq     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbmi
+                bmi     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbne
+                bne     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbpl
+                bpl     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbvc
+                bvc     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+
+            mac sbvs
+                bvs     {1}
+                if (* ^ {1}) & $FF00
+                echo "PAGE CROSSING","WARNING ",{1}," at ",*
+                err
+                endif
+            endm
+            
 ; EOF
