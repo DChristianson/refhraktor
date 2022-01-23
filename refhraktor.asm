@@ -558,7 +558,7 @@ _lo_resp_loop
             sbcs _lo_resp_loop    ;2   9
             tay                   ;2  11+
             lda LOOKUP_STD_HMOVE,y;4  15+
-            sta HMP0              ;3  18+
+            sta HMM0              ;3  18+
             SLEEP 3               ;3  21+
             sta RESM0             ;3  24+
 
@@ -959,17 +959,17 @@ PLAYFIELD_COLORS
 STD_HMOVE_END
 
 TARGET_0
-    byte $00,$7e,$77,$55,$55,$77,$7e,$3c; 8
+    byte $00,$18,$7e,$77,$55,$55,$77,$7e,$3c; 8
 TARGET_1
-    byte $00,$7e,$ee,$aa,$aa,$ee,$7e,$3c; 8
+    byte $00,$18,$7e,$ee,$aa,$aa,$ee,$7e,$3c; 8
 TARGET_2
-    byte $00,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
+    byte $00,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
 TARGET_3
-    byte $00,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
+    byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
 TARGET_COLOR_0
-    byte $00,$0a,$0c,$0e,$0e,$0e,$0c,$0a; 8
+    byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
 TARGET_BG_0
-    byte $02,$00,$02,$00,$02,$00,$02,$00; 8
+    byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
 
 BALL_GRAPHICS
     byte #$00,#$18,#$3c,#$5e,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$7e,#$3c,#$18
