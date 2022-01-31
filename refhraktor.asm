@@ -144,9 +144,9 @@ _player_setup_loop
     ; ball positioning
     lda #BALL_COLOR
     sta ball_color
-    lda #$00
+    lda #$01
     sta ball_dy
-    lda #$00
+    lda #$01
     sta ball_dx
     lda #128 - BALL_HEIGHT / 2
     sta ball_y
@@ -581,7 +581,9 @@ _lo_resp_loop
             sta HMM1                     ;3  45
             jmp playfield_loop_0         ;3  48
 
-    ORG $F300
+    ; try to avoid page branching problems
+    align 256
+
 playfield_loop_0
             sta WSYNC                    ;3   0
             lda P0_WALLS,y               ;4   4
@@ -651,17 +653,18 @@ playfield_loop_1_e
 playfield_loop_1_to_2
             ; BUGBUG push any more collisions?
             ; bugbug could avoid this calculation by stashing zx
-            tya                          ;2  43
-            sec                          ;3  46
-            sbc scroll                   ;3  49
-            lsr                          ;2  51
-            lsr                          ;2  51
-            tax                          ;2  53
-            lda laser_hmov,x             ;4  57
-            sta HMM0                     ;3  60
-            lda #$00                     ;2  62
-            iny                          ;2  64
-            sta COLUBK                   ;3  67
+            SLEEP 2                      ;2  43
+            tya                          ;2  45
+            sec                          ;2  47
+            sbc scroll                   ;3  50
+            lsr                          ;2  52
+            lsr                          ;2  54
+            tax                          ;2  56
+            lda laser_hmov,x             ;4  60
+            sta HMM0                     ;3  63
+            lda #$00                     ;2  65
+            iny                          ;2  67
+            sta COLUBK                   ;3  70
             ; fall through to next loop
 
 playfield_loop_2_hm
