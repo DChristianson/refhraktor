@@ -749,6 +749,11 @@ _player_0_draw_loop
             cpy #PLAYER_HEIGHT      ;2  32
             bcc _player_0_draw_loop ;2  34
 
+; kernel exit
+
+            ldx temp_stack               ;3   --
+            txs                          ;2   --
+
 ;--------------------
 ; Overscan start
 
@@ -763,8 +768,6 @@ waitOnOverscan
             sta ENAM0
             sta ENAM1
             sta COLUBK
-            ldx temp_stack               ;3   --
-            txs                          ;2   --
 
             ldx #30
 waitOnOverscan_loop
@@ -778,16 +781,32 @@ waitOnOverscan_loop
 ; splash kernel
 
 kernel_showSplash
-            lda SPLASH_GRAPHICS,x 
-            sta COLUBK
             jsr waitOnVBlank ; SL 34
             sta WSYNC ; SL 35
+            lda #0
+            sta COLUBK
 
-            ldx #192
+            ldx #192 / 2
 waitOnSplash
             sta WSYNC
             dex
             bne waitOnSplash
+
+            ldx #192 / 2
+            ldy #8
+drawSplashGrid
+            sta WSYNC
+            lda #0
+            dey
+            bne skipDrawGridLine 
+            ldy #8
+            lda SPLASH_GRAPHICS,x 
+skipDrawGridLine
+            sta COLUBK
+            dex
+            bne drawSplashGrid
+
+
 
             dec game_timer
             bne keepSplashing
@@ -978,7 +997,7 @@ BALL_GRAPHICS
     byte #$00,#$18,#$3c,#$5e,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$7e,#$3c,#$18
 BALL_GRAPHICS_END
 SPLASH_0_GRAPHICS
-    byte $ff ; loading...   message incoming... (scratching)
+    byte $ff ; loading... (8 bit console?)  message incoming... (scratching)
 SPLASH_1_GRAPHICS
     byte $ef ; Presenting... (chorus rising)
 SPLASH_2_GRAPHICS
