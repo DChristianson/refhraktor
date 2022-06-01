@@ -113,6 +113,7 @@ reset
     sta scroll
     lda #GAME_STATE_PLAY ; #GAME_STATE_SPLASH_0
     sta game_state
+
     ; player setup
     lda #>TARGET_0
     sta player_sprite + 1
@@ -141,12 +142,13 @@ _player_setup_loop
     sta player_x,x
     dex
     bpl _player_setup_loop
+
     ; ball positioning
     lda #BALL_COLOR
     sta ball_color
-    lda #$01
+    lda #$00
     sta ball_dy
-    lda #$01
+    lda #$00
     sta ball_dx
     lda #128 - BALL_HEIGHT / 2
     sta ball_y
@@ -442,20 +444,20 @@ refract_lo_calc
             lda laser_lo_x
             cmp ball_x
             bcs _refract_lo_right 
-            lda frame
-            and #$01
-            bne _refract_lo_right
 _refract_lo_left
             lda ball_x
             sec
             sbc laser_lo_x
             ldx #$f0
+            jmp _refract_lo_save
 _refract_lo_right
             lda ball_x
             clc
             adc laser_lo_x
             ldx #$10
 _refract_lo_save
+            clc
+            adc #04 ; shim laser_lo_x
             sta laser_lo_x
             stx laser_lo_hmov
 
