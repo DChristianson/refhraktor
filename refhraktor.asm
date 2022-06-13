@@ -61,14 +61,15 @@ LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 
     ORG $80
 
-game_state   ds 1
-game_timer   ds 1
+game_state   ds 1  ; current game state
+game_timer   ds 1  ; countdown
 
-frame        ds 1
+frame        ds 1  ; frame counter
 
 player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
-player_x      ds 2  ; player absolute x
-player_bg     ds 4  ;
+player_state  ds 2  ; player state (d1 = fire)
+player_x      ds 2  ; player x position
+player_bg     ds 4  ; 
 player_color  ds 4  ;
 player_sprite ds 4  ;
 laser_color   ds 2  ;
@@ -308,6 +309,9 @@ _scroll_update_store
 player_update
             ldx #NUM_PLAYERS - 1
 _player_update_loop
+            ;
+            ; TODO: control player
+            ;
             ; manual player movement
             ldy #$00
             lda #$80
@@ -321,11 +325,11 @@ _player_update_checkbits
             lsr                      
             bit SWCHA                 
             beq _player_update_left       
-            jmp _player_draw_beam
+            jmp _player_end_move
 _player_update_right
             lda player_x,x
             cmp #PLAYER_MAX_X
-            bcs _player_draw_beam
+            bcs _player_end_move
             adc #$01 
             sta player_x,x
             lda player_sprite,y ; bugbug can do indirectly?
@@ -336,11 +340,11 @@ _player_update_right
             lda #<TARGET_0
 _player_update_anim_right
             sta player_sprite,y
-            jmp _player_draw_beam
+            jmp _player_end_move
 _player_update_left
             lda player_x,x
             cmp #PLAYER_MIN_X
-            bcc _player_draw_beam
+            bcc _player_end_move
             sbc #$01
             sta player_x,x
             lda player_sprite,y ; bugbug can do indirectly?
@@ -351,6 +355,13 @@ _player_update_left
             lda #<TARGET_3
 _player_update_anim_left
             sta player_sprite,y
+_player_end_move
+            lda #$80
+            cmp INPT4,x
+            bcc _player_end_fire
+            lda #$02
+_player_end_fire            
+            sta player_state,x
 _player_draw_beam
             ; auto-aim, calc distance between player and ball
             lda ball_voffset
@@ -506,11 +517,11 @@ _player_1_resp_loop
 
 _player_1_draw_loop
             sta WSYNC
-            lda (player_bg+2),y       ;6   6
+            lda (player_bg+2),y     ;6   6
             sta COLUBK              ;3   9
-            lda (player_sprite+2),y   ;6  15
+            lda (player_sprite+2),y ;6  15
             sta GRP1                ;3  18
-            lda (player_color+2),y    ;6  24
+            lda (player_color+2),y  ;6  24
             sta COLUP1              ;3  28
             dey                     ;2  30
             bpl _player_1_draw_loop ;2  32
@@ -567,21 +578,22 @@ _lo_resp_loop
             ; hmove ++ and prep for playfield next line
             sta WSYNC                    ;0   0
             sta HMOVE                    ;3   3
-            lda #2                       ;2   5
-            sta ENAM0                    ;3   8
-            sta ENAM1                    ;3  11
-            lda laser_color+1            ;3  14
-            sta COLUP1                   ;3  17
-            ldy scroll                   ;3  20
-            lda #$00                     ;2  22
-            sta HMP0                     ;3  23
-            sta HMP1                     ;3  26
-            ldx #$00                     ;3  32
-            lda laser_lo_hmov            ;3  35
-            sta HMM0                     ;3  38
-            lda laser_hmov,x             ;4  42
-            sta HMM1                     ;3  45
-            jmp playfield_loop_0         ;3  48
+            lda player_state+1           ;3   6
+            sta ENAM1                    ;3   9
+            lda player_state+0           ;3  12
+            sta ENAM0                    ;3  15
+            lda laser_color+1            ;3  18
+            sta COLUP1                   ;3  21
+            ldy scroll                   ;3  24
+            lda #$00                     ;2  26
+            sta HMP0                     ;3  29
+            sta HMP1                     ;3  32
+            ldx #$00                     ;3  35
+            lda laser_lo_hmov            ;3  38
+            sta HMM0                     ;3  41
+            lda laser_hmov,x             ;4  45
+            sta HMM1                     ;3  48
+            jmp playfield_loop_0         ;3  51
 
     ; try to avoid page branching problems
     align 256
@@ -809,7 +821,6 @@ skipDrawGridLine
             bne drawSplashGrid
 
 
-
             dec game_timer
             bne keepSplashing
             ; next screen
@@ -1008,6 +1019,31 @@ SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
     ORG $FFFA
+
+
+; game notes - MVP
+; DONE
+;  - make fire buttons work
+; TODO
+;  - make lasers not be chained to ball but still refract off ball
+;  - make ball move when fired on
+;  - make ball score when reaching
+;  - score transition
+;  - manual aim ability
+;  - auto move ability
+;  - auto fire ability
+;  - better colors
+;  - make room for score
+;  - add logo
+;  - start / end game logic
+;  - menu system
+;  - alternate playfields
+;  - intro screen
+;  - play with grid design
+;  - game timer
+;  - different ships
+;  - start / end game cool transition
+;
 
     .word reset          ; NMI
     .word reset          ; RESET
