@@ -40,8 +40,8 @@ NUM_PLAYERS     = 2
 SPLASH_DELAY    = 255
 
 PLAYFIELD_WIDTH = 160
-PLAYFIELD_VIEWPORT_HEIGHT = 160
-PLAYFIELD_BEAM_RES = 40
+PLAYFIELD_VIEWPORT_HEIGHT = 80
+PLAYFIELD_BEAM_RES = 16
 
 PLAYER_MIN_X = 10
 PLAYER_MAX_X = 140
@@ -75,7 +75,8 @@ player_sprite ds 4  ;
 laser_color   ds 2  ;
 laser_lo_x    ds 1  ; start x for the low laser
 laser_lo_hmov ds 1  ; hmov dir for the low laser
-laser_hmov    ds PLAYFIELD_BEAM_RES ; how much to hmove the laser
+laser_hmov_0  ds PLAYFIELD_BEAM_RES
+laser_hmov_1  ds PLAYFIELD_BEAM_RES
 
 ball_y       ds 1 
 ball_x       ds 1
@@ -91,6 +92,7 @@ display_playfield_limit ds 1 ; counter of when to stop showing playfield
 
 temp_stack            ; hold stack ptr during collision capture
 temp_dy          ds 1 ; use for line drawing computation
+temp_beam_index       ; hold beam offset during playfield kernel 
 temp_dx          ds 1
 temp_D           ds 1
 temp_hmove       ds 1
@@ -366,9 +368,7 @@ _player_draw_beam
             ; auto-aim, calc distance between player and ball
             lda ball_voffset
             sec ; 
-            ror
-            sec ;
-            ror ; expected to be negative so double ror should / 4
+            ror ; / 2
             cpx #$00
             beq _player_draw_beam_lo
 _player_draw_beam_hi
@@ -377,7 +377,7 @@ _player_draw_beam_hi
             adc #$01
             sta laser_lo_x ; save for lo x calc later
             tay            ; dy
-            lda #laser_hmov
+            lda #laser_hmov_0
             sta temp_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
@@ -389,7 +389,7 @@ _player_draw_beam_lo
             tay           ; dy
             eor #$ff      ; invert dy
             clc
-            adc #laser_hmov + PLAYFIELD_BEAM_RES - 1
+            adc #laser_hmov_1
             sta temp_draw_buffer ; point to middle of beam hmov stack
             lda ball_x
             sec
@@ -585,136 +585,83 @@ _lo_resp_loop
             lda laser_color+1            ;3  18
             sta COLUP1                   ;3  21
             ldy scroll                   ;3  24
-            lda #$00                     ;2  26
-            sta HMP0                     ;3  29
+            lda #$00                     ;2  26 
+            sta HMP0                     ;3  29 
             sta HMP1                     ;3  32
-            ldx #$00                     ;3  35
-            lda laser_lo_hmov            ;3  38
-            sta HMM0                     ;3  41
-            lda laser_hmov,x             ;4  45
-            sta HMM1                     ;3  48
-            jmp playfield_loop_0         ;3  51
+            sta temp_beam_index          ;3  35
+            jmp playfield_loop_0         ;3  38
 
     ; try to avoid page branching problems
     align 256
 
 playfield_loop_0
             sta WSYNC                    ;3   0
-            lda P0_WALLS,y               ;4   4
-            sbne _skip_0                 ;2   6
-            sta HMOVE                    ;3   9
-            inx                          ;2  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
+_playfield_loop_0_hm
+            PF_MACRO                     ;21 21
+            ;; adjust playfield color
             lda PLAYFIELD_COLORS,y       ;4  25
             sta COLUBK                   ;3  28
-            lda P2_WALLS,y               ;4  32
-            sta PF2                      ;3  35
-            lda laser_hmov,x             ;4  39
-            sta HMM1                     ;3  42
-            jmp _shim_0                  ;3  45
-_skip_0
-            SLEEP 4                      ;4  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
+            ;; set beam hmov
+            ldx temp_beam_index          ;2  30             
+            lda laser_hmov_0,x           ;4  34
+            sta HMM0                     ;3  37
+            lda laser_hmov_1,x           ;4  41
+            sta HMM1                     ;3  44
+            ;; ball graphics
+            ldx ball_voffset             ;3  47
+            sbpl _pl0_draw_grp_0         ;2  49
+            SLEEP 8                      ;8  57
+            jmp _pl0_end_grp_0           ;3  60
+_pl0_draw_grp_0
+            lda BALL_GRAPHICS,x          ;4  54
+            sta GRP0                     ;3  57
+            sta GRP1                     ;3  60
+_pl0_end_grp_0
+            SLEEP 6                      ;6  66
+            ;; EOL
+            lda #$00                     ;2  68
+            sta COLUBK                   ;3  71 
+            sta WSYNC                    ;3  --
+            ;; 2nd line
+            sta HMOVE                    ;3   3
+            ;; 
+            lda temp_beam_index          ;3   6
+            clc                          ;2   8
+            adc #$01                     ;2  10
+            and #$0f                     ;2  12
+            sta temp_beam_index          ;3  15
+            SLEEP 6                      ;6  21
             lda PLAYFIELD_COLORS,y       ;4  25
             sta COLUBK                   ;3  28
-            lda P2_WALLS,y               ;4  32
-            sta PF2                      ;3  35
-            SLEEP 10                     ;10 45
-_shim_0
-            inc ball_voffset             ;5  50
-            sbeq playfield_loop_0_to_1   ;2  52
-            SLEEP 11                     ;11 63
-            lda #$00                     ;2  65
-            iny                          ;2  67
-            sta COLUBK                   ;3  70
-            jmp playfield_loop_0         ;3  73
-
-playfield_loop_0_to_1
-            ldx #BALL_HEIGHT - 1         ;2  55
-            SLEEP 5                      ;5  60
-            jmp playfield_loop_1_e       ;3  63 
-
-playfield_loop_1_hm
-            sta WSYNC                    ;3   0
-            lda P0_WALLS,y               ;4   4
-            sta PF0                      ;3   7
-            lda P1_WALLS,y               ;4  11
-            sta PF1                      ;3  14
-            lda P2_WALLS,y               ;4  18
-            sta PF2                      ;3  21            
-            lda PLAYFIELD_COLORS,y       ;4  25
-            sta COLUBK                   ;3  28
-            ; ball update 
-            lda BALL_GRAPHICS,x          ;4  32
-            sta GRP0                     ;3  35
-            sta GRP1                     ;3  38
-            sbeq playfield_loop_1_to_2   ;2  40
-            dex                          ;2  42
-            SLEEP 15                     ;15 57
-            ; push any collisions        
-            lda CXP0FB                   ;3  60
-            pha                          ;3  63
-playfield_loop_1_e
-            lda #$00                     ;2  65
-            iny                          ;2  67
-            sta COLUBK                   ;3  70
-            jmp playfield_loop_1_hm      ;3  73
-
-playfield_loop_1_to_2
-            ; BUGBUG push any more collisions?
-            ; bugbug could avoid this calculation by stashing zx
-            SLEEP 2                      ;2  43
-            tya                          ;2  45
-            sec                          ;2  47
-            sbc scroll                   ;3  50
-            lsr                          ;2  52
-            lsr                          ;2  54
-            tax                          ;2  56
-            lda laser_hmov,x             ;4  60
-            sta HMM0                     ;3  63
-            lda #$00                     ;2  65
-            iny                          ;2  67
-            sta COLUBK                   ;3  70
-            ; fall through to next loop
-
-playfield_loop_2_hm
-            sta WSYNC                    ;3   0
-            lda P0_WALLS,y               ;4   4
-            sbne _skip_2                 ;2   6
-            sta HMOVE                    ;3   9
-            inx                          ;2  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
-            lda PLAYFIELD_COLORS,y       ;4  25
-            sta COLUBK                   ;3  28
-            lda P2_WALLS,y               ;4  32
-            sta PF2                      ;3  35
-            lda laser_hmov,x             ;4  39
-            sta HMM0                     ;3  42
-            jmp _shim_2                  ;3  45
-_skip_2
-            SLEEP 4                      ;4  11
-            sta PF0                      ;3  14
-            lda P1_WALLS,y               ;4  18
-            sta PF1                      ;3  21
-            lda PLAYFIELD_COLORS,y       ;4  25
-            sta COLUBK                   ;3  28
-            lda P2_WALLS,y               ;4  32
-            sta PF2                      ;3  35
-            SLEEP 10                     ;10 45
-_shim_2
-            SLEEP 15                     ;15 60 
-playfield_loop_2_e
-            lda #$00                     ;2  62
-            iny                          ;2  64 
-            cpy display_playfield_limit  ;3  67
-            sta COLUBK                   ;3  70
-            sbcc playfield_loop_2_hm     ;2  72 / 73
+            ;; ball offsets
+            cpx #$00                     ;2  30
+            sbmi _pl0_inc_ball_offset    ;2  32
+            lda CXP0FB                   ;3  35
+            pha                          ;3  38
+            dex                          ;2  40
+            sbmi _pl0_ball_end           ;2  42
+            SLEEP 3                      ;3  45
+            jmp _pl0_save_ball_offset    ;3  48
+_pl0_ball_end
+            ldx #128                     ;2  45
+            jmp _pl0_save_ball_offset    ;3  48
+_pl0_inc_ball_offset 
+            SLEEP 8                      ;2  41
+            inx                          ;2  43
+            sbeq _pl0_ball_start         ;2  45
+            jmp _pl0_save_ball_offset    ;3  48
+_pl0_ball_start 
+            ldx #BALL_HEIGHT - 1         ;2  48
+_pl0_save_ball_offset
+            stx ball_voffset             ;3  51
+            SLEEP 10                     ;10 61
+            ;; EOL
+            lda #$00                     ;2  63
+            iny                          ;2  65
+            cpy display_playfield_limit  ;3  68
+            sta COLUBK                   ;3  71
+            SLEEP 2                      ;2  73
+            sbcc _playfield_loop_0_hm    ;2  --
 
 playfield_end
 
@@ -990,6 +937,7 @@ PLAYFIELD_COLORS
     ORG $FF00
 
     ; standard lookup for hmoves
+STD_HMOVE_BEGIN
     byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
 STD_HMOVE_END
 
@@ -1007,7 +955,7 @@ TARGET_BG_0
     byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
 
 BALL_GRAPHICS
-    byte #$00,#$18,#$3c,#$5e,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$7e,#$3c,#$18
+    byte #$00,#$18,#$3c,#$7e,#$ff,#$ff,#$7e,#$3c,#$18
 BALL_GRAPHICS_END
 SPLASH_0_GRAPHICS
     byte $ff ; loading... (8 bit console?)  message incoming... (scratching)
@@ -1018,8 +966,16 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
-    ORG $FFFA
+    MAC PF_MACRO
+            lda P0_WALLS,y               ;4   4
+            sta PF0                      ;3   7
+            lda P1_WALLS,y               ;4  11
+            sta PF1                      ;3  14
+            lda P2_WALLS,y               ;4  18
+            sta PF2                      ;3  21
+    ENDM
 
+    ORG $FFFA
 
 ; game notes - MVP
 ; DONE
