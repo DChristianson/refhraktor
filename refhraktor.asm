@@ -73,8 +73,8 @@ player_bg     ds 4  ;
 player_color  ds 4  ;
 player_sprite ds 4  ;
 laser_color   ds 2  ;
+temp_x_travel 
 laser_lo_x    ds 1  ; start x for the low laser
-laser_lo_hmov ds 1  ; hmov dir for the low laser
 laser_hmov_0  ds PLAYFIELD_BEAM_RES
 laser_hmov_1  ds PLAYFIELD_BEAM_RES
 
@@ -149,11 +149,11 @@ _player_setup_loop
     ; ball positioning
     lda #BALL_COLOR
     sta ball_color
-    lda #$00
+    lda #$01
     sta ball_dy
     lda #$00
     sta ball_dx
-    lda #128 - BALL_HEIGHT / 2
+    lda #32 - BALL_HEIGHT / 2
     sta ball_y
     lda #PLAYFIELD_WIDTH / 2
     sta ball_x
@@ -177,7 +177,7 @@ newFrame
 ;--------------------
 ; VBlank start
 
-            lda #%10000010
+            lda #%00000010
             sta VBLANK
 
             lda #42    ; vblank timer will land us ~ on scanline 34
@@ -358,44 +358,53 @@ _player_update_left
 _player_update_anim_left
             sta player_sprite,y
 _player_end_move
-            lda #$80
-            cmp INPT4,x
-            bcc _player_end_fire
+            lda INPT4,x
+            bmi _player_no_fire
             lda #$02
-_player_end_fire            
+            jmp _player_end_fire
+_player_no_fire            
+            lda #$00
+_player_end_fire
             sta player_state,x
-_player_draw_beam
+_player_aim_beam
             ; auto-aim, calc distance between player and ball
             lda ball_voffset
-            sec ; 
-            ror ; / 2
             cpx #$00
-            beq _player_draw_beam_lo
-_player_draw_beam_hi
+            beq _player_aim_beam_lo
+_player_aim_beam_hi
             eor #$ff      ; invert offset to get dy
             clc
             adc #$01
-            sta laser_lo_x ; save for lo x calc later
             tay            ; dy
-            lda #laser_hmov_0
+            lda #laser_hmov_1
             sta temp_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
             sbc ball_x    ; dx
-            jmp _player_draw_beam_calc
-_player_draw_beam_lo
+            jmp _player_aim_beam_interp
+_player_aim_beam_lo
             clc           ; add view height to get dy
-            adc #PLAYFIELD_BEAM_RES
+            adc #PLAYFIELD_VIEWPORT_HEIGHT
             tay           ; dy
-            eor #$ff      ; invert dy
-            clc
-            adc #laser_hmov_1
+            lda #laser_hmov_0
             sta temp_draw_buffer ; point to middle of beam hmov stack
             lda ball_x
             sec
             sbc player_x,x ; dx
+_player_aim_beam_interp
+            cpy #PLAYFIELD_BEAM_RES ; if dy < BEAM res, double everything
+            bcs _player_aim_beam_end
+            asl 
+            sta temp_dx
+            tya
+            asl 
+            tay
+            lda temp_dx
+_player_aim_beam_end
+            ; figure out beam path
 _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
             sty temp_dy
+            cmp #00
             bpl _player_draw_beam_left
             eor #$ff
             clc
@@ -422,6 +431,9 @@ _player_draw_beam_set_hmov
             sbc temp_dy  ; D = 2dx - dy
             asl temp_dy  ; dy = 2 * dy
             sta temp_D
+            lda #$00
+            sta temp_x_travel
+            ldy #PLAYFIELD_BEAM_RES - 1 ; will stop at 16
 _player_draw_beam_loop
             lda #$01
             cmp temp_D
@@ -432,6 +444,7 @@ _player_draw_beam_loop
             sbc temp_dy  ; D = D - 2 * dy
             sta temp_D
             lda temp_hmove
+            inc temp_x_travel
 _skip_bump_hmov
             sta (temp_draw_buffer),y ; cheating that #$01 is in a
             lda temp_D
@@ -446,31 +459,25 @@ _skip_bump_hmov
 _player_update_end
             
 refract_lo_calc
-            ; find lo x starting point
-            lda #PLAYER_MAX_X
-            sec 
-            sbc laser_lo_x
-            cmp ball_x
-            bcc _refract_lo_left
-            lda laser_lo_x
-            cmp ball_x
-            bcs _refract_lo_right 
-_refract_lo_left
-            lda ball_x
+            ; find lo player beam starting point
+            ; last temp_x_travel will have the (unsigned) x distance covered  
+            ; multiply by 5 to get 80 scanline x distance
+            lda temp_x_travel
+            asl 
+            asl 
+            clc
+            adc temp_x_travel
+            ldy temp_hmove 
+            bpl refract_lo_skip_invert
+            eor #$ff
+            clc
+            adc #$01
+refract_lo_skip_invert
+            adc player_x
             sec
-            sbc laser_lo_x
-            ldx #$f0
-            jmp _refract_lo_save
-_refract_lo_right
-            lda ball_x
-            clc
-            adc laser_lo_x
-            ldx #$10
-_refract_lo_save
-            clc
-            adc #04 ; shim laser_lo_x
+            sbc #$05
             sta laser_lo_x
-            stx laser_lo_hmov
+
 
 ;---------------------
 ; end vblank
@@ -498,7 +505,7 @@ _player_1_resp_loop
             sta HMP1                ;3  18+
             sta HMM1                ;3  21+
             sta RESP1               ;3  24+ 
-            sta RESM1               ;4  28+
+            sta RESM1               ;3  27+
 
             sta WSYNC
             sta HMOVE               ;3   3
@@ -572,8 +579,8 @@ _lo_resp_loop
             tay                   ;2  11+
             lda LOOKUP_STD_HMOVE,y;4  15+
             sta HMM0              ;3  18+
-            SLEEP 3               ;3  21+
-            sta RESM0             ;3  24+
+            SLEEP 6               ;6  24+
+            sta RESM0             ;3  27+
 
             ; hmove ++ and prep for playfield next line
             sta WSYNC                    ;0   0
@@ -602,22 +609,22 @@ _playfield_loop_0_hm
             lda PLAYFIELD_COLORS,y       ;4  25
             sta COLUBK                   ;3  28
             ;; set beam hmov
-            ldx temp_beam_index          ;2  30             
-            lda laser_hmov_0,x           ;4  34
-            sta HMM0                     ;3  37
-            lda laser_hmov_1,x           ;4  41
-            sta HMM1                     ;3  44
+            ldx temp_beam_index          ;3  31             
+            lda laser_hmov_0,x           ;4  35
+            sta HMM0                     ;3  38
+            lda laser_hmov_1,x           ;4  42
+            sta HMM1                     ;3  45
             ;; ball graphics
-            ldx ball_voffset             ;3  47
-            sbpl _pl0_draw_grp_0         ;2  49
-            SLEEP 8                      ;8  57
-            jmp _pl0_end_grp_0           ;3  60
+            ldx ball_voffset             ;3  48
+            sbpl _pl0_draw_grp_0         ;2  50
+            SLEEP 8                      ;7  58
+            jmp _pl0_end_grp_0           ;3  61
 _pl0_draw_grp_0
-            lda BALL_GRAPHICS,x          ;4  54
-            sta GRP0                     ;3  57
-            sta GRP1                     ;3  60
+            lda BALL_GRAPHICS,x          ;4  55
+            sta GRP0                     ;3  58
+            sta GRP1                     ;3  61
 _pl0_end_grp_0
-            SLEEP 6                      ;6  66
+            SLEEP 5                      ;5  66
             ;; EOL
             lda #$00                     ;2  68
             sta COLUBK                   ;3  71 
@@ -646,7 +653,7 @@ _pl0_ball_end
             ldx #128                     ;2  45
             jmp _pl0_save_ball_offset    ;3  48
 _pl0_inc_ball_offset 
-            SLEEP 8                      ;2  41
+            SLEEP 8                      ;8  41
             inx                          ;2  43
             sbeq _pl0_ball_start         ;2  45
             jmp _pl0_save_ball_offset    ;3  48
