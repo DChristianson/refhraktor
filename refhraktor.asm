@@ -43,10 +43,10 @@ PLAYFIELD_WIDTH = 160
 PLAYFIELD_VIEWPORT_HEIGHT = 80
 PLAYFIELD_BEAM_RES = 16
 
-PLAYER_MIN_X = 10
+PLAYER_MIN_X = 6
 PLAYER_MAX_X = 140
 BALL_MIN_X = 10
-BALL_MAX_X = 140
+BALL_MAX_X = 132
 
 GOAL_HEIGHT = 16
 BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
@@ -69,6 +69,8 @@ frame        ds 1  ; frame counter
 player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
 player_state  ds 2  ; player state (d1 = fire)
 player_x      ds 2  ; player x position
+player_aim_x  ds 2  ; player aim point x
+player_aim_y  ds 2  ; player aim point y
 player_bg     ds 4  ; 
 player_color  ds 4  ;
 player_sprite ds 4  ;
@@ -82,6 +84,8 @@ ball_y       ds 1
 ball_x       ds 1
 ball_dy      ds 1
 ball_dx      ds 1
+ball_ay      ds 1
+ball_ax      ds 1
 ball_color   ds 1
 ball_voffset ds 1 ; ball position countdown
 ball_cx      ds BALL_HEIGHT ; collision registers
@@ -149,7 +153,7 @@ _player_setup_loop
     ; ball positioning
     lda #BALL_COLOR
     sta ball_color
-    lda #$01
+    lda #$00
     sta ball_dy
     lda #$00
     sta ball_dx
@@ -360,15 +364,23 @@ _player_update_anim_left
 _player_end_move
             lda INPT4,x
             bmi _player_no_fire
-            lda #$02
+            ; firing - auto-aim
+            lda ball_x
+            sta player_aim_x,x
+            lda ball_voffset
+            sta player_aim_y,x
+            lda #$10
             jmp _player_end_fire
 _player_no_fire            
-            lda #$00
+            lda player_state,x
+            beq _player_end_fire
+            sec
+            sbc #$01
 _player_end_fire
             sta player_state,x
 _player_aim_beam
-            ; auto-aim, calc distance between player and ball
-            lda ball_voffset
+            ; calc distance between player and aim point
+            lda player_aim_y,x
             cpx #$00
             beq _player_aim_beam_lo
 _player_aim_beam_hi
@@ -380,7 +392,7 @@ _player_aim_beam_hi
             sta temp_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
-            sbc ball_x    ; dx
+            sbc player_aim_x,x    ; dx
             jmp _player_aim_beam_interp
 _player_aim_beam_lo
             clc           ; add view height to get dy
@@ -388,7 +400,7 @@ _player_aim_beam_lo
             tay           ; dy
             lda #laser_hmov_0
             sta temp_draw_buffer ; point to middle of beam hmov stack
-            lda ball_x
+            lda player_aim_x,x
             sec
             sbc player_x,x ; dx
 _player_aim_beam_interp
@@ -476,6 +488,10 @@ refract_lo_skip_invert
             adc player_x
             sec
             sbc #$05
+            cmp #160 ; compare to screen width
+            bcc refract_lo_skip_rollover
+            sbc #96
+refract_lo_skip_rollover
             sta laser_lo_x
 
 
@@ -589,6 +605,8 @@ _lo_resp_loop
             sta ENAM1                    ;3   9
             lda player_state+0           ;3  12
             sta ENAM0                    ;3  15
+            lda laser_color              ;-----
+            sta COLUP0                   ;-----
             lda laser_color+1            ;3  18
             sta COLUP1                   ;3  21
             ldy scroll                   ;3  24
@@ -673,6 +691,38 @@ _pl0_save_ball_offset
 playfield_end
 
            sta WSYNC
+           lda #$00
+           sta ENAM0
+           sta ENAM1
+_laser_hit_test_lo
+           lda #$80
+           and CXM1P
+           beq _laser_hit_test_hi
+           inc laser_color + 1
+           inc ball_dy
+           lda player_x
+           sec
+           sbc ball_x
+           bcc _laser_hit_lo_right
+           inc ball_dx
+           jmp _laser_hit_test_hi
+_laser_hit_lo_right
+           dec ball_dx
+_laser_hit_test_hi
+           lda #$40
+           and CXM0P
+           beq _laser_hit_test_end
+           inc laser_color
+           dec ball_dy
+           lda player_x + 1
+           sec
+           sbc ball_x
+           bcc _laser_hit_hi_right
+           inc ball_dx
+           jmp _laser_hit_test_end
+_laser_hit_hi_right
+           dec ball_dx
+_laser_hit_test_end     
            sta WSYNC 
 
 ;---------------------
