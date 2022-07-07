@@ -74,18 +74,20 @@ player_aim_y  ds 2  ; player aim point y
 player_bg     ds 4  ; 
 player_color  ds 4  ;
 player_sprite ds 4  ;
+laser_ax      ds 2  ;
+laser_ay      ds 2  ;
 laser_color   ds 2  ;
 temp_x_travel 
 laser_lo_x    ds 1  ; start x for the low laser
 laser_hmov_0  ds PLAYFIELD_BEAM_RES
 laser_hmov_1  ds PLAYFIELD_BEAM_RES
 
-ball_y       ds 1 
-ball_x       ds 1
-ball_dy      ds 1
-ball_dx      ds 1
-ball_ay      ds 1
-ball_ax      ds 1
+ball_y       ds 2 
+ball_x       ds 2
+ball_dy      ds 2
+ball_dx      ds 2
+ball_ay      ds 2
+ball_ax      ds 2
 ball_color   ds 1
 ball_voffset ds 1 ; ball position countdown
 ball_cx      ds BALL_HEIGHT ; collision registers
@@ -153,10 +155,6 @@ _player_setup_loop
     ; ball positioning
     lda #BALL_COLOR
     sta ball_color
-    lda #$00
-    sta ball_dy
-    lda #$00
-    sta ball_dx
     lda #32 - BALL_HEIGHT / 2
     sta ball_y
     lda #PLAYFIELD_WIDTH / 2
@@ -228,74 +226,42 @@ _ball_update_cx_loop
             dex
             ora ball_cx,x
             bmi _ball_update_cx_bottom
-            jmp ball_update_hpos
+            jmp _ball_update_cx_end
 _ball_update_cx_top
-            ldx #$01
-            jmp _ball_update_cx_save_y
+            ABS16 ball_dy
+            jmp _ball_update_cx_end
 _ball_update_cx_horiz
-            lda ball_dx
-            eor #$ff
-            clc
-            adc #$01
-            sta ball_dx
-            jmp ball_update_hpos
+            INV16 ball_dx
+            jmp _ball_update_cx_end
 _ball_update_cx_bottom
-            ldx #$ff
-_ball_update_cx_save_y
-            stx ball_dy
+            NEG16 ball_dy
+_ball_update_cx_end
+            
+            ; 
+            ADD16 ball_dx, ball_ax
+            ADD16 ball_dy, ball_ay
 
 ball_update_hpos
-            ; ball x pos
-            lda ball_dx
-            bmi _ball_update_hpos_left
-            clc
-            adc ball_x
-            cmp #BALL_MAX_X
-            bcc _save_ball_hpos
-            ldy #$ff
-            sty ball_dx
-            lda #BALL_MAX_X
-            jmp _save_ball_hpos
-_ball_update_hpos_left
-            clc
-            adc ball_x
-            cmp #BALL_MIN_X    
-            bcs _save_ball_hpos  
-            lda #$01
-            sty ball_dx
-            lda #PLAYER_MIN_X
-_save_ball_hpos
-            sta ball_x
+            ADD16 ball_x, ball_dx
+            CLAMP_REFLECT_16 ball_x, ball_dx, BALL_MIN_X, BALL_MAX_X
 
 ball_update_vpos
-            lda ball_dy
-            bmi _ball_update_vpos_up
-            clc
-            adc ball_y
-            cmp #255 - GOAL_HEIGHT - BALL_HEIGHT
-            bcc _save_ball_vpos
-            ldy #$ff
-            sty ball_dy
-            lda #255 - GOAL_HEIGHT - BALL_HEIGHT
-            jmp _save_ball_vpos
-_ball_update_vpos_up
-            clc
-            adc ball_y
-            cmp #GOAL_HEIGHT
-            bcs _save_ball_vpos 
-            ldy #$01
-            sty ball_dy
-            lda #GOAL_HEIGHT
-_save_ball_vpos
-            sta ball_y
-        
+            ADD16 ball_y, ball_dy
+            CLAMP_REFLECT_16 ball_y, ball_dy, GOAL_HEIGHT - 2, 255 - GOAL_HEIGHT - BALL_HEIGHT + 2
+
+; TODO: friction      
+; ball_decay_velocity
+;             DOWNSCALE16_8 ball_dx, 1
+;             DOWNSCALE16_8 ball_dy, 1
+
 scroll_update
-            sec ; assume a is ball_y
+            lda ball_y
+            sec 
             sbc #PLAYFIELD_VIEWPORT_HEIGHT / 2 - BALL_HEIGHT / 2
             bcc _scroll_update_up
             cmp #255 - PLAYFIELD_VIEWPORT_HEIGHT
             bcc _scroll_update_store
-            lda #255 - PLAYFIELD_VIEWPORT_HEIGHT -1
+            lda #255 - PLAYFIELD_VIEWPORT_HEIGHT - 1
             jmp _scroll_update_store            
 _scroll_update_up
             lda #0
@@ -369,7 +335,7 @@ _player_end_move
             sta player_aim_x,x
             lda ball_voffset
             sta player_aim_y,x
-            lda #$10
+            lda #$08
             jmp _player_end_fire
 _player_no_fire            
             lda player_state,x
@@ -449,7 +415,7 @@ _player_draw_beam_set_hmov
 _player_draw_beam_loop
             lda #$01
             cmp temp_D
-            bpl _skip_bump_hmov
+            bpl _player_draw_beam_skip_bump_hmov
             ; need an hmov
             lda temp_D
             sec
@@ -457,7 +423,7 @@ _player_draw_beam_loop
             sta temp_D
             lda temp_hmove
             inc temp_x_travel
-_skip_bump_hmov
+_player_draw_beam_skip_bump_hmov
             sta (temp_draw_buffer),y ; cheating that #$01 is in a
             lda temp_D
             clc
@@ -465,6 +431,36 @@ _skip_bump_hmov
             sta temp_D
             dey
             bpl _player_draw_beam_loop
+            lda player_state,x
+            and #$02
+            bne _player_update_next_player
+            ; calc ax/ay coefficient
+            sec
+            lda #PLAYFIELD_BEAM_RES * 2
+            sbc temp_x_travel
+            lsr
+            lsr
+            lsr
+            cpx #$00
+            bne _player_draw_beam_skip_invert_ay
+            eor #$ff
+            clc
+            adc #$01
+_player_draw_beam_skip_invert_ay
+            sta laser_ay,x
+            lda temp_x_travel
+            lsr 
+            lsr
+            lsr
+            ldy temp_hmove 
+            bpl _player_draw_beam_skip_invert_ax
+            eor #$ff
+            clc
+            adc #$01
+_player_draw_beam_skip_invert_ax
+            sta laser_ax,x
+_player_update_next_player
+            ;; next player
             dex
             bmi _player_update_end
             jmp _player_update_loop
@@ -472,7 +468,7 @@ _player_update_end
             
 refract_lo_calc
             ; find lo player beam starting point
-            ; last temp_x_travel will have the (unsigned) x distance covered  
+            ; last temp_x_travel will have the (signed) x distance covered  
             ; multiply by 5 to get 80 scanline x distance
             lda temp_x_travel
             asl 
@@ -617,7 +613,7 @@ _lo_resp_loop
             jmp playfield_loop_0         ;3  38
 
     ; try to avoid page branching problems
-    align 256
+    ORG $F400
 
 playfield_loop_0
             sta WSYNC                    ;3   0
@@ -694,34 +690,23 @@ playfield_end
            lda #$00
            sta ENAM0
            sta ENAM1
+           sta ball_ax + 1
+           sta ball_ax
+           sta ball_ay + 1
+           sta ball_ay
 _laser_hit_test_lo
            lda #$80
            and CXM1P
            beq _laser_hit_test_hi
            inc laser_color + 1
-           inc ball_dy
-           lda player_x
-           sec
-           sbc ball_x
-           bcc _laser_hit_lo_right
-           inc ball_dx
-           jmp _laser_hit_test_hi
-_laser_hit_lo_right
-           dec ball_dx
+           ADD16_8 ball_ax, laser_ax + 1
+           ADD16_8 ball_ay, laser_ay + 1
 _laser_hit_test_hi
            lda #$40
            and CXM0P
            beq _laser_hit_test_end
-           inc laser_color
-           dec ball_dy
-           lda player_x + 1
-           sec
-           sbc ball_x
-           bcc _laser_hit_hi_right
-           inc ball_dx
-           jmp _laser_hit_test_end
-_laser_hit_hi_right
-           dec ball_dx
+           ADD16_8 ball_ax, laser_ax
+           ADD16_8 ball_ay, laser_ay
 _laser_hit_test_end     
            sta WSYNC 
 
@@ -1023,13 +1008,150 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
-    MAC PF_MACRO
+    MAC PF_MACRO ; 
             lda P0_WALLS,y               ;4   4
             sta PF0                      ;3   7
             lda P1_WALLS,y               ;4  11
             sta PF1                      ;3  14
             lda P2_WALLS,y               ;4  18
             sta PF2                      ;3  21
+    ENDM
+
+    MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
+            ; check bounds, reflect B if we hit
+.clamp16_check_max
+            lda #{4}
+            cmp {1}
+            bcc .clamp16_save_bounds
+.clamp16_check_min
+            lda #{3}
+            cmp {1}
+            bcc .clamp16_end
+.clamp16_save_bounds
+            sta {1}
+            lda #$00
+            sta {1} + 1
+            clc
+            lda {2} + 1
+            eor #$ff
+            adc #$01
+            sta {2} + 1
+            lda {2}
+            eor #$ff
+            adc #$00
+            sta {2}            
+.clamp16_end
+    ENDM
+
+    MAC INV16 ; A = -A
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+    ENDM
+
+    MAC ABS16 ; A = ABS(A)
+            lda {1}
+            bpl .abs16_end
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+.abs16_end
+    ENDM
+
+    MAC NEG16 ; A = -ABS(A)
+            lda {1}
+            bmi .neg16_end
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+.neg16_end
+    ENDM
+
+    MAC INC16 ;  A = A + #B
+            clc
+            lda {1} + 1
+            adc #<{2}
+            sta {1} + 1
+            lda {1}
+            adc #>{2}
+            sta {1}
+    ENDM
+
+    MAC DEC16 ; A + A - #B
+            clc
+            lda {1} + 1
+            adc #<{2}
+            sta {1} + 1
+            lda {1}
+            adc #>{2}
+            sta {1}
+    ENDM
+
+    MAC ADD16 ; Given A16, B16, store A + B -> A 
+            clc
+            lda {1} + 1
+            adc {2} + 1
+            sta {1} + 1
+            lda {1}
+            adc {2}
+            sta {1}
+    ENDM
+
+    MAC DOWNSCALE16_8 ; Given A16, B8, store SIGN(A) * (ABS(A) - #B) -> A
+            lda {1}
+            bmi .downscale16_8_inv
+            sec
+            lda {1} + 1
+            sbc #{2}
+            sta {1} + 1
+            sbc #$00
+            bmi .downscale16_8_zero
+            jmp .downscale16_8_end
+.downscale16_8_inv
+            clc
+            lda {1} + 1
+            adc #{2}
+            sta {1} + 1
+            adc #$00
+            bpl .downscale16_8_end
+.downscale16_8_zero
+            lda #$00
+            sta {1} + 1
+.downscale16_8_end  
+            sta {1}
+
+    ENDM
+
+    MAC ADD16_8 ; Given A16, B8, store A + B -> A 
+            clc
+            lda {2}
+            ldy #$00
+            bpl ._add16_8
+            ldy #$ff
+._add16_8
+            adc {1} + 1
+            sta {1} + 1
+            tya
+            adc {1}
+            sta {1}
     ENDM
 
     ORG $FFFA
