@@ -249,7 +249,7 @@ ball_update_vpos
             ADD16 ball_y, ball_dy
             CLAMP_REFLECT_16 ball_y, ball_dy, GOAL_HEIGHT - 2, 255 - GOAL_HEIGHT - BALL_HEIGHT + 2
 
-; TODO: friction      
+; TODO; friction
 ; ball_decay_velocity
 ;             DOWNSCALE16_8 ball_dx, 1
 ;             DOWNSCALE16_8 ball_dy, 1
@@ -1158,20 +1158,25 @@ SPLASH_GRAPHICS
 ; game notes - MVP
 ; DONE
 ;  - make fire buttons work
-; TODO
-;  - make lasers not be chained to ball but still refract off ball
+;  - make lasers not be chained to ball 
 ;  - make ball move when fired on
-;  - make ball score when reaching
-;  - score transition
+; TODO
+;  - add goal area
+;  - initial, weak, opposing ai
+;  - alternate playfields
+;  - clean up screen / make room for score
+;  - make ball score when reaching goal
+;  - replace ball in center after score
+;  - make lasers  still refract off ball
+;  - friction      
+;  - x collision bug (stuck)
+;  - menu system
 ;  - manual aim ability
 ;  - auto move ability
 ;  - auto fire ability
 ;  - better colors
-;  - make room for score
 ;  - add logo
 ;  - start / end game logic
-;  - menu system
-;  - alternate playfields
 ;  - intro screen
 ;  - play with grid design
 ;  - game timer
