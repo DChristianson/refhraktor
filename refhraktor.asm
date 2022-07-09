@@ -45,7 +45,7 @@ PLAYFIELD_BEAM_RES = 16
 
 PLAYER_MIN_X = 6
 PLAYER_MAX_X = 140
-BALL_MIN_X = 10
+BALL_MIN_X = 12
 BALL_MAX_X = 132
 
 GOAL_HEIGHT = 16
@@ -438,9 +438,6 @@ _player_draw_beam_skip_bump_hmov
             sec
             lda #PLAYFIELD_BEAM_RES * 2
             sbc temp_x_travel
-            lsr
-            lsr
-            lsr
             cpx #$00
             bne _player_draw_beam_skip_invert_ay
             eor #$ff
@@ -449,9 +446,6 @@ _player_draw_beam_skip_bump_hmov
 _player_draw_beam_skip_invert_ay
             sta laser_ay,x
             lda temp_x_travel
-            lsr 
-            lsr
-            lsr
             ldy temp_hmove 
             bpl _player_draw_beam_skip_invert_ax
             eor #$ff
@@ -500,7 +494,12 @@ refract_lo_skip_rollover
             sta CTRLPF ; reflect playfield
             lda #WALL_COLOR
             sta COLUPF
+            jmp playfield_start
 
+    ; try to avoid page branching problems
+    ORG $F300
+
+playfield_start
 
 ;---------------------
 ; laser track (hi)
@@ -1141,12 +1140,12 @@ SPLASH_GRAPHICS
     ENDM
 
     MAC ADD16_8 ; Given A16, B8, store A + B -> A 
-            clc
-            lda {2}
             ldy #$00
+            lda {2}
             bpl ._add16_8
             ldy #$ff
 ._add16_8
+            clc
             adc {1} + 1
             sta {1} + 1
             tya
