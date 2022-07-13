@@ -31,15 +31,19 @@ GAME_STATE_SPLASH_0   = -3
 GAME_STATE_SPLASH_1   = -2
 GAME_STATE_SPLASH_2   = -1
 GAME_STATE_PLAY       = 0
-GAME_STATE_GAME_OVER  = 1
-GAME_STATE_MENU       = 2
-GAME_STATE_START      = 3
+GAME_STATE_CELEBRATE  = 1
+GAME_STATE_DROP       = 2
+GAME_STATE_GAME_OVER  = 3
+GAME_STATE_MENU       = 4
+GAME_STATE_START      = 5
 
 NUM_PLAYERS     = 2
 
-SPLASH_DELAY    = 255
+DROP_DELAY            = 255
+SPLASH_DELAY          = 255
+CELEBRATE_DELAY       = 255
 
-PLAYFIELD_WIDTH = 160
+PLAYFIELD_WIDTH = 154
 PLAYFIELD_VIEWPORT_HEIGHT = 80
 PLAYFIELD_BEAM_RES = 16
 
@@ -48,6 +52,7 @@ PLAYER_MAX_X = 140
 BALL_MIN_X = 12
 BALL_MAX_X = 132
 
+GOAL_SCORE_DEPTH = 8
 GOAL_HEIGHT = 16
 BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
 PLAYER_HEIGHT = TARGET_1 - TARGET_0
@@ -74,6 +79,7 @@ player_aim_y  ds 2  ; player aim point y
 player_bg     ds 4  ; 
 player_color  ds 4  ;
 player_sprite ds 4  ;
+player_score  ds 2  ;
 laser_ax      ds 2  ;
 laser_ay      ds 2  ;
 laser_color   ds 2  ;
@@ -120,7 +126,9 @@ reset
     ; game setup
     lda #0
     sta scroll
-    lda #GAME_STATE_PLAY ; #GAME_STATE_SPLASH_0
+    lda #DROP_DELAY
+    sta game_timer
+    lda #GAME_STATE_DROP ; #GAME_STATE_SPLASH_0
     sta game_state
 
     ; player setup
@@ -152,13 +160,9 @@ _player_setup_loop
     dex
     bpl _player_setup_loop
 
-    ; ball positioning
+    ; ball setup
     lda #BALL_COLOR
     sta ball_color
-    lda #32 - BALL_HEIGHT / 2
-    sta ball_y
-    lda #PLAYFIELD_WIDTH / 2
-    sta ball_x
 
 newFrame
 
@@ -190,6 +194,10 @@ newFrame
             ldx game_state
             beq kernel_playGame
             bmi jmpSplash
+            dex
+            beq kernel_celebrateScore
+            dex
+            beq kernel_dropBall
             dex 
             beq kernel_gameOver
             dex
@@ -205,7 +213,48 @@ jmpSplash
 kernel_startGame
 kernel_menu
 kernel_gameOver
+
+kernel_dropBall
+            lda #64 - BALL_HEIGHT / 2
+            sta ball_y
+            lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
+            sta ball_x
+            dec game_timer
+            bne _drop_continue
+            lda #GAME_STATE_PLAY
+            sta game_state
+_drop_continue
+            jmp scroll_update
+
+kernel_celebrateScore
+            dec game_timer
+            bne _celebrate_continue
+            lda #DROP_DELAY
+            sta game_timer
+            lda #GAME_STATE_DROP
+            sta game_state
+_celebrate_continue
+            jmp scroll_update
+
 kernel_playGame
+
+ball_score_check
+            lda ball_y
+            cmp #GOAL_SCORE_DEPTH
+            bcs _ball_score_lo_check
+            jmp _ball_score_celebrate
+            inc player_score
+_ball_score_lo_check
+            cmp #127 - GOAL_SCORE_DEPTH
+            bcc _ball_score_end
+            inc player_score + 1
+_ball_score_celebrate
+            ; next screen will be score celebration
+            lda #CELEBRATE_DELAY
+            sta game_timer
+            lda #GAME_STATE_CELEBRATE
+            sta game_state
+_ball_score_end
 
 ball_update
             ; collision
@@ -226,7 +275,7 @@ _ball_update_cx_loop
             dex
             ora ball_cx,x
             bmi _ball_update_cx_bottom
-            jmp _ball_update_cx_end
+            jmp _ball_update_cx_end_acc
 _ball_update_cx_top
             ABS16 ball_dy
             jmp _ball_update_cx_end
@@ -235,11 +284,11 @@ _ball_update_cx_horiz
             jmp _ball_update_cx_end
 _ball_update_cx_bottom
             NEG16 ball_dy
-_ball_update_cx_end
-            
-            ; 
+_ball_update_cx_end_acc
+            ; apply acceleration if no collision
             ADD16 ball_dx, ball_ax
             ADD16 ball_dy, ball_ay
+_ball_update_cx_end
 
 ball_update_hpos
             ADD16 ball_x, ball_dx
@@ -247,7 +296,7 @@ ball_update_hpos
 
 ball_update_vpos
             ADD16 ball_y, ball_dy
-            CLAMP_REFLECT_16 ball_y, ball_dy, GOAL_HEIGHT - 2, 255 - GOAL_HEIGHT - BALL_HEIGHT + 2
+            CLAMP_REFLECT_16 ball_y, ball_dy, 2, 127 - 2 - BALL_HEIGHT
 
 ; TODO; friction
 ; ball_decay_velocity
@@ -259,9 +308,9 @@ scroll_update
             sec 
             sbc #PLAYFIELD_VIEWPORT_HEIGHT / 2 - BALL_HEIGHT / 2
             bcc _scroll_update_up
-            cmp #255 - PLAYFIELD_VIEWPORT_HEIGHT
+            cmp #127 - PLAYFIELD_VIEWPORT_HEIGHT
             bcc _scroll_update_store
-            lda #255 - PLAYFIELD_VIEWPORT_HEIGHT - 1
+            lda #127 - PLAYFIELD_VIEWPORT_HEIGHT - 1
             jmp _scroll_update_store            
 _scroll_update_up
             lda #0
@@ -435,19 +484,21 @@ _player_draw_beam_skip_bump_hmov
             and #$02
             bne _player_update_next_player
             ; calc ax/ay coefficient
+            ldy #$f0
             sec
             lda #PLAYFIELD_BEAM_RES * 2
             sbc temp_x_travel
             cpx #$00
             bne _player_draw_beam_skip_invert_ay
+            ldy #$10
             eor #$ff
             clc
             adc #$01
 _player_draw_beam_skip_invert_ay
             sta laser_ay,x
             lda temp_x_travel
-            ldy temp_hmove 
-            bpl _player_draw_beam_skip_invert_ax
+            cpy temp_hmove 
+            beq _player_draw_beam_skip_invert_ax
             eor #$ff
             clc
             adc #$01
@@ -497,7 +548,7 @@ refract_lo_skip_rollover
             jmp playfield_start
 
     ; try to avoid page branching problems
-    ORG $F300
+    ORG $F400
 
 playfield_start
 
@@ -598,26 +649,39 @@ _lo_resp_loop
             sta HMOVE                    ;3   3
             lda player_state+1           ;3   6
             sta ENAM1                    ;3   9
-            lda player_state+0           ;3  12
-            sta ENAM0                    ;3  15
-            lda laser_color              ;-----
-            sta COLUP0                   ;-----
+            and #$02
+            beq _skip_laser_color_1
             lda laser_color+1            ;3  18
             sta COLUP1                   ;3  21
+_skip_laser_color_1
+            lda player_state+0           ;3  12
+            sta ENAM0                    ;3  15
+            and #$02
+            beq _skip_laser_color_2
+            lda laser_color              ;-----
+            sta COLUP0                   ;-----            
+_skip_laser_color_2
             ldy scroll                   ;3  24
             lda #$00                     ;2  26 
             sta HMP0                     ;3  29 
             sta HMP1                     ;3  32
             sta temp_beam_index          ;3  35
-            jmp playfield_loop_0         ;3  38
+            lda #$01                     ;2  37
+            sta VDELP1                   ;3  40
+            jmp playfield_loop_0         ;3  43
 
     ; try to avoid page branching problems
-    ORG $F400
+    ORG $F500
 
 playfield_loop_0
             sta WSYNC                    ;3   0
 _playfield_loop_0_hm
-            PF_MACRO                     ;21 21
+            lda P0_WALLS,y               ;4   4
+            sta PF0                      ;3   7
+            lda P1_WALLS,y               ;4  11
+            sta PF1                      ;3  14
+            lda P2_WALLS,y               ;4  18
+            sta PF2                      ;3  21
             ;; adjust playfield color
             lda PLAYFIELD_COLORS,y       ;4  25
             sta COLUBK                   ;3  28
@@ -630,13 +694,13 @@ _playfield_loop_0_hm
             ;; ball graphics
             ldx ball_voffset             ;3  48
             sbpl _pl0_draw_grp_0         ;2  50
-            SLEEP 8                      ;7  58
-            jmp _pl0_end_grp_0           ;3  61
+            lda #$00                     ;2  52
+            jmp _pl0_end_grp_0           ;3  55
 _pl0_draw_grp_0
             lda BALL_GRAPHICS,x          ;4  55
+_pl0_end_grp_0
             sta GRP0                     ;3  58
             sta GRP1                     ;3  61
-_pl0_end_grp_0
             SLEEP 5                      ;5  66
             ;; EOL
             lda #$00                     ;2  68
@@ -689,18 +753,22 @@ playfield_end
            lda #$00
            sta ENAM0
            sta ENAM1
+           sta PF0
+           sta PF1
+           sta PF2
            sta ball_ax + 1
            sta ball_ax
            sta ball_ay + 1
            sta ball_ay
-_laser_hit_test_lo
+           sta VDELP1
+_laser_hit_test_hi
            lda #$80
            and CXM1P
-           beq _laser_hit_test_hi
+           beq _laser_hit_test_lo
            inc laser_color + 1
            ADD16_8 ball_ax, laser_ax + 1
            ADD16_8 ball_ay, laser_ay + 1
-_laser_hit_test_hi
+_laser_hit_test_lo
            lda #$40
            and CXM0P
            beq _laser_hit_test_end
@@ -887,93 +955,91 @@ TARGET_HMOV_TABLE ; BUGBUG: fill out
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
-    ORG $FB00
-P2_WALLS
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff,#$ff
-
-    ORG $FC00
-P1_WALLS
-    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
-    
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
-    
     ORG $FD00
-P0_WALLS
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+P2_WALLS
+    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
+    byte #$01,#$01,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
+    byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
 
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-
+P1_WALLS
+    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
+    byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    byte #$01,#$01,#$01,#$01,#$01,#$01,#$01,#$01
+    
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$01,#$01,#$ff,#$ff,#$ff,#$7f
+    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
+    
     ORG $FE00
+P0_WALLS
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+
 PLAYFIELD_COLORS
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
 
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
 
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
 
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09,#$06,#$09,#$09,#$09,#$09,#$09
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
     ORG $FF00
 
@@ -996,7 +1062,7 @@ TARGET_BG_0
     byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
 
 BALL_GRAPHICS
-    byte #$00,#$18,#$3c,#$7e,#$ff,#$ff,#$7e,#$3c,#$18
+    byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
 BALL_GRAPHICS_END
 SPLASH_0_GRAPHICS
     byte $ff ; loading... (8 bit console?)  message incoming... (scratching)
@@ -1007,29 +1073,36 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
-    MAC PF_MACRO ; 
-            lda P0_WALLS,y               ;4   4
-            sta PF0                      ;3   7
-            lda P1_WALLS,y               ;4  11
-            sta PF1                      ;3  14
-            lda P2_WALLS,y               ;4  18
-            sta PF2                      ;3  21
-    ENDM
-
     MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
             ; check bounds, reflect B if we hit
 .clamp16_check_max
             lda #{4}
             cmp {1}
-            bcc .clamp16_save_bounds
+            bcs .clamp16_end
+            sta {1}
+            lda #$00
+            sta {1} + 1
+            lda {2}
+            bmi .clamp16_end
+            clc
+            lda {2} + 1
+            eor #$ff
+            adc #$01
+            sta {2} + 1
+            lda {2}
+            eor #$ff
+            adc #$00
+            sta {2}            
+            jmp .clamp16_end
 .clamp16_check_min
             lda #{3}
             cmp {1}
             bcc .clamp16_end
-.clamp16_save_bounds
             sta {1}
             lda #$00
             sta {1} + 1
+            lda {2}
+            bpl .clamp16_end
             clc
             lda {2} + 1
             eor #$ff
@@ -1160,13 +1233,14 @@ SPLASH_GRAPHICS
 ;  - make fire buttons work
 ;  - make lasers not be chained to ball 
 ;  - make ball move when fired on
-; TODO
 ;  - add goal area
-;  - initial, weak, opposing ai
-;  - alternate playfields
-;  - clean up screen / make room for score
 ;  - make ball score when reaching goal
 ;  - replace ball in center after score
+; TODO
+;  - clean up screen / make room for score
+;  - alternate playfields
+;  - goal shield and/or bricks
+;  - initial, weak, opposing ai
 ;  - make lasers  still refract off ball
 ;  - friction      
 ;  - x collision bug (stuck)
