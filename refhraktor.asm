@@ -19,12 +19,14 @@ WHITE = $0f
 BLACK = 0
 WALL_COLOR = $A0
 BALL_COLOR = $2C
+LOGO_COLOR = $C4
 #else
 ; PAL Colors
 WHITE = $0E
 BLACK = 0
 WALL_COLOR = $92
 BALL_COLOR = $2A
+LOGO_COLOR = $53
 #endif
 
 GAME_STATE_SPLASH_0   = -3
@@ -37,11 +39,12 @@ GAME_STATE_GAME_OVER  = 3
 GAME_STATE_MENU       = 4
 GAME_STATE_START      = 5
 
-NUM_PLAYERS     = 2
+NUM_PLAYERS        = 2
+NUM_AUDIO_CHANNELS = 2
 
-DROP_DELAY            = 255
-SPLASH_DELAY          = 255
-CELEBRATE_DELAY       = 255
+DROP_DELAY            = 63
+SPLASH_DELAY          = 31
+CELEBRATE_DELAY       = 127
 
 PLAYFIELD_WIDTH = 154
 PLAYFIELD_VIEWPORT_HEIGHT = 80
@@ -52,10 +55,11 @@ PLAYER_MAX_X = 140
 BALL_MIN_X = 12
 BALL_MAX_X = 132
 
-GOAL_SCORE_DEPTH = 8
+GOAL_SCORE_DEPTH = 4
 GOAL_HEIGHT = 16
 BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
 PLAYER_HEIGHT = TARGET_1 - TARGET_0
+TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 
@@ -70,6 +74,9 @@ game_state   ds 1  ; current game state
 game_timer   ds 1  ; countdown
 
 frame        ds 1  ; frame counter
+
+audio_tracker ds 2  ; next track
+audio_timer   ds 2  ; time left on audio
 
 player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
 player_state  ds 2  ; player state (d1 = fire)
@@ -102,10 +109,12 @@ scroll       ds 1 ; y value to start showing playfield
 
 display_playfield_limit ds 1 ; counter of when to stop showing playfield
 
+temp_grid_gap
 temp_stack            ; hold stack ptr during collision capture
 temp_dy          ds 1 ; use for line drawing computation
+temp_grid_inc
 temp_beam_index       ; hold beam offset during playfield kernel 
-temp_dx          ds 1
+temp_dx          ds 1 
 temp_D           ds 1
 temp_hmove       ds 1
 temp_draw_buffer ds 2
@@ -128,8 +137,11 @@ reset
     sta scroll
     lda #DROP_DELAY
     sta game_timer
-    lda #GAME_STATE_DROP ; #GAME_STATE_SPLASH_0
+    lda #GAME_STATE_MENU ; GAME_STATE_SPLASH_0
     sta game_state
+    lda #TRACK_0      ; start sound
+    sta audio_tracker
+    sta audio_tracker + 1
 
     ; player setup
     lda #>TARGET_0
@@ -160,10 +172,6 @@ _player_setup_loop
     dex
     bpl _player_setup_loop
 
-    ; ball setup
-    lda #BALL_COLOR
-    sta ball_color
-
 newFrame
 
     ; 3 scanlines of vertical sync signal to follow
@@ -191,6 +199,49 @@ newFrame
 
             inc frame ; new frame
 
+            ldx #NUM_AUDIO_CHANNELS - 1
+audio_loop 
+            lda audio_tracker,x
+            beq audio_next_channel
+            ldy audio_timer,x
+            beq _audio_next_note
+            dey
+            sty audio_timer,x
+            jmp audio_next_channel
+_audio_next_note
+            tay
+            lda AUDIO_TRACKS,y
+            beq _audio_pause
+            cmp #255
+            beq _audio_stop
+            sta AUDC0,x
+            iny
+            lda AUDIO_TRACKS,y
+            sta AUDF0,x
+            iny
+            lda AUDIO_TRACKS,y
+            sta AUDV0,x
+            jmp _audio_next_timer
+_audio_pause
+            lda #$0
+            sta AUDC0,x
+            sta AUDV0,x
+_audio_next_timer
+            iny
+            lda AUDIO_TRACKS,y
+            sta audio_timer,x
+            iny
+            sty audio_tracker,x
+            jmp audio_next_channel
+_audio_stop
+            lda #$0
+            sta AUDV0,x
+            sta audio_tracker,x
+            sta audio_timer,x
+audio_next_channel
+            dex
+            bpl audio_loop
+
             ldx game_state
             beq kernel_playGame
             bmi jmpSplash
@@ -201,9 +252,11 @@ newFrame
             dex 
             beq kernel_gameOver
             dex
-            beq kernel_menu
+            beq jmpMenu
             dex 
             jmp kernel_startGame
+jmpMenu
+            jmp kernel_menu
 jmpSplash
             jmp kernel_showSplash
 
@@ -211,22 +264,48 @@ jmpSplash
 ; gameplay update kernel
 
 kernel_startGame
-kernel_menu
 kernel_gameOver
 
 kernel_dropBall
+            ; ball state
             lda #64 - BALL_HEIGHT / 2
             sta ball_y
             lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
             sta ball_x
+            lda #$00
+            sta ball_ax
+            sta ball_ax + 1
+            sta ball_ay
+            sta ball_ay + 1
+            sta ball_dx
+            sta ball_dx + 1
+            sta ball_dy
+            sta ball_dy + 1
+            ; animate ball drop
+            lda game_timer
+            and #$01
+            bne _drop_flicker_ball
+            lda #BALL_COLOR
+            jmp _drop_save_ball_color
+_drop_flicker_ball
+            lda #$00
+_drop_save_ball_color
+            sta ball_color
+_drop_count_down
             dec game_timer
             bne _drop_continue
+_drop_init_game
+            ; init to game
+            lda #BALL_COLOR
+            sta ball_color
             lda #GAME_STATE_PLAY
             sta game_state
 _drop_continue
             jmp scroll_update
 
 kernel_celebrateScore
+            ; TODO: something to celebrate            
+            inc ball_color
             dec game_timer
             bne _celebrate_continue
             lda #DROP_DELAY
@@ -234,7 +313,7 @@ kernel_celebrateScore
             lda #GAME_STATE_DROP
             sta game_state
 _celebrate_continue
-            jmp scroll_update
+            jmp scroll_update ; skip ball update
 
 kernel_playGame
 
@@ -245,7 +324,7 @@ ball_score_check
             jmp _ball_score_celebrate
             inc player_score
 _ball_score_lo_check
-            cmp #127 - GOAL_SCORE_DEPTH
+            cmp #127 - GOAL_SCORE_DEPTH - BALL_HEIGHT
             bcc _ball_score_end
             inc player_score + 1
 _ball_score_celebrate
@@ -572,11 +651,11 @@ _player_1_resp_loop
             sta WSYNC
             sta HMOVE               ;3   3
             ldy #PLAYER_HEIGHT - 1  ;3   6
-            lda (player_bg+2),y       ;6  12
+            lda (player_bg+2),y     ;6  12
             sta COLUBK              ;3  15
-            lda (player_sprite+2),y   ;6  21
+            lda (player_sprite+2),y ;6  21
             sta GRP1                ;3  23
-            lda (player_color+2),y    ;6  29
+            lda (player_color+2),y  ;6  29
             sta COLUP1              ;3  32
             lda #$00                ;3  35
             sta HMP1                ;3  38
@@ -600,23 +679,26 @@ _player_1_draw_loop
            
             ; resp ball, shadow 
             sta WSYNC
-            lda ball_x            ;3   3
-            sec                   ;2   5
+            lda ball_x              ;3   3
+            sec                     ;2   5
 _ball_resp_loop
-            sbc #15               ;2   7
-            sbcs _ball_resp_loop  ;2   9
-            tay                   ;2  11+
-            lda LOOKUP_STD_HMOVE,y;4  15+
-            sta HMP0              ;3  18+
-            sta HMP1              ;3  21+
-            sta RESP0             ;3  24+
-            sta RESP1             ;3  27+
+            sbc #15                 ;2   7
+            sbcs _ball_resp_loop    ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            sta HMP1                ;3  21+
+            sta RESP0               ;3  24+
+            sta RESP1               ;3  27+
 
  ; BUGBUG: vdelay?
             ; hmove ball, shadow 
             sta WSYNC                    ;3   0
             sta HMOVE                    ;3   3
             lda ball_color               ;3   6
+            bne _ball_resp_color
+            sta ball_voffset
+_ball_resp_color
             sta COLUP0                   ;3   9
             ; point SP at collision register
             tsx                          ;2  11
@@ -633,16 +715,16 @@ _ball_resp_loop
 
             ; resp lower beam
             sta WSYNC
-            lda laser_lo_x        ;3   3
-            sec                   ;2   5
+            lda laser_lo_x          ;3   3
+            sec                     ;2   5
 _lo_resp_loop
-            sbc #15               ;2   7
-            sbcs _lo_resp_loop    ;2   9
-            tay                   ;2  11+
-            lda LOOKUP_STD_HMOVE,y;4  15+
-            sta HMM0              ;3  18+
-            SLEEP 6               ;6  24+
-            sta RESM0             ;3  27+
+            sbc #15                 ;2   7
+            sbcs _lo_resp_loop      ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMM0                ;3  18+
+            SLEEP 6                 ;6  24+
+            sta RESM0               ;3  27+
 
             ; hmove ++ and prep for playfield next line
             sta WSYNC                    ;0   0
@@ -848,6 +930,230 @@ waitOnOverscan_loop
             jmp newFrame
 
 ;------------------------
+; menu kernel
+
+kernel_menu
+
+menu_update
+            ldx #NUM_PLAYERS - 1
+_menu_update_loop
+            lda INPT4,x
+            bmi _menu_update_no_fire
+            lda #$01
+            jmp _menu_update_end_fire
+_menu_update_no_fire            
+            lda player_state,x
+            beq _menu_update_end_fire
+            ; kill sound
+            lda #0
+            sta AUDC0
+            sta AUDF0
+            sta AUDC0
+            ; change loop
+            lda #GAME_STATE_DROP
+            sta game_state
+            lda #0
+_menu_update_end_fire
+            sta player_state,x
+            dex
+            bpl _menu_update_loop
+menu_update_end
+
+            jsr waitOnVBlank ; SL 34
+            sta WSYNC ; SL 35
+            lda #0
+            sta COLUBK
+
+            ldx #192 / 2 - TITLE_HEIGHT * 2
+menu_waitOnMenu_top
+            sta WSYNC
+            dex
+            bne menu_waitOnMenu_top
+
+menu_setup    
+            lda #3      ;3=Player and Missile are drawn twice 32 clocks apart 
+            sta NUSIZ0    
+            sta NUSIZ1    
+            lda #LOGO_COLOR
+            sta COLUP0        ;3
+            sta COLUP1          ;3
+            ldy #TITLE_HEIGHT - 1
+            lda #$01
+            and frame
+            beq jmp_menu_96x2_resp_frame_0
+            jmp menu_96x2_resp_frame_1  
+jmp_menu_96x2_resp_frame_0
+            jmp menu_96x2_resp_frame_0
+
+menu_codeEnd
+            lda #0 
+            sta NUSIZ0    
+            sta NUSIZ1    
+            sta GRP0
+            sta GRP1
+            sta WSYNC
+
+            ldx #192 / 2 - TITLE_HEIGHT * 2
+            lda #$00
+            sta temp_grid_inc
+            lda #$01
+            sta temp_grid_gap
+            tay 
+menu_waitOnMenu_bottom
+            sta WSYNC
+            dey
+            beq menu_drawGridLine 
+            lda #$00
+            sta COLUBK
+            jmp menu_nextGridLine
+menu_drawGridLine
+            lda #LOGO_COLOR
+            sta COLUBK
+            lda temp_grid_gap
+            asl
+            sta temp_grid_gap
+            clc
+            adc temp_grid_inc
+            tay
+menu_nextGridLine
+            dex
+            bne menu_waitOnMenu_bottom
+
+
+
+
+            jmp waitOnOverscan
+
+	align 256
+    
+menu_96x2_resp_frame_0
+            ; position P0 and P1
+            ; TODO: cleanup
+            sta WSYNC
+            lda #%11100000
+            sta HMP0
+            lda #%00010000
+            sta HMP1
+            sta WSYNC
+            sleep 28
+            sta RESP0
+            sleep 14
+            sta RESP1
+            sta WSYNC
+            sta HMOVE
+            sta WSYNC
+            sta HMCLR
+            sta WSYNC              ;3   0
+            SLEEP 7                ;7   7
+
+menu_96x2_frame_0
+            SLEEP 8                ;8  15
+            lda TITLE_96x2_06,y    ;4  19
+            sta GRP1               ;3  22
+            lda TITLE_96x2_00,y    ;4  26
+            sta GRP0               ;3  29 - any
+            lda TITLE_96x2_02,y    ;4  33
+            sta GRP0               ;3  36 - 36
+            lda TITLE_96x2_04,y    ;4  40
+            sta GRP0               ;3  43 - 43
+            SLEEP 2                ;2  45
+            lda TITLE_96x2_08,y    ;4  49
+            sta GRP1               ;3  52 - 52
+            lda TITLE_96x2_10,y    ;4  56
+            sta GRP1               ;3  59 - 59
+            lda TITLE_96x2_01,y    ;4  63
+            sta GRP0               ;3  66 - 66
+            lda #$80               ;2  68
+            sta HMP0               ;3  71
+            sta HMP1               ;3  74
+            sta HMOVE              ;3   1 ; HMOVE $80@74 = +8
+            SLEEP 16               ;16 17
+            lda #0                 ;2  19
+            sta HMP0               ;3  22
+            sta HMP1               ;3  25
+            lda TITLE_96x2_07,y    ;4  29
+            sta GRP1               ;3  32 - any
+            lda TITLE_96x2_03,y    ;4  36
+            sta GRP0               ;3  39 - 39
+            lda TITLE_96x2_05,y    ;4  41
+            sta GRP0               ;3  46 - 46
+            SLEEP 2                ;2  48
+            lda TITLE_96x2_09,y    ;4  52
+            sta GRP1               ;3  55 - 55
+            lda TITLE_96x2_11,y    ;4  59
+            sta GRP1               ;3  62 - 62
+            SLEEP 9                ;9  71
+            sta HMOVE              ;3  74 ; HMOVE $00@71 = -8
+            SLEEP 4                ;4   2
+            dey                    ;2   4        
+            sbpl menu_96x2_frame_0 ;2/+ 6/7
+            jmp menu_codeEnd
+	
+	align 256
+
+menu_96x2_resp_frame_1
+            ; position P0 and P1
+            ; TODO: cleanup
+            sta WSYNC
+            lda #%00100000
+            sta HMP0
+            lda #%11110000
+            sta HMP1
+            sta WSYNC
+            sleep 32
+            sta RESP0
+            sleep 12
+            sta RESP1
+            sta WSYNC
+            sta HMOVE
+            sta WSYNC
+            sta HMCLR
+            sta WSYNC              ;3   0
+            SLEEP 7                ;7   7
+
+menu_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
+            sta HMOVE              ;3  10 ; HMOVE $80@6 = +8
+            lda TITLE_96x2_07,y    ;4  14
+            sta GRP1               ;3  17
+            lda #$00               ;2  19 - TODO: dangerous?
+            sta HMP0               ;3  22
+            sta HMP1               ;3  25
+            lda TITLE_96x2_01,y    ;4  29 
+            sta GRP0               ;3  32 - 32
+            lda TITLE_96x2_03,y    ;4  36
+            sta GRP0               ;3  39 - 39
+            lda TITLE_96x2_05,y    ;4  45
+            sta GRP0               ;3  46 - 46
+            SLEEP 2                ;2  48
+            lda TITLE_96x2_09,y    ;4  52
+            sta GRP1               ;3  55 - 55
+            lda TITLE_96x2_11,y    ;4  59
+            sta GRP1               ;3  62 - 62
+            lda TITLE_96x2_00,y    ;4  66
+            sta GRP0               ;3  69 - 69
+            sta.w HMOVE            ;4  73 ; HMOVE $00@69-73 = -8
+            SLEEP 25               ;25 22
+            lda TITLE_96x2_06,y    ;4  26
+            sta GRP1               ;3  29 - any
+            lda TITLE_96x2_02,y    ;4  33
+            sta GRP0               ;3  36 - 36
+            lda TITLE_96x2_04,y    ;4  40
+            sta GRP0               ;3  43 - 43
+            SLEEP 2                ;2  45 
+            lda TITLE_96x2_08,y    ;4  49
+            sta GRP1               ;3  52 - 52
+            lda TITLE_96x2_10,y    ;4  56
+            sta GRP1               ;3  59 - 59
+            SLEEP 3                ;3  62
+            lda #$80               ;2  64
+            sta HMP0               ;3  67
+            sta HMP1               ;3  70
+            SLEEP 8                ;8   2
+            dey                    ;2   4        
+            sbpl menu_96x2_frame_1 ;2/+ 6/7
+            jmp menu_codeEnd
+
+;------------------------
 ; splash kernel
 
 kernel_showSplash
@@ -955,6 +1261,176 @@ TARGET_HMOV_TABLE ; BUGBUG: fill out
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
+    ORG $FC00
+
+TITLE_96x2_00
+    byte %00000000
+    byte %00001000
+    byte %00011000
+    byte %00111000
+    byte %00101001
+    byte %00101111
+    byte %00101111
+    byte %00101011
+    byte %00101001
+    byte %00101000
+    byte %01111111
+    byte %11111111
+
+TITLE_96x2_01
+    byte %00000000
+    byte %00000100
+    byte %00011001
+    byte %01110011
+    byte %11100011
+    byte %11000000
+    byte %10000011
+    byte %11000000
+    byte %11100011
+    byte %11100011
+    byte %11100010
+    byte %11000000
+
+TITLE_96x2_02
+    byte %00000000
+    byte %00000000
+    byte %11111100
+    byte %11111001
+    byte %11110011
+    byte %00000011
+    byte %11100011
+    byte %00000011
+    byte %10000011
+    byte %00000000
+    byte %00000011
+    byte %00000011
+
+TITLE_96x2_03
+    byte %00000000
+    byte %00000010
+    byte %00000011
+    byte %00000011
+    byte %00000011
+    byte %00000011
+    byte %00000011
+    byte %11000011
+    byte %11100011
+    byte %00000011
+    byte %11111001
+    byte %11111100
+
+TITLE_96x2_04
+    byte %00100000
+    byte %00110000
+    byte %00110001
+    byte %11110011
+    byte %00110011
+    byte %00110011
+    byte %00110011
+    byte %00110011
+    byte %00110011
+    byte %00110011
+    byte %00100111
+    byte %00001111
+
+TITLE_96x2_05
+    byte %00000000
+    byte %10000000
+    byte %10000001
+    byte %10000111
+    byte %10011110
+    byte %11111100
+    byte %11111000
+    byte %10111100
+    byte %10011110
+    byte %10001110
+    byte %11111110
+    byte %11111100
+
+TITLE_96x2_06
+    byte %00000000
+    byte %01000000
+    byte %10000000
+    byte %00110000
+    byte %00110111
+    byte %00110001
+    byte %00110011
+    byte %00010111
+    byte %00001110
+    byte %00011100
+    byte %00111000
+    byte %00110000
+
+TITLE_96x2_07
+    byte %00000000
+    byte %00000000
+    byte %00000000
+    byte %01110011
+    byte %11100111
+    byte %11001110
+    byte %10011100
+    byte %00111100
+    byte %01110110
+    byte %00111011
+    byte %00011101
+    byte %00001110
+
+TITLE_96x2_08
+    byte %00000000
+    byte %00000000
+    byte %00000001
+    byte %10000011
+    byte %00000010
+    byte %00000010
+    byte %00000010
+    byte %00000010
+    byte %00000010
+    byte %00000010
+    byte %10001111
+    byte %11011111
+
+TITLE_96x2_09
+    byte %00000000
+    byte %10001000
+    byte %10011100
+    byte %10011010
+    byte %10011101
+    byte %10011010
+    byte %10011001
+    byte %10011000
+    byte %10011100
+    byte %10001111
+    byte %11100111
+    byte %11110011
+
+TITLE_96x2_10
+    byte %00000000
+    byte %00000010
+    byte %00000110
+    byte %00001110
+    byte %00001110
+    byte %10001111
+    byte %01001111
+    byte %11001110
+    byte %11001110
+    byte %11001110
+    byte %10011111
+    byte %00111111
+
+TITLE_96x2_11
+    byte %00000000
+    byte %00000001
+    byte %00000110
+    byte %00011100
+    byte %01111000
+    byte %11110000
+    byte %11100000
+    byte %11110000
+    byte %01111000
+    byte %00111000
+    byte %11111000
+    byte %11110000
+
     ORG $FD00
 P2_WALLS
     byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
@@ -1060,6 +1536,11 @@ TARGET_COLOR_0
     byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
 TARGET_BG_0
     byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
+
+AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
+    byte 0,
+TRACK_0 = . - AUDIO_TRACKS
+    byte 3,31,15,64,3,31,7,16,3,31,3,8,3,31,1,16,255;
 
 BALL_GRAPHICS
     byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
