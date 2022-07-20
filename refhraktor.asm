@@ -20,6 +20,7 @@ BLACK = 0
 WALL_COLOR = $A0
 BALL_COLOR = $2C
 LOGO_COLOR = $C4
+SCANLINES = 262
 #else
 ; PAL Colors
 WHITE = $0E
@@ -27,6 +28,7 @@ BLACK = 0
 WALL_COLOR = $92
 BALL_COLOR = $2A
 LOGO_COLOR = $53
+SCANLINES = 262
 #endif
 
 GAME_STATE_SPLASH_0   = -3
@@ -270,8 +272,13 @@ kernel_dropBall
             ; ball state
             lda #64 - BALL_HEIGHT / 2
             sta ball_y
+            lda #PLAYER_HEIGHT / 2 - BALL_HEIGHT / 2
+            sta player_aim_y
+            sta player_aim_y + 1
             lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
             sta ball_x
+            sta player_aim_x
+            sta player_aim_x + 1
             lda #$00
             sta ball_ax
             sta ball_ax + 1
@@ -906,10 +913,6 @@ _player_0_draw_loop
             ldx temp_stack               ;3   --
             txs                          ;2   --
 
-;--------------------
-; Overscan start
-
-waitOnOverscan
             sta WSYNC
             lda #$00
             sta PF0
@@ -921,6 +924,16 @@ waitOnOverscan
             sta ENAM1
             sta COLUBK
 
+            ldx #6
+playfield_shim_loop
+            sta WSYNC
+            dex
+            bne playfield_shim_loop
+
+;--------------------
+; Overscan start
+
+waitOnOverscan
             ldx #30
 waitOnOverscan_loop
             sta WSYNC
@@ -964,7 +977,7 @@ menu_update_end
             lda #0
             sta COLUBK
 
-            ldx #192 / 2 - TITLE_HEIGHT * 2
+            ldx #192 / 2 - TITLE_HEIGHT * 2 - 10
 menu_waitOnMenu_top
             sta WSYNC
             dex
@@ -993,7 +1006,7 @@ menu_codeEnd
             sta GRP1
             sta WSYNC
 
-            ldx #192 / 2 - TITLE_HEIGHT * 2
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
             lda #$00
             sta temp_grid_inc
             lda #$01
@@ -1018,9 +1031,6 @@ menu_drawGridLine
 menu_nextGridLine
             dex
             bne menu_waitOnMenu_bottom
-
-
-
 
             jmp waitOnOverscan
 
@@ -1162,13 +1172,13 @@ kernel_showSplash
             lda #0
             sta COLUBK
 
-            ldx #192 / 2
+            ldx #160 / 2
 waitOnSplash
             sta WSYNC
             dex
             bne waitOnSplash
 
-            ldx #192 / 2
+            ldx #160 / 2
             ldy #8
 drawSplashGrid
             sta WSYNC
