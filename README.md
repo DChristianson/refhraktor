@@ -1,4 +1,4 @@
-= Refhraktor
+# Refhraktor
 
 Play the game on [Javatari.org!](https://javatari.org/?ROM=https://github.com/DChristianson/refhraktor/releases/download/v0.1/refhraktor_NTSC_20220717.bin)
 
