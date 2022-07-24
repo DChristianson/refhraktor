@@ -1878,15 +1878,20 @@ SPLASH_GRAPHICS
 ;  - add goal area
 ;  - make ball score when reaching goal
 ;  - replace ball in center after score
-; TODO
-;  - clean up screen / make room for score
 ;  - alternate playfields
-;  - goal shield and/or bricks
-;  - initial, weak, opposing ai
-;  - make lasers  still refract off ball
-;  - friction      
-;  - x collision bug (stuck)
+; TODO
+;  - bank switching
 ;  - menu system
+;  - clean up screen / make room for score
+;  - play with grid design
+;  - different ships
+;  - special attacks
+;  - dynamic playfield
+;  - initial, weak, opposing ai
+;  - make lasers  still refract off ball (maybe showing the power of the shot?)
+;  - speed limit
+;  - friction  
+;  - x collision bug (stuck)
 ;  - manual aim ability
 ;  - auto move ability
 ;  - auto fire ability
@@ -1894,10 +1899,38 @@ SPLASH_GRAPHICS
 ;  - add logo
 ;  - start / end game logic
 ;  - intro screen
-;  - play with grid design
 ;  - game timer
-;  - different ships
 ;  - start / end game cool transition
+;  - level editor
+;
+
+;
+; top player cutoff glitch
+; scan line glitchy?
+; ball score not in goal
+; lasers off at certain positions
+;
+; button mash avoidance
+;   continuous fire with button down
+;   instead of continuous fire, have button down charge
+;   heat meter / cooldown
+;   golf shot pendulum
+;   music rhythm shot
+;   change color / color matters in shot power 
+;;
+;
+; specials 
+    ;  - button masher weapon
+    ;  - continuous fire weapon
+    ;  - charge weapon
+    ;  - rhythm weapon
+    ;  - golf shot weapon
+    ;  - defensive weapon
+;   moving playfield
+;   refhrakting laser
+;   gamma laser
+;   gravity wave
+;   meson bomb
 ;
 
     .word reset          ; NMI
