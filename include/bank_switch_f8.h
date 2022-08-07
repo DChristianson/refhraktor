@@ -1,7 +1,13 @@
 ; F8 bank switching
 ; Modified from TJ's Atari standard bankswitching macros
 
-BANK_SIZE = $1000	;4K bank size 
+BANK_SIZE        = $1000 ; 4K bank size 
+SUPERCHIP_WRITE  = $1000 ; SC Write location
+SUPERCHIP_READ   = $1080 ; SC Read location
+
+    IFNCONST SUPERCHIP
+SUPERCHIP = 0
+    ENDIF
 
 ; put at the start of every bank 
   MAC START_BANK ; {bank_number}
@@ -12,7 +18,14 @@ BANK_RORG   SET $1000 + BANK_NUM * BANK_SIZE * 2
     ORG     BANK_ORG, $55	
     RORG    BANK_RORG	
     ECHO    "Start of bank", [BANK_NUM]d, ", ORG", BANK_ORG, ", RORG", BANK_RORG
+   IF SUPERCHIP = 1
+    ECHO    "Superchip RAM enabled"
+    ; super chip RAM
+    ds 128, $ff
+    ds 128, $ff
+   ENDIF
     ; from reset, always jump to bank 1  
+ON_RESET = (. & $fff) | $1000 
     lda $fff9
     jmp CleanStart 
 SWITCH_BANKS = (. & $fff) | $1000 
@@ -27,9 +40,9 @@ SWITCH_BANKS = (. & $fff) | $1000
     ; 2 hot spots
     ds      2, 0 
 	; nmi, reset and break vectors
-    .word   0                           ; NMI (unused)
-    .word   BANK_RORG                   ; RESET
-    .word   0                           ; BRK (unused)
+    .word   0                             ; NMI (unused)
+    .word   (ON_RESET & $fff) | BANK_RORG ; RESET (high nibble needs to match BANK_RORG for debugging)
+    .word   0                             ; BRK (unused)
   ENDM
 
 

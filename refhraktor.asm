@@ -1931,7 +1931,33 @@ SPLASH_GRAPHICS
 ;   gamma laser
 ;   gravity wave
 ;   meson bomb
-;
+;;
+;; F600 - FB00
+;; need - say 1536 bytes for current kernel scheme (256 bytes x 6)
+;; each formation has
+;;   6 + n  byte update routine (2 byte pointer + n bytes code + 3 byte jmp/rts)
+;;   16     byte display list
+;;   t * 32 bytes for tiles
+;; if each formation uses 256 bytes
+;;   will get ~30 update instructions and 4 unique tiles
+;; a 1k block can hold 4 formations
+;; a 2k block can hold 8 formations
+;; a 4k block with no kernel can hold 16 formations
+;; a 4k block with kernel can hold 10 formations
+;; with 4k banks
+;;     - assume one bank for game stuff, the rest for formations and kernel copies
+;;     - 8k game has 10 formations
+;;     - 16k game has 30 formations
+;;     - 32k game has 70 formations
+;; with 2k banks
+;;     - assume one bank for the kernel, two banks for other game stuff
+;;     - 8k game has 8 formations
+;;     - 16k game has 40 formations
+;;     - 32k game has 104 formations
+;; if kernel can reduce to 1k
+;;     - 4k banks = 12@8k, 36@16k, 84@32k
+;;     - 2k banks = 12@8k, 44@16k, 108@32k
+;;     - 1k banks = 12@8k, 44@16k, 108@32k
 
     .word reset          ; NMI
     .word reset          ; RESET
