@@ -2,6 +2,10 @@
     processor 6502
     include "vcs.h"
     include "macro.h"
+    include "math.h"
+    include "bank_switch_f8.h"
+
+SUPERCHIP = 1
 
 NTSC = 0
 PAL60 = 1
@@ -128,16 +132,339 @@ temp_D           ds 1
 temp_hmove       ds 1
 temp_draw_buffer ds 2
 
-    SEG
+
+    START_BANK 0
+
+    DEF_LBL fhrakas_kernel
+
+;---------------------
+; laser track (hi)
+
+            ; resp top player
+            sta WSYNC               ;3   0
+            lda player_x + 1        ;3   3
+            sec                     ;2   5
+_player_1_resp_loop
+            sbc #15                 ;2   7
+            sbcs _player_1_resp_loop;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP1                ;3  18+
+            SLEEP 3                 ;3  21+
+            sta RESP1               ;3  24+ 
+
+            sta WSYNC
+            sta HMOVE               ;3   3
+            ldy #PLAYER_HEIGHT - 1  ;3   6
+            lda (player_bg+2),y     ;6  12
+            sta COLUBK              ;3  15
+            lda (player_sprite+2),y ;6  21
+            sta GRP1                ;3  23
+            lda TARGET_COLOR_0,y    ;-----
+            sta COLUP1              ;3  32
+            lda #$00                ;3  35
+            sta HMP1                ;3  38
+            dey                     ;2  46
+
+_player_1_draw_loop
+            sta WSYNC
+            lda (player_bg+2),y     ;6   6
+            sta COLUBK              ;3   9
+            lda (player_sprite+2),y ;6  15
+            sta GRP1                ;3  18
+            lda TARGET_COLOR_0,y    ;-----
+            sta COLUP1              ;3  28
+            dey                     ;2  30
+            bpl _player_1_draw_loop ;2  32
+
+;---------------------
+; arena
+           
+            ; resp ball, shadow 
+            sta WSYNC
+            lda ball_x              ;3   3
+            sec                     ;2   5
+_ball_resp_loop
+            sbc #15                 ;2   7
+            sbcs _ball_resp_loop    ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            sta HMP1                ;3  21+
+            sta RESP0               ;3  24+
+            sta RESP1               ;3  27+
+
+ ; BUGBUG: vdelay?
+            ; hmove ball, shadow 
+            sta WSYNC                    ;3   0
+            sta HMOVE                    ;3   3
+            lda ball_color               ;3   6
+            bne _ball_resp_color
+            sta ball_voffset
+_ball_resp_color
+            sta COLUP0                   ;3   9
+            ; point SP at collision register
+            tsx                          ;2  11
+            stx temp_stack               ;3  14
+            ldx #ball_cx + BALL_HEIGHT-1 ;2  16
+            txs                          ;2  18
+            sta CXCLR                    ;3  21
+            ; zero out hmoves what need zeros
+            lda #$00                     ;2  23
+            sta HMP0                     ;3  26
+            sta HMM1                     ;3  29
+            lda #$70                     ;2  31 ; shift P1/M0 back 7 clocks
+            sta HMP1                     ;3  33
+
+            ; resp lower beam
+            sta WSYNC
+            lda laser_lo_x          ;3   3
+            sec                     ;2   5
+_lo_resp_loop
+            sbc #15                 ;2   7
+            sbcs _lo_resp_loop      ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMM0                ;3  18+
+            SLEEP 6                 ;6  24+
+            sta RESM0               ;3  27+
+
+            ; hmove ++ and prep for playfield next line
+            sta WSYNC                    ;0   0
+            sta HMOVE                    ;3   3
+            lda frame
+            and #$01
+            tax
+            lda player_state,x           ;3   6
+            sta ENAM0                    ;3   9
+            and #$02
+            beq _skip_laser_color_1
+            lda laser_color,x            ;3  18
+            sta COLUP0                   ;3  21
+_skip_laser_color_1
+            lda display_scroll           ;3  24
+            and #$0f
+            tay
+            lda #80
+            sta display_playfield_limit  
+            lda #$00                     ;2  26 
+            sta HMP0                     ;3  29 
+            sta HMP1                     ;3  32
+            sta temp_beam_index          ;3  35
+            lda #$01                     ;2  37
+            sta VDELP1                   ;3  40
+            jmp (display_formation_jmp)  ;3  43
+
+    ; try to avoid page branching problems
+    ALIGN 256
+
+formation_0
+    sta WSYNC
+    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, PLAYFIELD_COLORS_0, #$0f, formation_1_jmp
+formation_1
+    sta WSYNC
+formation_1_jmp
+    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, PLAYFIELD_COLORS_1, #$0f, formation_2_jmp
+formation_2
+    sta WSYNC
+formation_2_jmp
+    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, PLAYFIELD_COLORS_1, #$0f, formation_3_jmp
+formation_3
+    sta WSYNC
+formation_3_jmp
+    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, PLAYFIELD_COLORS_1, #$0f, formation_4_jmp
+formation_4
+    sta WSYNC
+formation_4_jmp
+    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, PLAYFIELD_COLORS_1, #$0f, formation_5_jmp
+formation_5
+    sta WSYNC
+formation_5_jmp
+    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, PLAYFIELD_COLORS_1, #$0f, formation_6_jmp
+formation_6
+    sta WSYNC
+formation_6_jmp
+    FORMATION formation_p0, formation_p1_dl + 12, formation_p2_dl + 12, PLAYFIELD_COLORS_1, #$0f, formation_7_jmp
+formation_7
+    sta WSYNC
+formation_7_jmp
+    FORMATION formation_p0, formation_p1_dl + 14, formation_p2_dl + 14, PLAYFIELD_COLORS_2, #$0f, formation_end
+formation_end
+
+            lda #$00
+            sta COLUBK
+            sta ENAM0
+            sta ENAM1
+            sta PF0
+            sta PF1
+            sta PF2
+            sta ball_ax + 1
+            sta ball_ax
+            sta ball_ay + 1
+            sta ball_ay
+            sta VDELP1
+            lda frame
+            and #$01
+            tax
+_laser_hit_test
+            lda #$40
+            and CXM0P
+            beq _laser_hit_test_end
+            ADD16_8x ball_ax, laser_ax
+            ADD16_8x ball_ay, laser_ay
+_laser_hit_test_end     
+            sta WSYNC 
+
+;---------------------
+; laser track (lo)
+
+            ; resp lo player
+            sta WSYNC               ;3   0
+            lda player_x            ;3   3
+            sec                     ;2   5
+_player_0_resp_loop
+            sbc #15                 ;2   7
+            sbcs _player_0_resp_loop;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            sta HMM0                ;3  21+ ; just for timing shim
+            sta RESP0               ;3  24+ 
+
+            sta WSYNC
+            sta HMOVE               ;3   3
+            ldy #$00                ;3   6
+            lda (player_bg),y       ;6  12
+            sta COLUBK              ;3  15
+            lda (player_sprite),y   ;6  21
+            sta GRP0                ;3  23
+            lda TARGET_COLOR_0,y    ;-----
+            sta COLUP0              ;3  32
+            lda #$00                ;3  35
+            sta HMP0                ;3  38
+            sta ENAM0               ;3  41
+            iny                     ;2  43
+
+_player_0_draw_loop
+            sta WSYNC
+            lda (player_bg),y       ;6   6
+            sta COLUBK              ;3   9
+            lda (player_sprite),y   ;6  15
+            sta GRP0                ;3  18
+            lda TARGET_COLOR_0,y    ;-----
+            sta COLUP0              ;3  28
+            iny                     ;2  30
+            cpy #PLAYER_HEIGHT      ;2  32
+            bcc _player_0_draw_loop ;2  34
+
+; kernel exit
+
+            ldx temp_stack               ;3   --
+            txs                          ;2   --
+
+            sta WSYNC
+            lda #$00
+            sta PF0
+            sta PF1
+            sta PF2
+            sta GRP0
+            sta GRP1
+            sta ENAM0
+            sta ENAM1
+            sta COLUBK
+
+            ldx #5
+playfield_shim_loop
+            sta WSYNC
+            dex
+            bne playfield_shim_loop
+
+    JMP_LBL return_main_kernel
+
+    ; try to avoid page branching problems
+    ALIGN 256
+
+P0_WALLS
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+
+P2_GOAL_TOP
+    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
+    byte #$01,#$01 ; stealing from next
+
+PX_WALLS_BLANK
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00 ; stealing from next
+
+P2_GOAL_BOTTOM   
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
+    byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
+
+
+P1_GOAL_BOTTOM
+    byte #$00,#$00,#$01,#$01,#$ff,#$ff,#$ff,#$7f ; stealing from next
+P1_GOAL_TOP
+    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
+    byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
+
+P1_WALLS_CHUTE
+P2_WALLS_CHUTE
+    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
+    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
+
+P1_WALLS_DIAMONDS
+    byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
+    byte #$22,#$22,#$14,#$14,#$14,#$08,#$00,#$00
+
+P2_WALLS_CUBES_TOP
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+P2_WALLS_CUBES_BOTTOM
+    byte #$e0,#$e0,#$e0,#$20,#$20,#$e0,#$e0,#$e0
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    
+    ALIGN 256
+
+PLAYFIELD_COLORS_0
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$09,#$09,#$09,#$09
+PLAYFIELD_COLORS_1
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+PLAYFIELD_COLORS_2
+    byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+
+BALL_GRAPHICS
+    byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
+BALL_GRAPHICS_END
+
+    ; standard lookup for hmoves
+STD_HMOVE_BEGIN
+    byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
+STD_HMOVE_END
+
+TARGET_0
+    byte $00,$18,$7e,$77,$55,$55,$77,$7e,$3c; 8
+TARGET_1
+    byte $00,$18,$7e,$ee,$aa,$aa,$ee,$7e,$3c; 8
+TARGET_2
+    byte $00,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
+TARGET_3
+    byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
+TARGET_COLOR_0
+    byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
+TARGET_BG_0
+    byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
+
+    END_BANK
+
+    START_BANK 1
 
 ; ----------------------------------
 ; code
 
-  SEG
-    ORG $F000
 
-reset
-
+CleanStart
     ; do the clean start macro
             CLEAN_START
 
@@ -211,10 +538,11 @@ newFrame
 
             inc frame ; new frame
 
+    ; check switches
             lda #$01
             bit SWCHB
             bne check_select
-            jmp reset
+            jmp CleanStart
 check_select
             lda #$02
             bit SWCHB
@@ -684,254 +1012,11 @@ _player_aim_save_laser_x
             sta CTRLPF ; reflect playfield
             lda #WALL_COLOR
             sta COLUPF
-            jmp playfield_start
 
-    ; try to avoid page branching problems
-    ORG $F500
+            ; jump out to draw screen and back
+            JMP_LBL fhrakas_kernel
+    DEF_LBL return_main_kernel
 
-playfield_start
-
-;---------------------
-; laser track (hi)
-
-            ; resp top player
-            sta WSYNC               ;3   0
-            lda player_x + 1        ;3   3
-            sec                     ;2   5
-_player_1_resp_loop
-            sbc #15                 ;2   7
-            sbcs _player_1_resp_loop;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMP1                ;3  18+
-            SLEEP 3                 ;3  21+
-            sta RESP1               ;3  24+ 
-
-            sta WSYNC
-            sta HMOVE               ;3   3
-            ldy #PLAYER_HEIGHT - 1  ;3   6
-            lda (player_bg+2),y     ;6  12
-            sta COLUBK              ;3  15
-            lda (player_sprite+2),y ;6  21
-            sta GRP1                ;3  23
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP1              ;3  32
-            lda #$00                ;3  35
-            sta HMP1                ;3  38
-            dey                     ;2  46
-
-_player_1_draw_loop
-            sta WSYNC
-            lda (player_bg+2),y     ;6   6
-            sta COLUBK              ;3   9
-            lda (player_sprite+2),y ;6  15
-            sta GRP1                ;3  18
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP1              ;3  28
-            dey                     ;2  30
-            bpl _player_1_draw_loop ;2  32
-
-;---------------------
-; playfield
-           
-            ; resp ball, shadow 
-            sta WSYNC
-            lda ball_x              ;3   3
-            sec                     ;2   5
-_ball_resp_loop
-            sbc #15                 ;2   7
-            sbcs _ball_resp_loop    ;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMP0                ;3  18+
-            sta HMP1                ;3  21+
-            sta RESP0               ;3  24+
-            sta RESP1               ;3  27+
-
- ; BUGBUG: vdelay?
-            ; hmove ball, shadow 
-            sta WSYNC                    ;3   0
-            sta HMOVE                    ;3   3
-            lda ball_color               ;3   6
-            bne _ball_resp_color
-            sta ball_voffset
-_ball_resp_color
-            sta COLUP0                   ;3   9
-            ; point SP at collision register
-            tsx                          ;2  11
-            stx temp_stack               ;3  14
-            ldx #ball_cx + BALL_HEIGHT-1 ;2  16
-            txs                          ;2  18
-            sta CXCLR                    ;3  21
-            ; zero out hmoves what need zeros
-            lda #$00                     ;2  23
-            sta HMP0                     ;3  26
-            sta HMM1                     ;3  29
-            lda #$70                     ;2  31 ; shift P1/M0 back 7 clocks
-            sta HMP1                     ;3  33
-
-            ; resp lower beam
-            sta WSYNC
-            lda laser_lo_x          ;3   3
-            sec                     ;2   5
-_lo_resp_loop
-            sbc #15                 ;2   7
-            sbcs _lo_resp_loop      ;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMM0                ;3  18+
-            SLEEP 6                 ;6  24+
-            sta RESM0               ;3  27+
-
-            ; hmove ++ and prep for playfield next line
-            sta WSYNC                    ;0   0
-            sta HMOVE                    ;3   3
-            lda frame
-            and #$01
-            tax
-            lda player_state,x           ;3   6
-            sta ENAM0                    ;3   9
-            and #$02
-            beq _skip_laser_color_1
-            lda laser_color,x            ;3  18
-            sta COLUP0                   ;3  21
-_skip_laser_color_1
-            lda display_scroll           ;3  24
-            and #$0f
-            tay
-            lda #80
-            sta display_playfield_limit  
-            lda #$00                     ;2  26 
-            sta HMP0                     ;3  29 
-            sta HMP1                     ;3  32
-            sta temp_beam_index          ;3  35
-            lda #$01                     ;2  37
-            sta VDELP1                   ;3  40
-            jmp (display_formation_jmp)  ;3  43
-
-    ; try to avoid page branching problems
-    ORG $F600
-
-formation_0
-    sta WSYNC
-    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, PLAYFIELD_COLORS_0, #$0f, formation_1_jmp
-formation_1
-    sta WSYNC
-formation_1_jmp
-    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, PLAYFIELD_COLORS_1, #$0f, formation_2_jmp
-formation_2
-    sta WSYNC
-formation_2_jmp
-    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, PLAYFIELD_COLORS_1, #$0f, formation_3_jmp
-formation_3
-    sta WSYNC
-formation_3_jmp
-    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, PLAYFIELD_COLORS_1, #$0f, formation_4_jmp
-formation_4
-    sta WSYNC
-formation_4_jmp
-    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, PLAYFIELD_COLORS_1, #$0f, formation_5_jmp
-formation_5
-    sta WSYNC
-formation_5_jmp
-    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, PLAYFIELD_COLORS_1, #$0f, formation_6_jmp
-formation_6
-    sta WSYNC
-formation_6_jmp
-    FORMATION formation_p0, formation_p1_dl + 12, formation_p2_dl + 12, PLAYFIELD_COLORS_1, #$0f, formation_7_jmp
-formation_7
-    sta WSYNC
-formation_7_jmp
-    FORMATION formation_p0, formation_p1_dl + 14, formation_p2_dl + 14, PLAYFIELD_COLORS_2, #$0f, formation_end
-formation_end
-
-           lda #$00
-           sta COLUBK
-           sta ENAM0
-           sta ENAM1
-           sta PF0
-           sta PF1
-           sta PF2
-           sta ball_ax + 1
-           sta ball_ax
-           sta ball_ay + 1
-           sta ball_ay
-           sta VDELP1
-           lda frame
-           and #$01
-           tax
-_laser_hit_test
-           lda #$40
-           and CXM0P
-           beq _laser_hit_test_end
-           ADD16_8x ball_ax, laser_ax
-           ADD16_8x ball_ay, laser_ay
-_laser_hit_test_end     
-           sta WSYNC 
-
-;---------------------
-; laser track (lo)
-
-            ; resp lo player
-            sta WSYNC               ;3   0
-            lda player_x            ;3   3
-            sec                     ;2   5
-_player_0_resp_loop
-            sbc #15                 ;2   7
-            sbcs _player_0_resp_loop;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMP0                ;3  18+
-            sta HMM0                ;3  21+ ; just for timing shim
-            sta RESP0               ;3  24+ 
-
-            sta WSYNC
-            sta HMOVE               ;3   3
-            ldy #$00                ;3   6
-            lda (player_bg),y       ;6  12
-            sta COLUBK              ;3  15
-            lda (player_sprite),y   ;6  21
-            sta GRP0                ;3  23
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP0              ;3  32
-            lda #$00                ;3  35
-            sta HMP0                ;3  38
-            sta ENAM0               ;3  41
-            iny                     ;2  43
-
-_player_0_draw_loop
-            sta WSYNC
-            lda (player_bg),y       ;6   6
-            sta COLUBK              ;3   9
-            lda (player_sprite),y   ;6  15
-            sta GRP0                ;3  18
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP0              ;3  28
-            iny                     ;2  30
-            cpy #PLAYER_HEIGHT      ;2  32
-            bcc _player_0_draw_loop ;2  34
-
-; kernel exit
-
-            ldx temp_stack               ;3   --
-            txs                          ;2   --
-
-            sta WSYNC
-            lda #$00
-            sta PF0
-            sta PF1
-            sta PF2
-            sta GRP0
-            sta GRP1
-            sta ENAM0
-            sta ENAM1
-            sta COLUBK
-
-            ldx #5
-playfield_shim_loop
-            sta WSYNC
-            dex
-            bne playfield_shim_loop
 
 ;--------------------
 ; Overscan start
@@ -1094,8 +1179,72 @@ _populate_formation_diamonds_dl
             bpl _populate_formation_diamonds_dl
             rts
 
+    ALIGN 256
 
-	ORG $FC00
+FORMATION_JMP_TABLE
+    word #formation_0
+    word #formation_1
+    word #formation_2
+    word #formation_3
+    word #formation_4
+    word #formation_5
+
+FORMATION_VOID_UP
+FORMATION_CHUTE_UP
+    jmp formation_update_return
+
+FORMATION_VOID_P1
+    word #P1_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P1_GOAL_BOTTOM
+
+FORMATION_VOID_P2
+FORMATION_CHUTE_P2
+    word #P2_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P2_GOAL_BOTTOM
+
+FORMATION_CHUTE_P1
+    word #P1_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #P1_WALLS_CHUTE
+    word #P1_WALLS_CHUTE
+    word #P1_WALLS_CHUTE
+    word #P1_WALLS_CHUTE
+    word #PX_WALLS_BLANK
+    word #P1_GOAL_BOTTOM
+
+FORMATION_DIAMONDS_P1
+    word #P1_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #P1_WALLS_DIAMONDS
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P1_WALLS_DIAMONDS
+    word #PX_WALLS_BLANK
+    word #P1_GOAL_BOTTOM
+
+FORMATION_DIAMONDS_P2
+    word #P2_GOAL_TOP
+    word #P2_WALLS_CUBES_TOP
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P2_WALLS_CUBES_BOTTOM
+    word #P2_GOAL_BOTTOM
+
+	ALIGN 256
     
 menu_96x2_resp_frame_0
             ; position P0 and P1
@@ -1160,7 +1309,7 @@ menu_96x2_frame_0
             sbpl menu_96x2_frame_0 ;2/+ 6/7
             jmp menu_codeEnd
 
-    ORG $FD00
+    ALIGN 256
 
 menu_96x2_resp_frame_1
             ; position P0 and P1
@@ -1338,7 +1487,7 @@ TITLE_96x2_01
     byte %11100010
     byte %11000000
 
-    ORG $FE00
+    ALIGN 256
 
 TITLE_96x2_02
     byte %00000000
@@ -1480,147 +1629,12 @@ TITLE_96x2_11
     byte %11111000
     byte %11110000
 
-    ;ORG $FE00
-
-P0_WALLS
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-
-P2_GOAL_TOP
-    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
-    byte #$01,#$01 ; stealing from next
-
-PX_WALLS_BLANK
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00 ; stealing from next
-
-P2_GOAL_BOTTOM   
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
-    byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
-
-
-P1_GOAL_BOTTOM
-    byte #$00,#$00,#$01,#$01,#$ff,#$ff,#$ff,#$7f ; stealing from next
-P1_GOAL_TOP
-    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
-    byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
-
-P1_WALLS_CHUTE
-P2_WALLS_CHUTE
-    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
-    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
-
-P1_WALLS_DIAMONDS
-    byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
-    byte #$22,#$22,#$14,#$14,#$14,#$08,#$00,#$00
-
-P2_WALLS_CUBES_TOP
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-P2_WALLS_CUBES_BOTTOM
-    byte #$e0,#$e0,#$e0,#$20,#$20,#$e0,#$e0,#$e0
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-
-FORMATION_VOID_UP
-FORMATION_CHUTE_UP
-    jmp formation_update_return
-    
-    ORG $FF00
-
-FORMATION_JMP_TABLE
-    word #formation_0
-    word #formation_1
-    word #formation_2
-    word #formation_3
-    word #formation_4
-    word #formation_5
-
-FORMATION_VOID_P1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
-
-FORMATION_VOID_P2
-FORMATION_CHUTE_P2
-    word #P2_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P2_GOAL_BOTTOM
-
-FORMATION_CHUTE_P1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
-
-FORMATION_DIAMONDS_P1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_DIAMONDS
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_DIAMONDS
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
-
-FORMATION_DIAMONDS_P2
-    word #P2_GOAL_TOP
-    word #P2_WALLS_CUBES_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P2_WALLS_CUBES_BOTTOM
-    word #P2_GOAL_BOTTOM
-
-PLAYFIELD_COLORS_0
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$09,#$09,#$09,#$09
-PLAYFIELD_COLORS_1
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
-PLAYFIELD_COLORS_2
-    byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-
-    ; standard lookup for hmoves
-STD_HMOVE_BEGIN
-    byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
-STD_HMOVE_END
-
-TARGET_0
-    byte $00,$18,$7e,$77,$55,$55,$77,$7e,$3c; 8
-TARGET_1
-    byte $00,$18,$7e,$ee,$aa,$aa,$ee,$7e,$3c; 8
-TARGET_2
-    byte $00,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
-TARGET_3
-    byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
-TARGET_COLOR_0
-    byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
-TARGET_BG_0
-    byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
 
 AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
     byte 0,
 TRACK_0 = . - AUDIO_TRACKS
     byte 3,31,15,64,3,31,7,16,3,31,3,8,3,31,1,16,255;
 
-BALL_GRAPHICS
-    byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
-BALL_GRAPHICS_END
 SPLASH_0_GRAPHICS
     byte $ff ; loading... (8 bit console?)  message incoming... (scratching)
 SPLASH_1_GRAPHICS
@@ -1630,160 +1644,6 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
-    MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
-            ; check bounds, reflect B if we hit
-.clamp16_check_max
-            lda #{4}
-            cmp {1}
-            bcs .clamp16_end
-            sta {1}
-            lda #$00
-            sta {1} + 1
-            lda {2}
-            bmi .clamp16_end
-            clc
-            lda {2} + 1
-            eor #$ff
-            adc #$01
-            sta {2} + 1
-            lda {2}
-            eor #$ff
-            adc #$00
-            sta {2}            
-            jmp .clamp16_end
-.clamp16_check_min
-            lda #{3}
-            cmp {1}
-            bcc .clamp16_end
-            sta {1}
-            lda #$00
-            sta {1} + 1
-            lda {2}
-            bpl .clamp16_end
-            clc
-            lda {2} + 1
-            eor #$ff
-            adc #$01
-            sta {2} + 1
-            lda {2}
-            eor #$ff
-            adc #$00
-            sta {2}            
-.clamp16_end
-    ENDM
-
-    MAC INV16 ; A = -A
-            clc
-            lda {1} + 1
-            eor #$ff
-            adc #$01
-            sta {1} + 1
-            lda {1}
-            eor #$ff
-            adc #$00
-            sta {1}
-    ENDM
-
-    MAC ABS16 ; A = ABS(A)
-            lda {1}
-            bpl .abs16_end
-            clc
-            lda {1} + 1
-            eor #$ff
-            adc #$01
-            sta {1} + 1
-            lda {1}
-            eor #$ff
-            adc #$00
-            sta {1}
-.abs16_end
-    ENDM
-
-    MAC NEG16 ; A = -ABS(A)
-            lda {1}
-            bmi .neg16_end
-            clc
-            lda {1} + 1
-            eor #$ff
-            adc #$01
-            sta {1} + 1
-            lda {1}
-            eor #$ff
-            adc #$00
-            sta {1}
-.neg16_end
-    ENDM
-
-    MAC INC16 ;  A = A + #B
-            clc
-            lda {1} + 1
-            adc #<{2}
-            sta {1} + 1
-            lda {1}
-            adc #>{2}
-            sta {1}
-    ENDM
-
-    MAC DEC16 ; A + A - #B
-            clc
-            lda {1} + 1
-            adc #<{2}
-            sta {1} + 1
-            lda {1}
-            adc #>{2}
-            sta {1}
-    ENDM
-
-    MAC ADD16 ; Given A16, B16, store A + B -> A 
-            clc
-            lda {1} + 1
-            adc {2} + 1
-            sta {1} + 1
-            lda {1}
-            adc {2}
-            sta {1}
-    ENDM
-
-    MAC DOWNSCALE16_8 ; Given A16, B8, store SIGN(A) * (ABS(A) - #B) -> A
-            lda {1}
-            bmi .downscale16_8_inv
-            sec
-            lda {1} + 1
-            sbc #{2}
-            sta {1} + 1
-            sbc #$00
-            bmi .downscale16_8_zero
-            jmp .downscale16_8_end
-.downscale16_8_inv
-            clc
-            lda {1} + 1
-            adc #{2}
-            sta {1} + 1
-            adc #$00
-            bpl .downscale16_8_end
-.downscale16_8_zero
-            lda #$00
-            sta {1} + 1
-.downscale16_8_end  
-            sta {1}
-
-    ENDM
-
-    MAC ADD16_8x; Given A16, B8, store A + B -> A 
-            ldy #$00
-            lda {2},x
-            bpl ._add16_8
-            ldy #$ff
-._add16_8
-            clc
-            adc {1} + 1
-            sta {1} + 1
-            tya
-            adc {1}
-            sta {1}
-    ENDM
-
-    ORG $FFFA
 
     MAC FORMATION ; given p0, p1, p2, c, mask addr
 ._pl0_loop_0_hm
@@ -1959,8 +1819,4 @@ SPLASH_GRAPHICS
 ;;     - 2k banks = 12@8k, 44@16k, 108@32k
 ;;     - 1k banks = 12@8k, 44@16k, 108@32k
 
-    .word reset          ; NMI
-    .word reset          ; RESET
-    .word reset          ; IRQ
-
-    END
+    END_BANK
