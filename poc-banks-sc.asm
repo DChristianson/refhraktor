@@ -5,6 +5,11 @@
     include "macro.h"
     include "bank_switch_f8.h"
 
+SUPERCHIP = 1
+
+; ----------------------------------
+; NTSC VS PAL color macros
+
 NTSC = 0
 PAL60 = 1
 
@@ -24,11 +29,6 @@ BLACK = 0
 WHITE = $00E
 BLACK = 0
 #endif
-
-SUPERCHIP = 1
-
-RR_START = SUPERCHIP_READ
-RW_START = SUPERCHIP_WRITE
 
 ; ----------------------------------
 ; variables
@@ -63,7 +63,7 @@ horizon_loop_1
 horizon_loop_2
             sta WSYNC
 
-            lda RR_START,x
+            lda SUPERCHIP_READ,x
             sta COLUBK            
             dex
             dey
@@ -85,12 +85,12 @@ CleanStart
     ; do the clean start macro
             CLEAN_START
 
-    ; setup
+    ; put rainbow colors into superchip ram
     ldx #$7f
 setup_loop
     txa
-    asl 
-    sta RW_START,x
+    asl ; * 2
+    sta SUPERCHIP_WRITE,x
     dex
     bpl setup_loop
 
@@ -151,7 +151,7 @@ waitOnVBlank
             lda #1
             bit bank
             bne skip_jmp
-            JMP_LBL bank_0_kernel
+            JMP_LBL bank_0_kernel ; jump to bank 0
 skip_jmp
 
 ;--------------------
@@ -160,12 +160,12 @@ skip_jmp
             ldx #128
 horizon_loop
             sta WSYNC
-            lda RR_START,x           
+            lda SUPERCHIP_READ,x           
             sta COLUBK            
             dex
             bne horizon_loop
 
-    DEF_LBL end_kernel
+    DEF_LBL end_kernel ; jump back from bank 0
 
             ldx #(192 - 128)
 end_scan
