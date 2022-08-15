@@ -35,15 +35,19 @@ LOGO_COLOR = $53
 SCANLINES = 262
 #endif
 
-GAME_STATE_SPLASH_0   = -3
-GAME_STATE_SPLASH_1   = -2
-GAME_STATE_SPLASH_2   = -1
-GAME_STATE_PLAY       = 0
-GAME_STATE_CELEBRATE  = 1
-GAME_STATE_DROP       = 2
-GAME_STATE_GAME_OVER  = 3
-GAME_STATE_MENU       = 4
-GAME_STATE_START      = 5
+GAME_STATE_SPLASH_0     = -3
+GAME_STATE_SPLASH_1     = -2
+GAME_STATE_SPLASH_2     = -1
+GAME_STATE_PLAY         = 0
+GAME_STATE_CELEBRATE    = 1
+GAME_STATE_DROP         = 2
+GAME_STATE_GAME_OVER    = 3
+GAME_STATE_TITLE        = 4 ; title screen
+GAME_STATE_MENU_ROOT = 5 ; choose game type
+GAME_STATE_MENU_PLAYERS = 6 ; choose equipment
+GAME_STATE_MENU_STAGE   = 7 ; choose stage 
+GAME_STATE_MENU_TUNE    = 8 ; choose chiptune
+GAME_STATE_START        = 9
 
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
@@ -85,18 +89,23 @@ audio_tracker ds 2  ; next track
 audio_timer   ds 2  ; time left on audio
 
 formation_select ds 1   ; which level
+
+player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
+player_state  ds 2  ; player state (d1 = fire)
+player_sprite ds 4  ;
+
+jx_on_press_down ds 2  ; on press code
+jx_on_move       ds 2  ; on move code
+
 formation_up     ds 2   ; formation obj ptr
 formation_p0     ds 2   ; formation p0 ptr
 formation_p1_dl  ds 16  ; playfield ptr pf1
 formation_p2_dl  ds 16  ; playfield ptr pf2
 
-player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
-player_state  ds 2  ; player state (d1 = fire)
 player_x      ds 2  ; player x position
 player_aim_x  ds 2  ; player aim point x
 player_aim_y  ds 2  ; player aim point y
 player_bg     ds 4  ; 
-player_sprite ds 4  ;
 player_score  ds 2  ;
 laser_ax      ds 2  ;
 laser_ay      ds 2  ;
@@ -122,6 +131,7 @@ scroll       ds 1 ; y value to start showing playfield
 display_formation_jmp   ds 2   ; formation jump ptr
 display_playfield_limit ds 1
 
+temp_player_state
 temp_grid_gap
 temp_stack            ; hold stack ptr during collision capture
 temp_dy          ds 1 ; use for line drawing computation
@@ -132,6 +142,15 @@ temp_D           ds 1
 temp_hmove       ds 1
 temp_draw_buffer ds 2
 
+; ----------------------------------
+; menu RAM
+
+  SEG.U SCRAM
+
+; ----------------------------------
+; bank 0
+
+  SEG bank_0_code
 
     START_BANK 0
 
@@ -426,10 +445,10 @@ P2_WALLS_CUBES_BOTTOM
 
 PLAYFIELD_COLORS_0
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$09,#$09,#$09,#$09
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 PLAYFIELD_COLORS_1
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
-    byte #$09,#$09,#$09,#$09,#$09,#$09,#$09,#$09
+    byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
+    byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
 PLAYFIELD_COLORS_2
     byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
@@ -451,6 +470,31 @@ TARGET_2
     byte $00,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
 TARGET_3
     byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
+; BUGBUG; TODO: PLAYER GRAPHICS
+; MT_MKI_0
+;     byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
+; MT_MKI_1
+;     byte $18,$3c,$ff,$aa,$ff,$0,$3c,$18; 8
+; MT_MKI_2
+;     byte $18,$3c,$ff,$55,$ff,$c,$3c,$18; 8
+; MT_MKI_3
+;     byte $18,$3c,$ff,$aa,$ff,$3c,$3c,$18; 8
+; MT_MKIV_0
+;     byte $18,$7e,$f7,$55,$55,$f7,$7e,$3c; 8
+; MT_MKIV_1
+;     byte $18,$7e,$ef,$aa,$aa,$ef,$7e,$3c; 8
+; MT_MKIV_2
+;     byte $18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
+; MT_MKIV_3
+;     byte $18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
+; RADAR_TANK_0
+;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
+; RADAR_TANK_1
+;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
+; RADAR_TANK_2
+;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
+; RADAR_TANK_3
+;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
 TARGET_COLOR_0
     byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
 TARGET_BG_0
@@ -473,11 +517,9 @@ CleanStart
     sta scroll
     lda #DROP_DELAY
     sta game_timer
-    lda #GAME_STATE_MENU ; GAME_STATE_SPLASH_0
+    lda #GAME_STATE_TITLE ; GAME_STATE_SPLASH_0
     sta game_state
-    lda #TRACK_0      ; start sound
-    sta audio_tracker
-    sta audio_tracker + 1
+    jsr kernel_title_setup
 
     ; initial formation
     jsr formation_diamonds
@@ -610,13 +652,17 @@ audio_next_channel
             dex 
             beq kernel_gameOver
             dex
+            beq jmpTitle
+            dex 
             beq jmpMenu
             dex 
             jmp kernel_startGame
-jmpMenu
-            jmp kernel_menu
 jmpSplash
             jmp kernel_showSplash
+jmpTitle
+            jmp kernel_title
+jmpMenu     
+            jmp kernel_menu
 
 ;--------------------
 ; gameplay update kernel
@@ -1031,34 +1077,33 @@ waitOnOverscan_loop
             jmp newFrame
 
 ;------------------------
-; menu kernel
+; title kernel
 
-kernel_menu
+kernel_title_setup
+            ; start sound
+            lda #TRACK_0      
+            sta audio_tracker
+            sta audio_tracker + 1
+            ; input jump tables
+            lda #>title_on_press_down
+            sta jx_on_press_down + 1
+            lda #<title_on_press_down
+            sta jx_on_press_down
+            lda #>title_on_move
+            sta jx_on_move + 1
+            lda #<title_on_move
+            sta jx_on_move
+            rts
 
-menu_update
-            ldx #NUM_PLAYERS - 1
-_menu_update_loop
-            lda INPT4,x
-            bmi _menu_update_no_fire
-            lda #$01
-            jmp _menu_update_end_fire
-_menu_update_no_fire            
-            lda player_state,x
-            beq _menu_update_end_fire
-            ; kill sound
-            lda #0
-            sta AUDC0
-            sta AUDF0
-            sta AUDC0
+title_on_press_down
             ; change loop
-            lda #GAME_STATE_DROP
+            lda #GAME_STATE_MENU_ROOT
             sta game_state
-            lda #0
-_menu_update_end_fire
-            sta player_state,x
-            dex
-            bpl _menu_update_loop
-menu_update_end
+            jsr kernel_menu_setup
+            jmp jx_on_press_down_return
+
+kernel_title
+            jsr sub_jx_update
 
             jsr waitOnVBlank ; SL 34
             sta WSYNC ; SL 35
@@ -1066,12 +1111,12 @@ menu_update_end
             sta COLUBK
 
             ldx #192 / 2 - TITLE_HEIGHT * 2 - 10
-menu_waitOnMenu_top
+title_waitOnTitle_top
             sta WSYNC
             dex
-            bne menu_waitOnMenu_top
+            bne title_waitOnTitle_top
 
-menu_setup    
+title_setup    
             lda #3      ;3=Player and Missile are drawn twice 32 clocks apart 
             sta NUSIZ0    
             sta NUSIZ1    
@@ -1081,12 +1126,116 @@ menu_setup
             ldy #TITLE_HEIGHT - 1
             lda #$01
             and frame
-            beq jmp_menu_96x2_resp_frame_0
-            jmp menu_96x2_resp_frame_1  
-jmp_menu_96x2_resp_frame_0
-            jmp menu_96x2_resp_frame_0
+            beq _jmp_title_96x2_resp_frame_0
+            jmp title_96x2_resp_frame_1  
+_jmp_title_96x2_resp_frame_0
+            jmp title_96x2_resp_frame_0
 
-menu_codeEnd
+title_codeEnd
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
+            jsr grid_kernel
+
+            ; jump back
+            jmp waitOnOverscan
+
+
+;------------------------
+; menu kernel
+
+kernel_menu_setup
+            ; jmp tables
+            lda #>menu_on_press_down
+            sta jx_on_press_down + 1
+            lda #<menu_on_press_down
+            sta jx_on_press_down
+            lda #>menu_on_move
+            sta jx_on_move + 1
+            lda #<menu_on_move
+            sta jx_on_move
+            rts
+
+menu_on_press_down
+            ; change loop
+            lda #GAME_STATE_DROP
+            sta game_state
+            jmp jx_on_press_down_return
+
+kernel_menu
+            jsr sub_jx_update
+
+            jsr waitOnVBlank ; SL 34
+
+                 
+            ldx #30 
+menu_waitOnMenu_top
+            sta WSYNC
+            sta COLUBK
+            dex
+            bne menu_waitOnMenu_top
+
+menu_text_setup_0
+            sta WSYNC
+            lda #$01
+            sta VDELP0
+            sta VDELP1
+            SLEEP 24
+            sta RESP0    
+            sta RESP1
+            lda #$03
+            sta NUSIZ0
+            sta NUSIZ1
+            lda #30
+            sta COLUP0
+            sta COLUP1
+            lda #$00
+            sta HMP0
+            lda #$10
+            sta HMP1
+            sta WSYNC
+            sta HMOVE
+
+            tsx
+            stx temp_stack
+            ldy #6
+menu_text_draw_0
+            sta WSYNC         ;3   0
+            ; load and store first 3 
+            lda VERSUS_0,y    ;4   4
+            sta GRP0          ;3   7
+            lda VERSUS_1,y    ;4  11
+            sta GRP1          ;3  14
+            lda VERSUS_2,y    ;4  18
+            sta GRP0          ;3  21
+            ; load next 3 EDF
+            ldx VERSUS_1,y    ;4  25
+            txs               ;2  27
+            ldx VERSUS_0,y    ;4  31
+            lda VERSUS_2,y    ;4  35
+            stx.w GRP1        ;4  39
+            tsx               ;2  41
+            stx GRP0          ;3  44
+            sta GRP1          ;3  47
+            sty GRP0          ;3  50 force vdelp
+            dey
+            bpl menu_text_draw_0
+            ldx temp_stack
+            txs
+            lda #$00
+            sta NUSIZ0
+            sta NUSIZ1
+            sta GRP0
+            sta GRP1
+
+            ; bottom grid
+            ldx #(192 - 31 - 7) 
+            jsr grid_kernel
+
+            jmp waitOnOverscan
+
+;--------------------------
+; draw grid kernel
+
+grid_kernel
             lda #0 
             sta NUSIZ0    
             sta NUSIZ1    
@@ -1094,20 +1243,19 @@ menu_codeEnd
             sta GRP1
             sta WSYNC
 
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
             lda #$00
             sta temp_grid_inc
             lda #$01
             sta temp_grid_gap
             tay 
-menu_waitOnMenu_bottom
+_grid_loop
             sta WSYNC
             dey
-            beq menu_drawGridLine 
+            beq _grid_drawGridLine 
             lda #$00
             sta COLUBK
-            jmp menu_nextGridLine
-menu_drawGridLine
+            jmp _grid_nextGridLine
+_grid_drawGridLine
             lda #LOGO_COLOR
             sta COLUBK
             lda temp_grid_gap
@@ -1116,10 +1264,63 @@ menu_drawGridLine
             clc
             adc temp_grid_inc
             tay
-menu_nextGridLine
+_grid_nextGridLine
             dex
-            bne menu_waitOnMenu_bottom
-            jmp waitOnOverscan
+            bne _grid_loop
+            rts
+
+;--------------------------
+; joystick menu
+
+noop_on_press_down
+            ; # noop
+            jmp jx_on_press_down_return
+
+title_on_move
+menu_on_move
+noop_on_move
+            ; # noop
+            jmp jx_on_move_return
+
+
+sub_jx_update
+            ldx #NUM_PLAYERS - 1
+            lda SWCHA
+            and #$0f
+_jx_update_loop
+            sta temp_player_state
+            lda #$80
+            and INPT4,x
+            ora temp_player_state
+            sta temp_player_state
+            bmi jx_on_press_down_return
+            eor player_state,x ; debounce
+            bpl jx_on_press_down_return
+            jmp (jx_on_press_down)
+jx_on_press_down_return
+            jmp (jx_on_move)
+jx_on_move_return
+            ldy temp_player_state
+            sty player_state,x
+            dex
+            bmi jx_menu_end
+            lda SWCHA
+            lsr
+            lsr
+            lsr
+            lsr
+            jmp _jx_update_loop
+jx_menu_end
+            rts
+
+
+;--------------------------
+; player select subroutines
+
+; BUGBUG: TODO
+
+;--------------------------
+; formation select subroutines
 
 switch_formation
             lda formation_select
@@ -1246,7 +1447,7 @@ FORMATION_DIAMONDS_P2
 
 	ALIGN 256
     
-menu_96x2_resp_frame_0
+title_96x2_resp_frame_0
             ; position P0 and P1
             ; TODO: cleanup
             sta WSYNC
@@ -1266,7 +1467,7 @@ menu_96x2_resp_frame_0
             sta WSYNC              ;3   0
             SLEEP 7                ;7   7
 
-menu_96x2_frame_0
+title_96x2_frame_0
             SLEEP 8                ;8  15
             lda TITLE_96x2_06,y    ;4  19
             sta GRP1               ;3  22
@@ -1306,12 +1507,12 @@ menu_96x2_frame_0
             sta HMOVE              ;3  74 ; HMOVE $00@71 = -8
             SLEEP 4                ;4   2
             dey                    ;2   4        
-            sbpl menu_96x2_frame_0 ;2/+ 6/7
-            jmp menu_codeEnd
+            sbpl title_96x2_frame_0 ;2/+ 6/7
+            jmp title_codeEnd
 
     ALIGN 256
 
-menu_96x2_resp_frame_1
+title_96x2_resp_frame_1
             ; position P0 and P1
             ; TODO: cleanup
             sta WSYNC
@@ -1331,7 +1532,7 @@ menu_96x2_resp_frame_1
             sta WSYNC              ;3   0
             SLEEP 7                ;7   7
 
-menu_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
+title_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
             sta HMOVE              ;3  10 ; HMOVE $80@6 = +8
             lda TITLE_96x2_07,y    ;4  14
             sta GRP1               ;3  17
@@ -1370,8 +1571,8 @@ menu_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
             sta HMP1               ;3  70
             SLEEP 8                ;8   2
             dey                    ;2   4        
-            sbpl menu_96x2_frame_1 ;2/+ 6/7
-            jmp menu_codeEnd
+            sbpl title_96x2_frame_1 ;2/+ 6/7
+            jmp title_codeEnd
 
 ;------------------------
 ; splash kernel
@@ -1411,14 +1612,14 @@ skipDrawGridLine
             inc game_state
             bmi keepSplashing
             ; next screen will be menu
-            lda #GAME_STATE_MENU
+            lda #GAME_STATE_TITLE
             sta game_state
 
 keepSplashing
             jmp waitOnOverscan
 
 ;------------------------
-; exit update sub
+; vblank sub
 
 waitOnVBlank
             ldx #$00
@@ -1428,36 +1629,64 @@ waitOnVBlank_loop
             stx VBLANK
             rts 
 
-;---------------------------
-; bit graphics
-; A
-; B
-; C
-; E
-; F
-; H
-; L 
-; R
-; T
-; U
+;-----------------------------
+; Font
+; 4x7 bit font packed into 7x23 byte array
+FONT_0
+    byte $4e,$a4,$a4,$a4,$a4,$20,$cc; 7
+    byte $6c,$82,$82,$66,$22,$0,$cc; 7
+    byte $2c,$22,$62,$ac,$a8,$20,$a6; 7
+    byte $48,$a8,$a8,$c4,$82,$0,$6e; 7
+    byte $42,$a2,$a6,$ea,$aa,$22,$cc; 7
+    byte $0,$0,$40,$e,$40,$0,$0; 7
+    byte $0,$2,$46,$ee,$46,$2,$0; 7
+    byte $0,$8,$ec,$e,$ec,$8,$0; 7
+    byte $64,$40,$e0,$40,$e0,$0,$a0; 7
+    byte $44,$0,$44,$42,$42,$48,$4c; 7
+    byte $ac,$aa,$ea,$ac,$aa,$22,$ec; 7
+    byte $ec,$8a,$8a,$8a,$8a,$2,$ec; 7
+    byte $e8,$88,$88,$cc,$88,$0,$ee; 7
+    byte $ea,$aa,$aa,$8e,$8a,$2,$ea; 7
+    byte $4e,$4a,$42,$2,$42,$0,$42; 7
+    byte $ae,$a8,$a8,$c8,$a8,$20,$a8; 7
+    byte $aa,$aa,$aa,$a,$ea,$2,$ee; 7
+    byte $e8,$a8,$a8,$ae,$aa,$22,$ee; 7
+    byte $6a,$8a,$ac,$aa,$aa,$22,$ee; 7
+    byte $e4,$24,$24,$e4,$84,$0,$ee; 7
+    byte $e4,$a4,$aa,$aa,$aa,$2,$aa; 7
+    byte $aa,$ea,$ee,$4,$ae,$2,$aa; 7
+    byte $4e,$48,$48,$e4,$a2,$20,$ae; 7
 
-; a
-; c
-; d
-; e
-; g
-; i
-; j
-; l
-; n
-; o
-; p
-; r
-; s
-; n
-; t
-; y
-; .
+VERSUS_0
+    byte $4e,$48,$a8,$ac,$a8,$20,$ae; 7
+VERSUS_1
+    byte $ae,$a2,$c2,$ae,$a8,$20,$ee; 7
+VERSUS_2
+    byte $ee,$a2,$a2,$ae,$a8,$0,$ae; 7    
+
+; versus
+; quest
+; tournament
+
+; laser mk i
+; laser mk iv
+; maser tank
+; 0123456789:-/=$+.?!
+    
+; player
+; battle
+; fracas
+; combat
+; gateway
+; peril
+; hazard
+; vendetta
+; facing
+; against
+; absconder
+
+;---------------------------
+; title graphics
 
 TITLE_96x2_00
     byte %00000000
@@ -1739,20 +1968,30 @@ SPLASH_GRAPHICS
 ;  - make ball score when reaching goal
 ;  - replace ball in center after score
 ;  - alternate playfields
-; TODO
 ;  - bank switching
+; TODO
 ;  - menu system
+;    - choose pod
+;    - choose mode
+;       - versus
+;       - quest
+;       - tournament
+;    - choose stage
+;    - second player opt in (either/or)
+;       - vs / co-op
+;  - different ships
+;  - power grid
+;  - dynamic playfield
+;  - framerate glitches
+;  - manual aim ability
 ;  - clean up screen / make room for score
 ;  - play with grid design
-;  - different ships
 ;  - special attacks
-;  - dynamic playfield
 ;  - initial, weak, opposing ai
 ;  - make lasers  still refract off ball (maybe showing the power of the shot?)
 ;  - speed limit
 ;  - friction  
-;  - x collision bug (stuck)
-;  - manual aim ability
+;  - collision bugs (stuck)
 ;  - auto move ability
 ;  - auto fire ability
 ;  - better colors
@@ -1760,10 +1999,39 @@ SPLASH_GRAPHICS
 ;  - start / end game logic
 ;  - intro screen
 ;  - game timer
-;  - start / end game cool transition
-;  - level editor
+;  - start / end game transitions
+;  - cracktro
+;  - shadowball (multiball)
+;  - co-op play
+;        - MVP: available in quest mode
+;        - two rails on same side of screen (up to 4 total with quadtari?)
+;          - front rail for shooting, no power recovery is possible
+;          - back rail for power banking, no shooting possible
+;          - players can hop rails by double tap up/down
+;          - players block each other, they must jump back/forward if they want to switch sides
+;          - players in the tandem position can switch places if they push up/down simultaneously
+;        - tandem firing
+;          - a player on the back rail can transmit power to a player on the front rail
+;          - the two pods must be on top of each other or there will be a power drop
+;          - essentially, back rail player "fires" into the front player
+;        - beam bros
+;          - players can both sit on the front rail and fire simultaneously
+;        - bank buddies
+;          - players can both sit on the back rail and draw power
+;  - versus mode : battle fracas combat
+;  - quest  mode : gateway peril hazard 
+;        - time attack
+;        - no opposing player (or maybe... sometimes ai), but continuous gravity down
+;        - playfield extends up infinitely through a series of gates
+;        - player(s) must guide ball up the field as far as possible
+;        - players must reach each gate in time or game ends
+;        - second player can join any time (can choose during play?)
+;  - tournament mode : vendetta facing against  
+;        - versus battle where players choose the defenses starting with their goals
+;        - after the players lock in their choices for goal, they choose the next level up / down
+;        - can play from 2 to 6 levels each (not counting midfield)
+;        - game begins when the players have locked in their choices behind midfield
 ;
-
 ;
 ; top player cutoff glitch
 ; scan line glitchy?

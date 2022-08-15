@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('--format', type=str, choices=['asm', 'bas'], default='asm')
     parser.add_argument('--reverse', type=bool, default=False)
     parser.add_argument('--debug', type=bool, default=False)
-    parser.add_argument('--bits', type=int, choices=[8, 16, 24, 48], default=8)
+    parser.add_argument('--bits', type=int, choices=range(8, 8 * 32, 8), default=8)
     parser.add_argument('filenames', nargs='*')
 
     args = parser.parse_args()
