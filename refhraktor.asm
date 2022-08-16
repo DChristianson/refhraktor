@@ -135,10 +135,13 @@ temp_player_state
 temp_grid_gap
 temp_stack            ; hold stack ptr during collision capture
 temp_dy          ds 1 ; use for line drawing computation
+temp_strfmt_index_hi
 temp_grid_inc
 temp_beam_index       ; hold beam offset during playfield kernel 
 temp_dx          ds 1 
+temp_strfmt_index_lo
 temp_D           ds 1
+temp_strfmt_count
 temp_hmove       ds 1
 temp_draw_buffer ds 2
 
@@ -146,6 +149,11 @@ temp_draw_buffer ds 2
 ; menu RAM
 
   SEG.U SCRAM
+
+STRING_BUFFER_0 = 0
+STRING_BUFFER_1 = STRING_BUFFER_0 + 12
+STRING_BUFFER_2 = STRING_BUFFER_1 + 12
+STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
 
 ; ----------------------------------
 ; bank 0
@@ -1111,27 +1119,10 @@ kernel_title
             sta COLUBK
 
             ldx #192 / 2 - TITLE_HEIGHT * 2 - 10
-title_waitOnTitle_top
-            sta WSYNC
-            dex
-            bne title_waitOnTitle_top
+            jsr sky_kernel
 
-title_setup    
-            lda #3      ;3=Player and Missile are drawn twice 32 clocks apart 
-            sta NUSIZ0    
-            sta NUSIZ1    
-            lda #LOGO_COLOR
-            sta COLUP0        ;3
-            sta COLUP1          ;3
-            ldy #TITLE_HEIGHT - 1
-            lda #$01
-            and frame
-            beq _jmp_title_96x2_resp_frame_0
-            jmp title_96x2_resp_frame_1  
-_jmp_title_96x2_resp_frame_0
-            jmp title_96x2_resp_frame_0
+            jsr title_kernel
 
-title_codeEnd
             ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
             jsr grid_kernel
 
@@ -1155,6 +1146,10 @@ kernel_menu_setup
             rts
 
 menu_on_press_down
+            ; load string
+            ldx #STRING_BUFFER_0
+            ldy #STRING_VERSUS
+            jsr strfmt
             ; change loop
             lda #GAME_STATE_DROP
             sta game_state
@@ -1165,14 +1160,41 @@ kernel_menu
 
             jsr waitOnVBlank ; SL 34
 
-                 
+            ; skip empty space
             ldx #30 
-menu_waitOnMenu_top
+            jsr sky_kernel
+            
+            jsr title_kernel
+
+            ; skip empty space
+            ldx #10 
+            jsr sky_kernel
+
+            ; menu text
+            jsr text_kernel
+
+            ; bottom grid
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 49
+            jsr grid_kernel
+            
+            jmp waitOnOverscan
+
+;--------------------------
+; sky drawing routing
+
+            ; x is number of lines
+sky_kernel
             sta WSYNC
+            lda #$00
             sta COLUBK
             dex
-            bne menu_waitOnMenu_top
+            bne sky_kernel
+            rts
 
+;--------------------------
+; text drawing kernel
+
+text_kernel
 menu_text_setup_0
             sta WSYNC
             lda #$01
@@ -1198,24 +1220,24 @@ menu_text_setup_0
             stx temp_stack
             ldy #6
 menu_text_draw_0
-            sta WSYNC         ;3   0
+            sta WSYNC                                     ;3   0
             ; load and store first 3 
-            lda VERSUS_0,y    ;4   4
-            sta GRP0          ;3   7
-            lda VERSUS_1,y    ;4  11
-            sta GRP1          ;3  14
-            lda VERSUS_2,y    ;4  18
-            sta GRP0          ;3  21
+            lda SUPERCHIP_READ + STRING_BUFFER_0 + 0,y    ;4   4
+            sta GRP0                                      ;3   7
+            lda SUPERCHIP_READ + STRING_BUFFER_0 + 1,y    ;4  11
+            sta GRP1                                      ;3  14
+            lda SUPERCHIP_READ + STRING_BUFFER_0 + 2,y    ;4  18
+            sta GRP0                                      ;3  21
             ; load next 3 EDF
-            ldx VERSUS_1,y    ;4  25
-            txs               ;2  27
-            ldx VERSUS_0,y    ;4  31
-            lda VERSUS_2,y    ;4  35
-            stx.w GRP1        ;4  39
-            tsx               ;2  41
-            stx GRP0          ;3  44
-            sta GRP1          ;3  47
-            sty GRP0          ;3  50 force vdelp
+            ldx SUPERCHIP_READ + STRING_BUFFER_0 + 4,y    ;4  25
+            txs                                           ;2  27
+            ldx SUPERCHIP_READ + STRING_BUFFER_0 + 3,y    ;4  31
+            lda SUPERCHIP_READ + STRING_BUFFER_0 + 5,y    ;4  35
+            stx.w GRP1                                    ;4  39
+            tsx                                           ;2  41
+            stx GRP0                                      ;3  44
+            sta GRP1                                      ;3  47
+            sty GRP0                                      ;3  50 force vdelp
             dey
             bpl menu_text_draw_0
             ldx temp_stack
@@ -1225,16 +1247,14 @@ menu_text_draw_0
             sta NUSIZ1
             sta GRP0
             sta GRP1
-
-            ; bottom grid
-            ldx #(192 - 31 - 7) 
-            jsr grid_kernel
-
-            jmp waitOnOverscan
+            sta VDELP0
+            sta VDELP1
+            rts
 
 ;--------------------------
-; draw grid kernel
+; grid drawing kernel
 
+            ; x is number of lines
 grid_kernel
             lda #0 
             sta NUSIZ0    
@@ -1313,6 +1333,160 @@ jx_on_move_return
 jx_menu_end
             rts
 
+;--------------------------
+; text blitter routine
+; x = graphics buffer offset
+; y = char buffer offset
+
+strfmt
+            txa
+            tsx
+            stx temp_stack
+            tax 
+            txs
+_strfmt_loop
+            lda #6
+            sta temp_strfmt_count
+            lda STRING_CONSTANTS,y      
+            bne _strfmt_cont
+            jmp _strfmt_stop
+_strfmt_cont
+            lsr
+            sta temp_strfmt_index_hi
+            bcc _strfmt_hi___
+_strfmt_lo___
+            iny 
+            lda STRING_CONSTANTS,y      
+            beq _strfmt_lo_00
+            lsr 
+            sta temp_strfmt_index_lo
+            bcc _strfmt_lo_lo
+            ; hi << 4 + lo >> 4 
+_strfmt_lo_hi
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            ldx temp_strfmt_index_lo
+            lda FONT_0,x
+            lsr
+            lsr
+            lsr
+            lsr
+            tsx
+            ora STRING_WRITE,x
+            sta STRING_WRITE,x 
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_lo_hi
+            iny 
+            jmp _strfmt_loop
+            ; hi << 4 + lo & 0f
+_strfmt_lo_lo
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            ldx temp_strfmt_index_lo
+            lda FONT_0,x
+            and #$0f
+            tsx
+            ora STRING_WRITE,x
+            sta STRING_WRITE,x 
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_lo_lo
+            iny 
+            jmp _strfmt_loop
+_strfmt_lo_00            
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_lo_00
+            iny 
+            jmp _strfmt_loop
+_strfmt_hi___
+            iny 
+            lda STRING_CONSTANTS,y      
+            beq _strfmt_hi_00
+            sec 
+            sbc #65
+            lsr 
+            sta temp_strfmt_index_lo
+            bcc _strfmt_hi_lo
+_strfmt_hi_hi
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            tsx
+            sta STRING_WRITE,x
+            ldx temp_strfmt_index_lo
+            lda FONT_0,x
+            lsr
+            lsr
+            lsr
+            lsr
+            tsx
+            ora STRING_WRITE,x
+            sta STRING_WRITE,x 
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_hi_hi
+            iny 
+            jmp _strfmt_loop
+            ; hi << 4 + lo & 0f
+_strfmt_hi_lo
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            tsx
+            sta STRING_WRITE,x
+            ldx temp_strfmt_index_lo
+            lda FONT_0,x
+            and #$0f
+            tsx
+            ora STRING_WRITE,x
+            sta STRING_WRITE,x 
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_hi_lo
+            iny 
+            jmp _strfmt_loop
+_strfmt_hi_00            
+            ldx temp_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            sta STRING_WRITE,x
+            inx
+            txs
+            dec temp_strfmt_count
+            bpl _strfmt_lo_00
+            iny 
+            jmp _strfmt_loop
+_strfmt_stop
+            ldx temp_stack
+            txs
+            rts
 
 ;--------------------------
 ; player select subroutines
@@ -1446,7 +1620,22 @@ FORMATION_DIAMONDS_P2
     word #P2_GOAL_BOTTOM
 
 	ALIGN 256
-    
+
+title_kernel    
+            lda #3      ;3=Player and Missile are drawn twice 32 clocks apart 
+            sta NUSIZ0    
+            sta NUSIZ1    
+            lda #LOGO_COLOR
+            sta COLUP0        ;3
+            sta COLUP1          ;3
+            ldy #TITLE_HEIGHT - 1
+            lda #$01
+            and frame
+            beq _jmp_title_96x2_resp_frame_0
+            jmp title_96x2_resp_frame_1  
+_jmp_title_96x2_resp_frame_0
+            jmp title_96x2_resp_frame_0
+
 title_96x2_resp_frame_0
             ; position P0 and P1
             ; TODO: cleanup
@@ -1508,7 +1697,7 @@ title_96x2_frame_0
             SLEEP 4                ;4   2
             dey                    ;2   4        
             sbpl title_96x2_frame_0 ;2/+ 6/7
-            jmp title_codeEnd
+            rts
 
     ALIGN 256
 
@@ -1572,7 +1761,7 @@ title_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
             SLEEP 8                ;8   2
             dey                    ;2   4        
             sbpl title_96x2_frame_1 ;2/+ 6/7
-            jmp title_codeEnd
+            rts
 
 ;------------------------
 ; splash kernel
@@ -1633,36 +1822,41 @@ waitOnVBlank_loop
 ; Font
 ; 4x7 bit font packed into 7x23 byte array
 FONT_0
-    byte $4e,$a4,$a4,$a4,$a4,$20,$cc; 7
-    byte $6c,$82,$82,$66,$22,$0,$cc; 7
-    byte $2c,$22,$62,$ac,$a8,$20,$a6; 7
-    byte $48,$a8,$a8,$c4,$82,$0,$6e; 7
-    byte $42,$a2,$a6,$ea,$aa,$22,$cc; 7
-    byte $0,$0,$40,$e,$40,$0,$0; 7
-    byte $0,$2,$46,$ee,$46,$2,$0; 7
-    byte $0,$8,$ec,$e,$ec,$8,$0; 7
-    byte $64,$40,$e0,$40,$e0,$0,$a0; 7
-    byte $44,$0,$44,$42,$42,$48,$4c; 7
-    byte $ac,$aa,$ea,$ac,$aa,$22,$ec; 7
-    byte $ec,$8a,$8a,$8a,$8a,$2,$ec; 7
-    byte $e8,$88,$88,$cc,$88,$0,$ee; 7
-    byte $ea,$aa,$aa,$8e,$8a,$2,$ea; 7
-    byte $4e,$4a,$42,$2,$42,$0,$42; 7
-    byte $ae,$a8,$a8,$c8,$a8,$20,$a8; 7
-    byte $aa,$aa,$aa,$a,$ea,$2,$ee; 7
-    byte $e8,$a8,$a8,$ae,$aa,$22,$ee; 7
-    byte $6a,$8a,$ac,$aa,$aa,$22,$ee; 7
-    byte $e4,$24,$24,$e4,$84,$0,$ee; 7
-    byte $e4,$a4,$aa,$aa,$aa,$2,$aa; 7
-    byte $aa,$ea,$ee,$4,$ae,$2,$aa; 7
-    byte $4e,$48,$48,$e4,$a2,$20,$ae; 7
+    byte $4e,$a4,$a4,$a4,$a4,$20,$cc,$0;8
+    byte $6c,$82,$82,$66,$22,$0,$cc,$0;8
+    byte $2c,$22,$62,$ac,$a8,$20,$a6,$0;8
+    byte $48,$a8,$a8,$c4,$82,$0,$6e,$0;8
+    byte $42,$a2,$a6,$ea,$aa,$22,$cc,$0;8
+    byte $0,$0,$40,$e,$40,$0,$0,$0;8
+    byte $0,$2,$46,$ee,$46,$2,$0,$0;8
+    byte $0,$8,$ec,$e,$ec,$8,$0,$0;8
+    byte $64,$40,$e0,$40,$e0,$0,$a0,$0;8
+    byte $44,$0,$44,$42,$42,$48,$4c,$0;8
+    byte $ac,$aa,$ea,$ac,$aa,$22,$ec,$0;8
+    byte $ec,$8a,$8a,$8a,$8a,$2,$ec,$0;8
+    byte $e8,$88,$88,$cc,$88,$0,$ee,$0;8
+    byte $ea,$aa,$aa,$8e,$8a,$2,$ea,$0;8
+    byte $4e,$4a,$42,$2,$42,$0,$42,$0;8
+    byte $ae,$a8,$a8,$c8,$a8,$20,$a8,$0;8
+    byte $aa,$aa,$aa,$a,$ea,$2,$ee,$0;8
+    byte $e8,$a8,$a8,$ae,$aa,$22,$ee,$0;8
+    byte $6a,$8a,$ac,$aa,$aa,$22,$ee,$0;8
+    byte $e4,$24,$24,$e4,$84,$0,$ee,$0;8
+    byte $e4,$a4,$aa,$aa,$aa,$2,$aa,$0;8
+    byte $aa,$ea,$ee,$4,$ae,$2,$aa,$0;8
+    byte $4e,$48,$48,$e4,$a2,$20,$ae,$0;8
 
-VERSUS_0
-    byte $4e,$48,$a8,$ac,$a8,$20,$ae; 7
-VERSUS_1
-    byte $ae,$a2,$c2,$ae,$a8,$20,$ee; 7
-VERSUS_2
-    byte $ee,$a2,$a2,$ae,$a8,$0,$ae; 7    
+STRING_CONSTANTS
+; def rcode(c):
+;     code = ord(c) - 65
+;     return 15 * (code >> 1) + code % 2
+; 
+STRING_VERSUS = . - STRING_CONSTANTS
+    byte 161, 32, 129, 144, 160, 144, 0
+STRING_QUEST = . - STRING_CONSTANTS
+    byte "QUEST"
+STRING_TOURNAMENT = . - STRING_CONSTANTS
+    byte "TOURNAMENT"
 
 ; versus
 ; quest
