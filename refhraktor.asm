@@ -103,12 +103,15 @@ formation_p1_dl  ds 16  ; playfield ptr pf1
 formation_p2_dl  ds 16  ; playfield ptr pf2
 
 player_x      ds 2  ; player x position
+temp_strfmt_index_hi
 player_aim_x  ds 2  ; player aim point x
+temp_strfmt_index_lo
 player_aim_y  ds 2  ; player aim point y
 player_bg     ds 4  ; 
 player_score  ds 2  ;
 laser_ax      ds 2  ;
 laser_ay      ds 2  ;
+temp_strfmt_count
 laser_color   ds 2  ;
 temp_x_travel  
 laser_lo_x    ds 1  ; start x for the low laser
@@ -125,6 +128,7 @@ ball_color   ds 1
 ball_voffset ds 1 ; ball position countdown
 ball_cx      ds BALL_HEIGHT ; collision registers
 
+
 display_scroll    ; scroll adjusted to modulo block
 scroll       ds 1 ; y value to start showing playfield
 
@@ -135,13 +139,11 @@ temp_player_state
 temp_grid_gap
 temp_stack            ; hold stack ptr during collision capture
 temp_dy          ds 1 ; use for line drawing computation
-temp_strfmt_index_hi
 temp_grid_inc
 temp_beam_index       ; hold beam offset during playfield kernel 
+temp_jx_player_count 
 temp_dx          ds 1 
-temp_strfmt_index_lo
 temp_D           ds 1
-temp_strfmt_count
 temp_hmove       ds 1
 temp_draw_buffer ds 2
 
@@ -151,8 +153,11 @@ temp_draw_buffer ds 2
   SEG.U SCRAM
 
 STRING_BUFFER_0 = 0
-STRING_BUFFER_1 = STRING_BUFFER_0 + 12
-STRING_BUFFER_2 = STRING_BUFFER_1 + 12
+STRING_BUFFER_1 = STRING_BUFFER_0 + 8
+STRING_BUFFER_2 = STRING_BUFFER_1 + 8
+STRING_BUFFER_3 = STRING_BUFFER_2 + 8
+STRING_BUFFER_4 = STRING_BUFFER_3 + 8
+STRING_BUFFER_5 = STRING_BUFFER_4 + 8
 STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
 
 ; ----------------------------------
@@ -1134,6 +1139,10 @@ kernel_title
 ; menu kernel
 
 kernel_menu_setup
+            ; load string
+            ldx #STRING_BUFFER_0
+            ldy #STRING_VERSUS
+            jsr strfmt
             ; jmp tables
             lda #>menu_on_press_down
             sta jx_on_press_down + 1
@@ -1146,10 +1155,6 @@ kernel_menu_setup
             rts
 
 menu_on_press_down
-            ; load string
-            ldx #STRING_BUFFER_0
-            ldy #STRING_VERSUS
-            jsr strfmt
             ; change loop
             lda #GAME_STATE_DROP
             sta game_state
@@ -1222,17 +1227,17 @@ menu_text_setup_0
 menu_text_draw_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
-            lda SUPERCHIP_READ + STRING_BUFFER_0 + 0,y    ;4   4
+            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
             sta GRP0                                      ;3   7
-            lda SUPERCHIP_READ + STRING_BUFFER_0 + 1,y    ;4  11
+            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
             sta GRP1                                      ;3  14
-            lda SUPERCHIP_READ + STRING_BUFFER_0 + 2,y    ;4  18
+            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
             sta GRP0                                      ;3  21
             ; load next 3 EDF
-            ldx SUPERCHIP_READ + STRING_BUFFER_0 + 4,y    ;4  25
+            ldx SUPERCHIP_READ + STRING_BUFFER_4,y        ;4  25
             txs                                           ;2  27
-            ldx SUPERCHIP_READ + STRING_BUFFER_0 + 3,y    ;4  31
-            lda SUPERCHIP_READ + STRING_BUFFER_0 + 5,y    ;4  35
+            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  31
+            lda SUPERCHIP_READ + STRING_BUFFER_5,y        ;4  35
             stx.w GRP1                                    ;4  39
             tsx                                           ;2  41
             stx GRP0                                      ;3  44
@@ -1309,19 +1314,22 @@ sub_jx_update
             and #$0f
 _jx_update_loop
             sta temp_player_state
+            stx temp_jx_player_count
             lda #$80
             and INPT4,x
             ora temp_player_state
-            sta temp_player_state
+            pha ; save player state
             bmi jx_on_press_down_return
             eor player_state,x ; debounce
             bpl jx_on_press_down_return
             jmp (jx_on_press_down)
 jx_on_press_down_return
+            ldx temp_jx_player_count ; restore x
             jmp (jx_on_move)
 jx_on_move_return
-            ldy temp_player_state
-            sty player_state,x
+            pla ; recover player state
+            sta player_state,x
+            ldx temp_jx_player_count ; restore x
             dex
             bmi jx_menu_end
             lda SWCHA
@@ -1345,7 +1353,7 @@ strfmt
             tax 
             txs
 _strfmt_loop
-            lda #6
+            lda #7
             sta temp_strfmt_count
             lda STRING_CONSTANTS,y      
             bne _strfmt_cont
@@ -1360,7 +1368,7 @@ _strfmt_lo___
             beq _strfmt_lo_00
             lsr 
             sta temp_strfmt_index_lo
-            bcc _strfmt_lo_lo
+            bcs _strfmt_lo_lo
             ; hi << 4 + lo >> 4 
 _strfmt_lo_hi
             ldx temp_strfmt_index_hi
@@ -1427,11 +1435,9 @@ _strfmt_hi___
             iny 
             lda STRING_CONSTANTS,y      
             beq _strfmt_hi_00
-            sec 
-            sbc #65
             lsr 
             sta temp_strfmt_index_lo
-            bcc _strfmt_hi_lo
+            bcs _strfmt_hi_lo
 _strfmt_hi_hi
             ldx temp_strfmt_index_hi
             lda FONT_0,x
