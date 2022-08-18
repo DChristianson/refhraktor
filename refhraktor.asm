@@ -159,6 +159,7 @@ STRING_BUFFER_3 = STRING_BUFFER_2 + 8
 STRING_BUFFER_4 = STRING_BUFFER_3 + 8
 STRING_BUFFER_5 = STRING_BUFFER_4 + 8
 STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
+STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
 
 ; ----------------------------------
 ; bank 0
@@ -1360,17 +1361,20 @@ _strfmt_loop
             jmp _strfmt_stop
 _strfmt_cont
             lsr
-            sta temp_strfmt_index_hi
             bcc _strfmt_hi___
 _strfmt_lo___
+            asl
+            sta temp_strfmt_index_hi
             iny 
             lda STRING_CONSTANTS,y      
             beq _strfmt_lo_00
             lsr 
-            sta temp_strfmt_index_lo
             bcs _strfmt_lo_lo
             ; hi << 4 + lo >> 4 
 _strfmt_lo_hi
+            asl
+            sta temp_strfmt_index_lo
+_strfmt_lo_hi_loop
             ldx temp_strfmt_index_hi
             lda FONT_0,x
             asl
@@ -1386,16 +1390,21 @@ _strfmt_lo_hi
             lsr
             lsr
             tsx
-            ora STRING_WRITE,x
+            ora STRING_READ,x
             sta STRING_WRITE,x 
             inx
             txs
+            inc temp_strfmt_index_hi
+            inc temp_strfmt_index_lo
             dec temp_strfmt_count
-            bpl _strfmt_lo_hi
+            bpl _strfmt_lo_hi_loop
             iny 
             jmp _strfmt_loop
             ; hi << 4 + lo & 0f
 _strfmt_lo_lo
+            asl
+            sta temp_strfmt_index_lo
+_strfmt_lo_lo_loop
             ldx temp_strfmt_index_hi
             lda FONT_0,x
             asl
@@ -1408,12 +1417,14 @@ _strfmt_lo_lo
             lda FONT_0,x
             and #$0f
             tsx
-            ora STRING_WRITE,x
+            ora STRING_READ,x
             sta STRING_WRITE,x 
             inx
             txs
+            inc temp_strfmt_index_hi
+            inc temp_strfmt_index_lo
             dec temp_strfmt_count
-            bpl _strfmt_lo_lo
+            bpl _strfmt_lo_lo_loop
             iny 
             jmp _strfmt_loop
 _strfmt_lo_00            
@@ -1427,18 +1438,23 @@ _strfmt_lo_00
             sta STRING_WRITE,x
             inx
             txs
+            inc temp_strfmt_index_hi
             dec temp_strfmt_count
             bpl _strfmt_lo_00
             iny 
             jmp _strfmt_loop
 _strfmt_hi___
+            asl
+            sta temp_strfmt_index_hi
             iny 
             lda STRING_CONSTANTS,y      
             beq _strfmt_hi_00
             lsr 
-            sta temp_strfmt_index_lo
             bcs _strfmt_hi_lo
 _strfmt_hi_hi
+            asl
+            sta temp_strfmt_index_lo
+_strfmt_hi_hi_loop
             ldx temp_strfmt_index_hi
             lda FONT_0,x
             and #$f0
@@ -1451,16 +1467,21 @@ _strfmt_hi_hi
             lsr
             lsr
             tsx
-            ora STRING_WRITE,x
+            ora STRING_READ,x
             sta STRING_WRITE,x 
             inx
             txs
+            inc temp_strfmt_index_hi
+            inc temp_strfmt_index_lo
             dec temp_strfmt_count
-            bpl _strfmt_hi_hi
+            bpl _strfmt_hi_hi_loop
             iny 
             jmp _strfmt_loop
             ; hi << 4 + lo & 0f
 _strfmt_hi_lo
+            asl
+            sta temp_strfmt_index_lo
+_strfmt_hi_lo_loop
             ldx temp_strfmt_index_hi
             lda FONT_0,x
             and #$f0
@@ -1470,26 +1491,38 @@ _strfmt_hi_lo
             lda FONT_0,x
             and #$0f
             tsx
-            ora STRING_WRITE,x
+            ora STRING_READ,x
             sta STRING_WRITE,x 
             inx
             txs
+            inc temp_strfmt_index_hi
+            inc temp_strfmt_index_lo
             dec temp_strfmt_count
-            bpl _strfmt_hi_lo
+            bpl _strfmt_hi_lo_loop
             iny 
             jmp _strfmt_loop
 _strfmt_hi_00            
             ldx temp_strfmt_index_hi
             lda FONT_0,x
             and #$f0
+            tsx
             sta STRING_WRITE,x
             inx
             txs
+            inc temp_strfmt_index_hi
             dec temp_strfmt_count
-            bpl _strfmt_lo_00
+            bpl _strfmt_hi_00
             iny 
             jmp _strfmt_loop
 _strfmt_stop
+            tsx
+_strfmt_00_loop
+            cpx #(6 * 8)
+            bpl _strfmt_end
+            sta STRING_WRITE,x
+            inx
+            jmp _strfmt_00_loop
+_strfmt_end
             ldx temp_stack
             txs
             rts
@@ -1853,16 +1886,12 @@ FONT_0
     byte $4e,$48,$48,$e4,$a2,$20,$ae,$0;8
 
 STRING_CONSTANTS
-; def rcode(c):
-;     code = ord(c) - 65
-;     return 15 * (code >> 1) + code % 2
-; 
 STRING_VERSUS = . - STRING_CONSTANTS
-    byte 161, 32, 129, 144, 160, 144, 0
+    byte 161, 96, 145, 152, 160, 152, 0
 STRING_QUEST = . - STRING_CONSTANTS
-    byte "QUEST"
+    byte 144, 160, 96, 152, 153, 0
 STRING_TOURNAMENT = . - STRING_CONSTANTS
-    byte "TOURNAMENT"
+    byte 153, 136, 160, 145, 129, 80, 128, 96, 129, 153, 0
 
 ; versus
 ; quest
