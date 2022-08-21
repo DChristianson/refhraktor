@@ -23,15 +23,14 @@ Weapons
 
 You see anything and everything here but these are the most common.
 
-Mark I laser         - it's not the most powerful, but easy to install an much less prone to overheating. 
+Mark I pulse laser   - it's not the most powerful, but easy to install an much less prone to overheating. 
                        built in rectifiers to prevent power escape means you can fire continuously without penalty
                        tiny storage bank means you can't fire long
-                       if you've got
-Mark IV laser        - the ultimate in high efficiency high yield 
-                       you must coordinate your shots with power surges
-ME-X maser           - what do we want? more ionizing radiation. when do we want it? now.
+Mark IV laser gun    - the ultimate in high efficiency high yield 
+                       lack of power rectification mean you need to coordinate your shots with power surges
+ME X maser          - what do we want? more ionizing radiation. when do we want it? now.
                        wide angle beam weapon deflects projectiles at close range
-                       power hungry 
+                       great for defense 
 
 Auxiliary equipment             
 
