@@ -35,19 +35,43 @@ LOGO_COLOR = $53
 SCANLINES = 262
 #endif
 
-GAME_STATE_SPLASH_0     = -3
-GAME_STATE_SPLASH_1     = -2
-GAME_STATE_SPLASH_2     = -1
-GAME_STATE_PLAY         = 0
-GAME_STATE_CELEBRATE    = 1
-GAME_STATE_DROP         = 2
-GAME_STATE_GAME_OVER    = 3
-GAME_STATE_TITLE        = 4 ; title screen
-GAME_STATE_MENU_ROOT = 5 ; choose game type
-GAME_STATE_MENU_PLAYERS = 6 ; choose equipment
-GAME_STATE_MENU_STAGE   = 7 ; choose stage 
-GAME_STATE_MENU_TUNE    = 8 ; choose chiptune
-GAME_STATE_START        = 9
+;
+; game states
+; 
+; $0000xxxx : attract mode screens
+; $0001xxxx ; menu to select games
+; $1yyyxxxx ; game types
+;
+GS_ATTRACT             = $00;
+GS_ATTRACT_SPLASH_0    = $00;
+GS_ATTRACT_SPLASH_1    = $01;
+GS_ATTRACT_SPLASH_2    = $02;
+GS_ATTRACT_TITLE       = $03; 
+; FUTURE: credits
+; FUTURE: hi scores
+; FUTURE: instructions
+; FUTURE: shoutouts
+
+GS_MENU                = $10; 
+; select game types
+__MENU_GAME_VERSUS     = $00
+__MENU_GAME_QUEST      = $01
+__MENU_GAME_TOURNAMENT = $02
+
+GS_GAME                = $80
+GS_GAME_VERSUS         = $80;
+GS_GAME_QUEST          = $90;
+GS_GAME_TOURNAMENT     = $a0;
+; game types
+
+__GAME_MODE_PLAY       = $00
+__GAME_MODE_CELEBRATE  = $01
+__GAME_MODE_DROP       = $02
+__GAME_MODE_GAME_OVER  = $03
+__GAME_MODE_START      = $04
+__GAME_SELECT_PLAYERS  = $05 ; choose equipment
+__GAME_SELECT_STAGE    = $06 ; choose stage 
+__GAME_SELECT_TUNE     = $07 ; choose chiptune
 
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
@@ -80,43 +104,40 @@ LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 
     ORG $80
 
-game_state   ds 1  ; current game state
-game_timer   ds 1  ; countdown
-
 frame        ds 1  ; frame counter
+game_timer   ds 1  ; countdown
 
 audio_tracker ds 2  ; next track
 audio_timer   ds 2  ; time left on audio
 
-formation_select ds 1   ; which level
+game_state        ds 1  ; current game state
+formation_select  ds 1           ; which  level
+chiptune_select   ds 1           ; which audio track
+player_select     ds NUM_PLAYERS ; player options 
 
-player_opt    ds 2  ; player options (d0 = ball tracking on/off, d1 = manual aim on/off)
-player_state  ds 2  ; player state (d1 = fire)
-player_sprite ds 4  ;
+player_input  ds NUM_PLAYERS      ; player input buffer
+player_sprite ds 2 * NUM_PLAYERS  ; pointer
 
-jx_on_press_down ds 2  ; on press code
-jx_on_move       ds 2  ; on move code
+jx_on_press_down ds 2  ; on press sub ptr
+jx_on_move       ds 2  ; on move sub ptr
 
-formation_up     ds 2   ; formation obj ptr
+formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
-formation_p1_dl  ds 16  ; playfield ptr pf1
-formation_p2_dl  ds 16  ; playfield ptr pf2
+formation_p1_dl  ds 10  ; playfield ptr pf1
+formation_p2_dl  ds 10  ; playfield ptr pf2
 
-player_x      ds 2  ; player x position
-temp_strfmt_index_hi
-player_aim_x  ds 2  ; player aim point x
-temp_strfmt_index_lo
-player_aim_y  ds 2  ; player aim point y
-player_bg     ds 4  ; 
-player_score  ds 2  ;
+player_state  ds NUM_PLAYERS
+player_x      ds NUM_PLAYERS  ; player x position
+player_aim_x  ds NUM_PLAYERS  ; player aim point x
+player_aim_y  ds NUM_PLAYERS  ; player aim point y
+player_bg     ds 2 * NUM_PLAYERS  ; 
+player_score  ds NUM_PLAYERS  ;
+
 laser_ax      ds 2  ;
 laser_ay      ds 2  ;
-temp_strfmt_count
 laser_color   ds 2  ;
-temp_x_travel  
 laser_lo_x    ds 1  ; start x for the low laser
 laser_hmov_0  ds PLAYFIELD_BEAM_RES
-;laser_hmov_1  ds PLAYFIELD_BEAM_RES
 
 ball_y       ds 2 
 ball_x       ds 2
@@ -135,17 +156,34 @@ scroll       ds 1 ; y value to start showing playfield
 display_formation_jmp   ds 2   ; formation jump ptr
 display_playfield_limit ds 1
 
-temp_player_state
-temp_grid_gap
-temp_stack            ; hold stack ptr during collision capture
-temp_dy          ds 1 ; use for line drawing computation
-temp_grid_inc
-temp_beam_index       ; hold beam offset during playfield kernel 
-temp_jx_player_count 
-temp_dx          ds 1 
-temp_D           ds 1
-temp_hmove       ds 1
-temp_draw_buffer ds 2
+LOCAL_OVERLAY           ds 8
+
+; -- joystick kernel locals
+local_jx_player_input = LOCAL_OVERLAY
+local_jx_player_count = LOCAL_OVERLAY + 1
+
+local_strfmt_stack    = LOCAL_OVERLAY + 2
+local_strfmt_index_hi = LOCAL_OVERLAY + 3
+local_strfmt_index_lo = LOCAL_OVERLAY + 4
+local_strfmt_count    = LOCAL_OVERLAY + 5
+
+; -- grid kernel locals
+local_grid_gap = LOCAL_OVERLAY      
+local_grid_inc = LOCAL_OVERLAY + 1
+
+; -- player update kernel locals
+local_player_x_travel    = LOCAL_OVERLAY
+local_player_dy          = LOCAL_OVERLAY + 1 ; use for line drawing computation
+local_player_dx          = LOCAL_OVERLAY + 2
+local_player_D           = LOCAL_OVERLAY + 3
+local_player_hmove       = LOCAL_OVERLAY + 4
+local_player_draw_buffer = LOCAL_OVERLAY + 5 ; (ds 2)
+
+
+; -- playfield kernel locals
+local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
+local_pf_beam_index = LOCAL_OVERLAY + 1  ; hold beam offset during playfield kernel 
+
 
 ; ----------------------------------
 ; menu RAM
@@ -158,6 +196,7 @@ STRING_BUFFER_2 = STRING_BUFFER_1 + 8
 STRING_BUFFER_3 = STRING_BUFFER_2 + 8
 STRING_BUFFER_4 = STRING_BUFFER_3 + 8
 STRING_BUFFER_5 = STRING_BUFFER_4 + 8
+
 STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
 STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
 
@@ -238,7 +277,7 @@ _ball_resp_color
             sta COLUP0                   ;3   9
             ; point SP at collision register
             tsx                          ;2  11
-            stx temp_stack               ;3  14
+            stx local_pf_stack           ;3  14
             ldx #ball_cx + BALL_HEIGHT-1 ;2  16
             txs                          ;2  18
             sta CXCLR                    ;3  21
@@ -268,6 +307,7 @@ _lo_resp_loop
             lda frame
             and #$01
             tax
+
             lda player_state,x           ;3   6
             sta ENAM0                    ;3   9
             and #$02
@@ -283,7 +323,7 @@ _skip_laser_color_1
             lda #$00                     ;2  26 
             sta HMP0                     ;3  29 
             sta HMP1                     ;3  32
-            sta temp_beam_index          ;3  35
+            sta local_pf_beam_index      ;3  35
             lda #$01                     ;2  37
             sta VDELP1                   ;3  40
             jmp (display_formation_jmp)  ;3  43
@@ -392,8 +432,8 @@ _player_0_draw_loop
 
 ; kernel exit
 
-            ldx temp_stack               ;3   --
-            txs                          ;2   --
+            ldx local_pf_stack      ;3   --
+            txs                     ;2   --
 
             sta WSYNC
             lda #$00
@@ -531,7 +571,7 @@ CleanStart
     sta scroll
     lda #DROP_DELAY
     sta game_timer
-    lda #GAME_STATE_TITLE ; GAME_STATE_SPLASH_0
+    lda #GS_ATTRACT_TITLE 
     sta game_state
     jsr kernel_title_setup
 
@@ -594,24 +634,12 @@ newFrame
 
             inc frame ; new frame
 
-    ; check switches
+    ; check reset switches
             lda #$01
             bit SWCHB
-            bne check_select
+            bne done_switches
             jmp CleanStart
-check_select
-            lda #$02
-            bit SWCHB
-            bne no_select
-            sta player_opt ; TODO:placeholder
-            jmp done_select
-no_select
-            bit player_opt
-            beq done_select
-            lda #$00
-            sta player_opt
-            jsr switch_formation
-done_select
+done_switches
 
             ldx #NUM_AUDIO_CHANNELS - 1
 audio_loop 
@@ -656,9 +684,12 @@ audio_next_channel
             dex
             bpl audio_loop
 
-            ldx game_state
+; game state switch 
+; BUGBUG: TODO: jump table?
+            lda game_state
+            bpl _jmpAttractMenu
+            and $7f 
             beq kernel_playGame
-            bmi jmpSplash
             dex
             beq kernel_celebrateScore
             dex
@@ -666,24 +697,23 @@ audio_next_channel
             dex 
             beq kernel_gameOver
             dex
-            beq jmpTitle
-            dex 
-            beq jmpMenu
-            dex 
-            jmp kernel_startGame
-jmpSplash
+            beq kernel_startGame
+_jmpAttractMenu
+            cmp #GS_MENU
+            bcs _jmpMenu 
+            cmp #GS_ATTRACT_TITLE
+            beq _jmpTitle
             jmp kernel_showSplash
-jmpTitle
-            jmp kernel_title
-jmpMenu     
+_jmpMenu
             jmp kernel_menu
+_jmpTitle
+            jmp kernel_title
 
 ;--------------------
 ; gameplay update kernel
 
 kernel_startGame
 kernel_gameOver
-
 kernel_dropBall
             ; ball state
             lda #64 - BALL_HEIGHT / 2
@@ -721,7 +751,9 @@ _drop_init_game
             ; init to game
             lda #BALL_COLOR
             sta ball_color
-            lda #GAME_STATE_PLAY
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_PLAY
             sta game_state
 _drop_continue
             jmp scroll_update
@@ -733,7 +765,9 @@ kernel_celebrateScore
             bne _celebrate_continue
             lda #DROP_DELAY
             sta game_timer
-            lda #GAME_STATE_DROP
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_DROP
             sta game_state
 _celebrate_continue
             jmp scroll_update ; skip ball update
@@ -754,7 +788,9 @@ _ball_score_celebrate
             ; next screen will be score celebration
             lda #CELEBRATE_DELAY
             sta game_timer
-            lda #GAME_STATE_CELEBRATE
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_CELEBRATE
             sta game_state
 _ball_score_end
 
@@ -917,6 +953,8 @@ _player_update_next_player
 _player_update_end
 
 player_aim
+            lda #$00
+            sta local_player_draw_buffer + 1
             lda frame
             and #$01
             tax
@@ -930,7 +968,7 @@ _player_aim_beam_hi
             adc #$01
             tay            ; dy
             lda #laser_hmov_0
-            sta temp_draw_buffer ; point at top of beam hmov stack
+            sta local_player_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
             sbc player_aim_x,x    ; dx
@@ -940,7 +978,7 @@ _player_aim_beam_lo
             adc #PLAYFIELD_VIEWPORT_HEIGHT
             tay           ; dy
             lda #laser_hmov_0
-            sta temp_draw_buffer ; point to top of beam hmov stack
+            sta local_player_draw_buffer ; point to top of beam hmov stack
             lda player_aim_x,x
             sec
             sbc player_x,x ; dx
@@ -948,62 +986,63 @@ _player_aim_beam_interp
             cpy #PLAYFIELD_BEAM_RES ; if dy < BEAM res, double everything
             bcs _player_aim_beam_end
             asl 
-            sta temp_dx
+            sta local_player_dx
             tya
             asl 
             tay
-            lda temp_dx
+            lda local_player_dx
 _player_aim_beam_end
+
             ; figure out beam path
 _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
-            sty temp_dy
+            sty local_player_dy
             cmp #00
             bpl _player_draw_beam_left
             eor #$ff
             clc
             adc #$01
-            cmp temp_dy
+            cmp local_player_dy
             bcc _player_draw_skip_normalize_dx_right
             tya
 _player_draw_skip_normalize_dx_right
-            sta temp_dx 
+            sta local_player_dx 
             lda #$f0
             jmp _player_draw_beam_set_hmov
 _player_draw_beam_left
-            cmp temp_dy
+            cmp local_player_dy
             bcc _player_draw_skip_normalize_dx_left
             tya
 _player_draw_skip_normalize_dx_left
-            sta temp_dx
+            sta local_player_dx
             lda #$10
 _player_draw_beam_set_hmov
-            sta temp_hmove
-            asl temp_dx  ; dx = 2 * dx
-            lda temp_dx
+            sta local_player_hmove
+            asl local_player_dx  ; dx = 2 * dx
+            lda local_player_dx
             sec
-            sbc temp_dy  ; D = 2dx - dy
-            asl temp_dy  ; dy = 2 * dy
-            sta temp_D
+            sbc local_player_dy  ; D = 2dx - dy
+            asl local_player_dy  ; dy = 2 * dy
+            sta local_player_D
             lda #$00
-            sta temp_x_travel
+            sta local_player_x_travel
             ldy #PLAYFIELD_BEAM_RES - 1 ; will stop at 16
 _player_draw_beam_loop
             lda #$01
-            cmp temp_D
+            cmp local_player_D
             bpl _player_draw_beam_skip_bump_hmov
             ; need an hmov
-            lda temp_D
+            lda local_player_D
             sec
-            sbc temp_dy  ; D = D - 2 * dy
-            sta temp_D
-            lda temp_hmove
-            inc temp_x_travel
+            sbc local_player_dy  ; D = D - 2 * dy
+            sta local_player_D
+            lda local_player_hmove
+            inc local_player_x_travel
 _player_draw_beam_skip_bump_hmov
-            sta (temp_draw_buffer),y ; cheating that #$01 is in a
-            lda temp_D
+            sta (local_player_draw_buffer),y ; cheating that #$01 is in a
+            lda local_player_D
             clc
-            adc temp_dx  ; D = D + 2 * dx
-            sta temp_D
+            adc local_player_dx  ; D = D + 2 * dx
+            sta local_player_D
             dey
             bpl _player_draw_beam_loop
             lda player_state,x
@@ -1013,7 +1052,7 @@ _player_draw_beam_skip_bump_hmov
             ldy #$f0
             sec
             lda #PLAYFIELD_BEAM_RES * 2
-            sbc temp_x_travel
+            sbc local_player_x_travel
             cpx #$00
             bne _player_draw_beam_skip_invert_ay
             ldy #$10
@@ -1022,8 +1061,8 @@ _player_draw_beam_skip_bump_hmov
             adc #$01
 _player_draw_beam_skip_invert_ay
             sta laser_ay,x
-            lda temp_x_travel
-            cpy temp_hmove 
+            lda local_player_x_travel
+            cpy local_player_hmove 
             beq _player_draw_beam_skip_invert_ax
             eor #$ff
             clc
@@ -1040,14 +1079,14 @@ _player_draw_beam_end
             jmp _player_aim_save_laser_x         
 _player_aim_calc_lo
             ; find lo player beam starting point
-            ; last temp_x_travel will have the (signed) x distance covered  
+            ; last local_player_x_travel will have the (signed) x distance covered  
             ; multiply by 5 to get 80 scanline x distance
-            lda temp_x_travel
+            lda local_player_x_travel
             asl 
             asl 
             clc
-            adc temp_x_travel
-            ldy temp_hmove 
+            adc local_player_x_travel
+            ldy local_player_hmove 
             bpl _player_aim_refract_no_invert
             eor #$ff
             clc
@@ -1111,7 +1150,7 @@ kernel_title_setup
 
 title_on_press_down
             ; change loop
-            lda #GAME_STATE_MENU_ROOT
+            lda #GS_MENU 
             sta game_state
             jsr kernel_menu_setup
             jmp jx_on_press_down_return
@@ -1156,10 +1195,39 @@ kernel_menu_setup
             rts
 
 menu_on_press_down
-            ; change loop
-            lda #GAME_STATE_DROP
+            ; select game
+            lda game_state
+            asl
+            asl
+            asl
+            asl
+            ora #(GS_GAME + __GAME_MODE_DROP)
             sta game_state
             jmp jx_on_press_down_return
+
+menu_on_move
+            and #$0f
+            eor #$0f
+            beq _menu_on_move_end      
+            and player_input,x
+            beq _menu_on_move_end      
+            ldx #STRING_BUFFER_0
+            ; BUGBUG sense the jx proper
+            lda game_state
+            clc
+            adc #$01
+            cmp #(GS_MENU + __MENU_GAME_TOURNAMENT + 1)
+            bcc _menu_on_move_save_state
+            lda #(GS_MENU + __MENU_GAME_VERSUS)
+_menu_on_move_save_state
+            sta game_state
+            and #$0f
+            tax
+            ldy GAME_MODE_TITLES,x  
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+_menu_on_move_end
+            jmp jx_on_move_return
 
 kernel_menu
             jsr sub_jx_update
@@ -1223,8 +1291,8 @@ menu_text_setup_0
             sta HMOVE
 
             tsx
-            stx temp_stack
-            ldy #6
+            stx local_pf_stack
+            ldy #7
 menu_text_draw_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
@@ -1246,7 +1314,7 @@ menu_text_draw_0
             sty GRP0                                      ;3  50 force vdelp
             dey
             bpl menu_text_draw_0
-            ldx temp_stack
+            ldx local_pf_stack
             txs
             lda #$00
             sta NUSIZ0
@@ -1270,9 +1338,9 @@ grid_kernel
             sta WSYNC
 
             lda #$00
-            sta temp_grid_inc
+            sta local_grid_inc
             lda #$01
-            sta temp_grid_gap
+            sta local_grid_gap
             tay 
 _grid_loop
             sta WSYNC
@@ -1284,11 +1352,11 @@ _grid_loop
 _grid_drawGridLine
             lda #LOGO_COLOR
             sta COLUBK
-            lda temp_grid_gap
+            lda local_grid_gap
             asl
-            sta temp_grid_gap
+            sta local_grid_gap
             clc
-            adc temp_grid_inc
+            adc local_grid_inc
             tay
 _grid_nextGridLine
             dex
@@ -1303,7 +1371,6 @@ noop_on_press_down
             jmp jx_on_press_down_return
 
 title_on_move
-menu_on_move
 noop_on_move
             ; # noop
             jmp jx_on_move_return
@@ -1314,23 +1381,24 @@ sub_jx_update
             lda SWCHA
             and #$0f
 _jx_update_loop
-            sta temp_player_state
-            stx temp_jx_player_count
+            sta local_jx_player_input
             lda #$80
             and INPT4,x
-            ora temp_player_state
-            pha ; save player state
+            ora local_jx_player_input
+            sta local_jx_player_input
+            stx local_jx_player_count
             bmi jx_on_press_down_return
-            eor player_state,x ; debounce
+            eor player_input,x ; debounce
             bpl jx_on_press_down_return
             jmp (jx_on_press_down)
 jx_on_press_down_return
-            ldx temp_jx_player_count ; restore x
+            lda local_jx_player_input
+            ldx local_jx_player_count ; restore x
             jmp (jx_on_move)
 jx_on_move_return
-            pla ; recover player state
-            sta player_state,x
-            ldx temp_jx_player_count ; restore x
+            lda local_jx_player_input
+            ldx local_jx_player_count ; restore x
+            sta player_input,x
             dex
             bmi jx_menu_end
             lda SWCHA
@@ -1350,12 +1418,12 @@ jx_menu_end
 strfmt
             txa
             tsx
-            stx temp_stack
+            stx local_strfmt_stack
             tax 
             txs
 _strfmt_loop
             lda #7
-            sta temp_strfmt_count
+            sta local_strfmt_count
             lda STRING_CONSTANTS,y      
             bne _strfmt_cont
             jmp _strfmt_stop
@@ -1364,7 +1432,7 @@ _strfmt_cont
             bcc _strfmt_hi___
 _strfmt_lo___
             asl
-            sta temp_strfmt_index_hi
+            sta local_strfmt_index_hi
             iny 
             lda STRING_CONSTANTS,y      
             beq _strfmt_lo_00
@@ -1373,9 +1441,9 @@ _strfmt_lo___
             ; hi << 4 + lo >> 4 
 _strfmt_lo_hi
             asl
-            sta temp_strfmt_index_lo
+            sta local_strfmt_index_lo
 _strfmt_lo_hi_loop
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             asl
             asl
@@ -1383,7 +1451,7 @@ _strfmt_lo_hi_loop
             asl
             tsx
             sta STRING_WRITE,x
-            ldx temp_strfmt_index_lo
+            ldx local_strfmt_index_lo
             lda FONT_0,x
             lsr
             lsr
@@ -1394,18 +1462,18 @@ _strfmt_lo_hi_loop
             sta STRING_WRITE,x 
             inx
             txs
-            inc temp_strfmt_index_hi
-            inc temp_strfmt_index_lo
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            inc local_strfmt_index_lo
+            dec local_strfmt_count
             bpl _strfmt_lo_hi_loop
             iny 
             jmp _strfmt_loop
             ; hi << 4 + lo & 0f
 _strfmt_lo_lo
             asl
-            sta temp_strfmt_index_lo
+            sta local_strfmt_index_lo
 _strfmt_lo_lo_loop
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             asl
             asl
@@ -1413,7 +1481,7 @@ _strfmt_lo_lo_loop
             asl
             tsx
             sta STRING_WRITE,x
-            ldx temp_strfmt_index_lo
+            ldx local_strfmt_index_lo
             lda FONT_0,x
             and #$0f
             tsx
@@ -1421,14 +1489,14 @@ _strfmt_lo_lo_loop
             sta STRING_WRITE,x 
             inx
             txs
-            inc temp_strfmt_index_hi
-            inc temp_strfmt_index_lo
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            inc local_strfmt_index_lo
+            dec local_strfmt_count
             bpl _strfmt_lo_lo_loop
             iny 
             jmp _strfmt_loop
 _strfmt_lo_00            
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             asl
             asl
@@ -1438,14 +1506,13 @@ _strfmt_lo_00
             sta STRING_WRITE,x
             inx
             txs
-            inc temp_strfmt_index_hi
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            dec local_strfmt_count
             bpl _strfmt_lo_00
-            iny 
-            jmp _strfmt_loop
+            jmp _strfmt_stop_00
 _strfmt_hi___
             asl
-            sta temp_strfmt_index_hi
+            sta local_strfmt_index_hi
             iny 
             lda STRING_CONSTANTS,y      
             beq _strfmt_hi_00
@@ -1453,14 +1520,14 @@ _strfmt_hi___
             bcs _strfmt_hi_lo
 _strfmt_hi_hi
             asl
-            sta temp_strfmt_index_lo
+            sta local_strfmt_index_lo
 _strfmt_hi_hi_loop
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             and #$f0
             tsx
             sta STRING_WRITE,x
-            ldx temp_strfmt_index_lo
+            ldx local_strfmt_index_lo
             lda FONT_0,x
             lsr
             lsr
@@ -1471,23 +1538,23 @@ _strfmt_hi_hi_loop
             sta STRING_WRITE,x 
             inx
             txs
-            inc temp_strfmt_index_hi
-            inc temp_strfmt_index_lo
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            inc local_strfmt_index_lo
+            dec local_strfmt_count
             bpl _strfmt_hi_hi_loop
             iny 
             jmp _strfmt_loop
             ; hi << 4 + lo & 0f
 _strfmt_hi_lo
             asl
-            sta temp_strfmt_index_lo
+            sta local_strfmt_index_lo
 _strfmt_hi_lo_loop
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             and #$f0
             tsx
             sta STRING_WRITE,x
-            ldx temp_strfmt_index_lo
+            ldx local_strfmt_index_lo
             lda FONT_0,x
             and #$0f
             tsx
@@ -1495,35 +1562,35 @@ _strfmt_hi_lo_loop
             sta STRING_WRITE,x 
             inx
             txs
-            inc temp_strfmt_index_hi
-            inc temp_strfmt_index_lo
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            inc local_strfmt_index_lo
+            dec local_strfmt_count
             bpl _strfmt_hi_lo_loop
             iny 
             jmp _strfmt_loop
 _strfmt_hi_00            
-            ldx temp_strfmt_index_hi
+            ldx local_strfmt_index_hi
             lda FONT_0,x
             and #$f0
             tsx
             sta STRING_WRITE,x
             inx
             txs
-            inc temp_strfmt_index_hi
-            dec temp_strfmt_count
+            inc local_strfmt_index_hi
+            dec local_strfmt_count
             bpl _strfmt_hi_00
-            iny 
-            jmp _strfmt_loop
+_strfmt_stop_00
+            lda #$00
 _strfmt_stop
             tsx
 _strfmt_00_loop
-            cpx #(6 * 8)
+            cpx #(6 * 8) ; TODO: this should be start + max len
             bpl _strfmt_end
             sta STRING_WRITE,x
             inx
             jmp _strfmt_00_loop
 _strfmt_end
-            ldx temp_stack
+            ldx local_strfmt_stack
             txs
             rts
 
@@ -1838,10 +1905,6 @@ skipDrawGridLine
             lda #SPLASH_DELAY
             sta game_timer
             inc game_state
-            bmi keepSplashing
-            ; next screen will be menu
-            lda #GAME_STATE_TITLE
-            sta game_state
 
 keepSplashing
             jmp waitOnOverscan
@@ -1859,31 +1922,44 @@ waitOnVBlank_loop
 
 ;-----------------------------
 ; Font
-; 4x7 bit font packed into 7x23 byte array
+; 4x7 bit font packed into 8x32 byte array
+
+    ALIGN 256 
+
 FONT_0
-    byte $4e,$a4,$a4,$a4,$a4,$20,$cc,$0;8
-    byte $6c,$82,$82,$66,$22,$0,$cc,$0;8
-    byte $2c,$22,$62,$ac,$a8,$20,$a6,$0;8
-    byte $48,$a8,$a8,$c4,$82,$0,$6e,$0;8
-    byte $42,$a2,$a6,$ea,$aa,$22,$cc,$0;8
-    byte $0,$0,$40,$e,$40,$0,$0,$0;8
-    byte $0,$2,$46,$ee,$46,$2,$0,$0;8
-    byte $0,$8,$ec,$e,$ec,$8,$0,$0;8
-    byte $64,$40,$e0,$40,$e0,$0,$a0,$0;8
-    byte $44,$0,$44,$42,$42,$48,$4c,$0;8
-    byte $ac,$aa,$ea,$ac,$aa,$22,$ec,$0;8
-    byte $ec,$8a,$8a,$8a,$8a,$2,$ec,$0;8
-    byte $e8,$88,$88,$cc,$88,$0,$ee,$0;8
-    byte $ea,$aa,$aa,$8e,$8a,$2,$ea,$0;8
-    byte $4e,$4a,$42,$2,$42,$0,$42,$0;8
-    byte $ae,$a8,$a8,$c8,$a8,$20,$a8,$0;8
-    byte $aa,$aa,$aa,$a,$ea,$2,$ee,$0;8
-    byte $e8,$a8,$a8,$ae,$aa,$22,$ee,$0;8
-    byte $6a,$8a,$ac,$aa,$aa,$22,$ee,$0;8
-    byte $e4,$24,$24,$e4,$84,$0,$ee,$0;8
-    byte $e4,$a4,$aa,$aa,$aa,$2,$aa,$0;8
-    byte $aa,$ea,$ee,$4,$ae,$2,$aa,$0;8
-    byte $4e,$48,$48,$e4,$a2,$20,$ae,$0;8
+    ; BUGBUG: TODO: off by 1 char
+    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8 
+    byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
+    byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
+    byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
+    byte $0,$42,$a2,$a6,$ea,$aa,$22,$cc; 8
+    byte $0,$0,$0,$40,$e,$40,$0,$0; 8
+    byte $0,$0,$2,$46,$ee,$46,$2,$0; 8
+    byte $0,$0,$8,$ec,$e,$ec,$8,$0; 8
+    byte $0,$64,$40,$e0,$40,$e0,$0,$e0; 8
+    byte $0,$44,$0,$44,$42,$42,$48,$4c; 8
+    byte $0,$ac,$aa,$ea,$ac,$aa,$22,$ec; 8
+    byte $0,$ec,$8a,$8a,$8a,$8a,$2,$ec; 8
+    byte $0,$e8,$88,$88,$cc,$88,$0,$ee; 8
+    byte $0,$ea,$aa,$aa,$8e,$8a,$2,$ea; 8
+    byte $0,$4e,$4a,$42,$2,$42,$0,$42; 8
+    byte $0,$ae,$a8,$a8,$c8,$a8,$20,$a8; 8
+    byte $0,$aa,$aa,$aa,$a,$ea,$2,$ee; 8
+    byte $0,$e8,$a8,$a8,$ae,$aa,$22,$ee; 8
+    byte $0,$6a,$8a,$ac,$aa,$aa,$22,$ee; 8
+    byte $0,$e4,$24,$24,$e4,$84,$0,$ee; 8
+    byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
+    byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
+    byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
 
 STRING_CONSTANTS
 STRING_VERSUS = . - STRING_CONSTANTS
@@ -1892,6 +1968,11 @@ STRING_QUEST = . - STRING_CONSTANTS
     byte 144, 160, 96, 152, 153, 0
 STRING_TOURNAMENT = . - STRING_CONSTANTS
     byte 153, 136, 160, 145, 129, 80, 128, 96, 129, 153, 0
+
+GAME_MODE_TITLES
+    byte STRING_VERSUS
+    byte STRING_QUEST
+    byte STRING_TOURNAMENT
 
 ; versus
 ; quest
@@ -2140,11 +2221,11 @@ SPLASH_GRAPHICS
             ;; 2nd line
             sta HMOVE                    ;3   3
             ;; 
-            lda temp_beam_index          ;3   6
+            lda local_pf_beam_index      ;3   6
             clc                          ;2   8
             adc #$01                     ;2  10
             and #$0f                     ;2  12
-            sta temp_beam_index          ;3  15
+            sta local_pf_beam_index      ;3  15
             lda {4},y                    ;4  19
             iny                          ;2  21 ; getting ready for later
             SLEEP 4                      ;4  25
