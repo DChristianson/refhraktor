@@ -183,7 +183,7 @@ local_player_draw_buffer = LOCAL_OVERLAY + 5 ; (ds 2)
 ; -- playfield kernel locals
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
 local_pf_beam_index = LOCAL_OVERLAY + 1  ; hold beam offset during playfield kernel 
-
+local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min 
 
 ; ----------------------------------
 ; menu RAM
@@ -195,7 +195,13 @@ STRING_BUFFER_1 = STRING_BUFFER_0 + 8
 STRING_BUFFER_2 = STRING_BUFFER_1 + 8
 STRING_BUFFER_3 = STRING_BUFFER_2 + 8
 STRING_BUFFER_4 = STRING_BUFFER_3 + 8
-STRING_BUFFER_5 = STRING_BUFFER_4 + 8
+STRING_BUFFER_5 = STRING_BUFFER_4 + 8 ; 48
+STRING_BUFFER_6 = STRING_BUFFER_5 + 8
+STRING_BUFFER_7 = STRING_BUFFER_6 + 8
+STRING_BUFFER_8 = STRING_BUFFER_7 + 8
+STRING_BUFFER_9 = STRING_BUFFER_8 + 8
+STRING_BUFFER_A = STRING_BUFFER_9 + 8
+STRING_BUFFER_F = STRING_BUFFER_A + 8 ; 96
 
 STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
 STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
@@ -698,6 +704,8 @@ audio_next_channel
             beq kernel_gameOver
             dex
             beq kernel_startGame
+            dex
+            jmp kernel_gameOptions
 _jmpAttractMenu
             cmp #GS_MENU
             bcs _jmpMenu 
@@ -1138,20 +1146,11 @@ kernel_title_setup
             sta audio_tracker
             sta audio_tracker + 1
             ; input jump tables
-            lda #>title_on_press_down
-            sta jx_on_press_down + 1
-            lda #<title_on_press_down
-            sta jx_on_press_down
-            lda #>title_on_move
-            sta jx_on_move + 1
-            lda #<title_on_move
-            sta jx_on_move
+            SET_JX_CALLBACKS title_on_press_down, title_on_move
             rts
 
 title_on_press_down
             ; change loop
-            lda #GS_MENU 
-            sta game_state
             jsr kernel_menu_setup
             jmp jx_on_press_down_return
 
@@ -1174,35 +1173,120 @@ kernel_title
             ; jump back
             jmp waitOnOverscan
 
+;------------------------
+; game options menu
+
+kernel_gameOptions_setup
+            ; get game type
+            lda game_state
+            asl
+            asl
+            asl
+            asl
+            ora #GS_GAME
+kernel_gameOptions_player_setup
+            and #$f0
+            ora #__GAME_SELECT_PLAYERS
+            sta game_state
+            ; load string
+            ldx #STRING_BUFFER_0
+            ldy #STRING_P1
+            jsr strfmt
+            ; load string
+            ldx #STRING_BUFFER_1
+            ldy #STRING_P2
+            jsr strfmt
+            ; jmp tables
+            SET_JX_CALLBACKS gameOptions_player_on_press_down, gameOptions_player_on_move
+            ; done
+            rts
+
+gameOptions_player_on_press_down
+            ; select game
+            ; todo
+            jmp jx_on_press_down_return
+
+gameOptions_player_on_move
+            and #$0f
+            eor #$0f
+            beq _gameOptions_player_on_move_end      
+            and player_input,x
+            beq _gameOptions_player_on_move_end      
+            ; BUGBUG sense the jx proper
+            jsr switch_player
+_gameOptions_player_on_move_end
+            jmp jx_on_move_return
+
+kernel_gameOptions
+
+            jsr sub_jx_update
+
+            jsr waitOnVBlank ; SL 34
+
+            ; skip empty space
+            ldx #30 
+            jsr sky_kernel
+            
+            jsr title_kernel
+
+            ; skip empty space
+            ldx #10 
+            jsr sky_kernel
+
+
+            ;;
+            ;; players
+            ;;
+            ; menu choice text
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+
+            ; menu title text
+            ldx #STRING_BUFFER_1
+            jsr text_kernel
+
+                        ; menu title text
+            ldx #STRING_BUFFER_2
+            jsr text_kernel
+
+            ; menu title text
+            ldx #STRING_BUFFER_5
+            jsr text_kernel
+
+            ;;
+            ;; stage
+            ;;
+
+            ;;
+            ;; track
+            ;;
+            
+            ; bottom grid
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
+            jsr grid_kernel
+            
+            jmp waitOnOverscan
+
 
 ;------------------------
 ; menu kernel
 
 kernel_menu_setup
             ; load string
-            ldx #STRING_BUFFER_0
-            ldy #STRING_VERSUS
+            ldx #STRING_BUFFER_6
+            ldy #STRING_GAME_MODE
             jsr strfmt
             ; jmp tables
-            lda #>menu_on_press_down
-            sta jx_on_press_down + 1
-            lda #<menu_on_press_down
-            sta jx_on_press_down
-            lda #>menu_on_move
-            sta jx_on_move + 1
-            lda #<menu_on_move
-            sta jx_on_move
+            SET_JX_CALLBACKS menu_on_press_down, menu_on_move
+            ; setup game mode 
+            lda #(GS_MENU + __MENU_GAME_TOURNAMENT)
+            sta game_state
+            jsr switch_game_mode
             rts
 
 menu_on_press_down
             ; select game
-            lda game_state
-            asl
-            asl
-            asl
-            asl
-            ora #(GS_GAME + __GAME_MODE_DROP)
-            sta game_state
+            jsr kernel_gameOptions_setup
             jmp jx_on_press_down_return
 
 menu_on_move
@@ -1211,21 +1295,8 @@ menu_on_move
             beq _menu_on_move_end      
             and player_input,x
             beq _menu_on_move_end      
-            ldx #STRING_BUFFER_0
             ; BUGBUG sense the jx proper
-            lda game_state
-            clc
-            adc #$01
-            cmp #(GS_MENU + __MENU_GAME_TOURNAMENT + 1)
-            bcc _menu_on_move_save_state
-            lda #(GS_MENU + __MENU_GAME_VERSUS)
-_menu_on_move_save_state
-            sta game_state
-            and #$0f
-            tax
-            ldy GAME_MODE_TITLES,x  
-            ldx #STRING_BUFFER_0
-            jsr strfmt
+            jsr switch_game_mode
 _menu_on_move_end
             jmp jx_on_move_return
 
@@ -1244,11 +1315,17 @@ kernel_menu
             ldx #10 
             jsr sky_kernel
 
-            ; menu text
+            ; menu choice text
+            ldx #STRING_BUFFER_6
             jsr text_kernel
 
+            ; menu title text
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+
+
             ; bottom grid
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 49
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
             jsr grid_kernel
             
             jmp waitOnOverscan
@@ -1269,7 +1346,7 @@ sky_kernel
 ; text drawing kernel
 
 text_kernel
-menu_text_setup_0
+_text_setup_0
             sta WSYNC
             lda #$01
             sta VDELP0
@@ -1283,17 +1360,21 @@ menu_text_setup_0
             lda #30
             sta COLUP0
             sta COLUP1
-            lda #$00
+            lda #$ff
             sta HMP0
-            lda #$10
+            lda #$00
             sta HMP1
             sta WSYNC
             sta HMOVE
 
+            txa
+            sta local_pf_y_min
+            clc
+            adc #7
+            tay
             tsx
             stx local_pf_stack
-            ldy #7
-menu_text_draw_0
+_text_draw_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
             lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
@@ -1313,7 +1394,8 @@ menu_text_draw_0
             sta GRP1                                      ;3  47
             sty GRP0                                      ;3  50 force vdelp
             dey
-            bpl menu_text_draw_0
+            cpy local_pf_y_min
+            bpl _text_draw_0
             ldx local_pf_stack
             txs
             lda #$00
@@ -1595,9 +1677,30 @@ _strfmt_end
             rts
 
 ;--------------------------
+; switch game subroutines
+
+switch_game_mode
+            lda game_state
+            clc
+            adc #$01
+            cmp #(GS_MENU + __MENU_GAME_TOURNAMENT + 1)
+            bcc _switch_game_mode_save_state
+            lda #(GS_MENU + __MENU_GAME_VERSUS)
+_switch_game_mode_save_state
+            sta game_state
+            and #$0f
+            tax
+            ldy GAME_MODE_TITLES,x  
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+            rts
+
+;--------------------------
 ; player select subroutines
 
-; BUGBUG: TODO
+switch_player
+            ; BUGBUG todo
+            ; rts
 
 ;--------------------------
 ; formation select subroutines
@@ -1898,7 +2001,6 @@ skipDrawGridLine
             dex
             bne drawSplashGrid
 
-
             dec game_timer
             bne keepSplashing
             ; next screen
@@ -1927,8 +2029,8 @@ waitOnVBlank_loop
     ALIGN 256 
 
 FONT_0
-    ; BUGBUG: TODO: off by 1 char
-    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8 
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8
     byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
     byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
     byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
@@ -1959,15 +2061,31 @@ FONT_0
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
 
 STRING_CONSTANTS
+STRING_GAME_MODE = . - STRING_CONSTANTS
+    byte 112, 88, 136, 104, 1, 136, 144, 97, 104, 0
+STRING_P1 = . - STRING_CONSTANTS
+    byte 145, 9, 0
+STRING_P2 = . - STRING_CONSTANTS
+    byte 145, 16, 0
+STRING_LC008 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 8, 40, 0
+STRING_LC0X1 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 177, 9, 0
+STRING_MX888 = . - STRING_CONSTANTS
+    byte 136, 177, 40, 40, 40, 0
 STRING_VERSUS = . - STRING_CONSTANTS
-    byte 161, 96, 145, 152, 160, 152, 0
+    byte 169, 104, 153, 160, 168, 160, 0
 STRING_QUEST = . - STRING_CONSTANTS
-    byte 144, 160, 96, 152, 153, 0
+    byte 152, 168, 104, 160, 161, 0
 STRING_TOURNAMENT = . - STRING_CONSTANTS
-    byte 153, 136, 160, 145, 129, 80, 128, 96, 129, 153, 0
+    byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
+    
+PLAYER_SPRITE_NAMES
+    byte STRING_LC008
+    byte STRING_LC0X1
+    byte STRING_MX888
 
 GAME_MODE_TITLES
     byte STRING_VERSUS
@@ -2168,7 +2286,6 @@ TITLE_96x2_11
     byte %11111000
     byte %11110000
 
-
 AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
     byte 0,
 TRACK_0 = . - AUDIO_TRACKS
@@ -2183,6 +2300,16 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
+    MAC SET_JX_CALLBACKS ; given down + move callbacks
+            lda #>{1}
+            sta jx_on_press_down + 1
+            lda #<{1}
+            sta jx_on_press_down
+            lda #>{2}
+            sta jx_on_move + 1
+            lda #<{2}
+            sta jx_on_move
+    ENDM
 
     MAC FORMATION ; given p0, p1, p2, c, mask addr
 ._pl0_loop_0_hm
@@ -2267,7 +2394,7 @@ SPLASH_GRAPHICS
             stx COLUBK                   ;4  71
             tay                          ;2  73
             jmp {6}                      ;3  --
-        ENDM
+    ENDM
 
 ; game notes - MVP
 ; DONE
