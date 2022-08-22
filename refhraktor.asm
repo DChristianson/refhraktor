@@ -694,7 +694,7 @@ audio_next_channel
 ; BUGBUG: TODO: jump table?
             lda game_state
             bpl _jmpAttractMenu
-            and $7f 
+            and #$7f 
             beq kernel_playGame
             dex
             beq kernel_celebrateScore
