@@ -1195,15 +1195,20 @@ kernel_gameOptions_player_setup
             ; load string
             ldx #STRING_BUFFER_1
             ldy #STRING_P2
-            jsr strfmt
             ; jmp tables
             SET_JX_CALLBACKS gameOptions_player_on_press_down, gameOptions_player_on_move
             ; done
             rts
 
 gameOptions_player_on_press_down
-            ; select game
-            ; todo
+            ; select player
+            jsr strfmt
+            ; load string
+            ldx #STRING_BUFFER_6
+            ldy #STRING_CHOOSE_STAGE
+            jsr strfmt
+            SET_JX_CALLBACKS gameOptions_stage_on_press_down, gameOptions_stage_on_move
+            inc game_state
             jmp jx_on_press_down_return
 
 gameOptions_player_on_move
@@ -1216,6 +1221,48 @@ gameOptions_player_on_move
             jsr switch_player
 _gameOptions_player_on_move_end
             jmp jx_on_move_return
+
+gameOptions_stage_on_press_down
+            ; select stage
+            jsr strfmt
+            ; load string
+            ldx #STRING_BUFFER_6
+            ldy #STRING_CHOOSE_TRACK
+            jsr strfmt
+            SET_JX_CALLBACKS gameOptions_track_on_press_down, gameOptions_track_on_move
+            inc game_state
+            jmp jx_on_press_down_return
+
+gameOptions_stage_on_move
+            and #$0f
+            eor #$0f
+            beq _gameOptions_stage_on_move_end      
+            and player_input,x
+            beq _gameOptions_stage_on_move_end      
+            ; BUGBUG sense the jx proper
+            jsr switch_formation
+_gameOptions_stage_on_move_end
+            jmp jx_on_move_return
+
+gameOptions_track_on_press_down
+            ; select stage
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_START
+            sta game_state
+            jmp jx_on_press_down_return
+
+gameOptions_track_on_move
+            and #$0f
+            eor #$0f
+            beq _gameOptions_track_on_move_end      
+            and player_input,x
+            beq _gameOptions_track_on_move_end      
+            ; BUGBUG sense the jx proper
+            jsr switch_track
+_gameOptions_track_on_move_end
+            jmp jx_on_move_return
+
 
 kernel_gameOptions
 
@@ -1274,7 +1321,7 @@ kernel_gameOptions
 kernel_menu_setup
             ; load string
             ldx #STRING_BUFFER_6
-            ldy #STRING_GAME_MODE
+            ldy #STRING_CHOOSE_GAME
             jsr strfmt
             ; jmp tables
             SET_JX_CALLBACKS menu_on_press_down, menu_on_move
@@ -1699,8 +1746,13 @@ _switch_game_mode_save_state
 ; player select subroutines
 
 switch_player
-            ; BUGBUG todo
-            ; rts
+            rts
+
+;-------------------------
+; track select subroutines
+
+switch_track
+            rts
 
 ;--------------------------
 ; formation select subroutines
@@ -2063,8 +2115,12 @@ FONT_0
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
 
 STRING_CONSTANTS
-STRING_GAME_MODE = . - STRING_CONSTANTS
-    byte 112, 88, 136, 104, 1, 136, 144, 97, 104, 0
+STRING_CHOOSE_GAME = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 112, 88, 136, 104, 0
+STRING_CHOOSE_STAGE = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 160, 161, 88, 112, 104, 0
+STRING_CHOOSE_TRACK = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 161, 153, 88, 96, 128, 0
 STRING_P1 = . - STRING_CONSTANTS
     byte 145, 9, 0
 STRING_P2 = . - STRING_CONSTANTS
@@ -2081,6 +2137,15 @@ STRING_QUEST = . - STRING_CONSTANTS
     byte 152, 168, 104, 160, 161, 0
 STRING_TOURNAMENT = . - STRING_CONSTANTS
     byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
+STRING_GET_READY = . - STRING_CONSTANTS
+    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
+STRING_GATE = . - STRING_CONSTANTS
+    byte 112, 88, 161, 104, 0
+STRING_CLEAR = . - STRING_CONSTANTS
+    byte 96, 129, 104, 88, 153, 0
+STRING_GAME_OVER = . - STRING_CONSTANTS
+    byte 112, 88, 136, 104, 1, 144, 169, 104, 153, 0
+
     
 PLAYER_SPRITE_NAMES
     byte STRING_LC008

@@ -1,0 +1,156 @@
+;;
+;; math macros
+;;
+
+    MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
+            ; check bounds, reflect B if we hit
+.clamp16_check_max
+            lda #{4}
+            cmp {1}
+            bcs .clamp16_end
+            sta {1}
+            lda #$00
+            sta {1} + 1
+            lda {2}
+            bmi .clamp16_end
+            clc
+            lda {2} + 1
+            eor #$ff
+            adc #$01
+            sta {2} + 1
+            lda {2}
+            eor #$ff
+            adc #$00
+            sta {2}            
+            jmp .clamp16_end
+.clamp16_check_min
+            lda #{3}
+            cmp {1}
+            bcc .clamp16_end
+            sta {1}
+            lda #$00
+            sta {1} + 1
+            lda {2}
+            bpl .clamp16_end
+            clc
+            lda {2} + 1
+            eor #$ff
+            adc #$01
+            sta {2} + 1
+            lda {2}
+            eor #$ff
+            adc #$00
+            sta {2}            
+.clamp16_end
+    ENDM
+
+    MAC INV16 ; A = -A
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+    ENDM
+
+    MAC ABS16 ; A = ABS(A)
+            lda {1}
+            bpl .abs16_end
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+.abs16_end
+    ENDM
+
+    MAC NEG16 ; A = -ABS(A)
+            lda {1}
+            bmi .neg16_end
+            clc
+            lda {1} + 1
+            eor #$ff
+            adc #$01
+            sta {1} + 1
+            lda {1}
+            eor #$ff
+            adc #$00
+            sta {1}
+.neg16_end
+    ENDM
+
+    MAC INC16 ;  A = A + #B
+            clc
+            lda {1} + 1
+            adc #<{2}
+            sta {1} + 1
+            lda {1}
+            adc #>{2}
+            sta {1}
+    ENDM
+
+    MAC DEC16 ; A + A - #B
+            clc
+            lda {1} + 1
+            adc #<{2}
+            sta {1} + 1
+            lda {1}
+            adc #>{2}
+            sta {1}
+    ENDM
+
+    MAC ADD16 ; Given A16, B16, store A + B -> A 
+            clc
+            lda {1} + 1
+            adc {2} + 1
+            sta {1} + 1
+            lda {1}
+            adc {2}
+            sta {1}
+    ENDM
+
+    MAC DOWNSCALE16_8 ; Given A16, B8, store SIGN(A) * (ABS(A) - #B) -> A
+            lda {1}
+            bmi .downscale16_8_inv
+            sec
+            lda {1} + 1
+            sbc #{2}
+            sta {1} + 1
+            sbc #$00
+            bmi .downscale16_8_zero
+            jmp .downscale16_8_end
+.downscale16_8_inv
+            clc
+            lda {1} + 1
+            adc #{2}
+            sta {1} + 1
+            adc #$00
+            bpl .downscale16_8_end
+.downscale16_8_zero
+            lda #$00
+            sta {1} + 1
+.downscale16_8_end  
+            sta {1}
+
+    ENDM
+
+    MAC ADD16_8x; Given A16, B8, store A + B -> A 
+            ldy #$00
+            lda {2},x
+            bpl ._add16_8
+            ldy #$ff
+._add16_8
+            clc
+            adc {1} + 1
+            sta {1} + 1
+            tya
+            adc {1}
+            sta {1}
+    ENDM
