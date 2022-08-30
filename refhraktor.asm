@@ -3,7 +3,8 @@
     include "vcs.h"
     include "macro.h"
     include "math.h"
-    include "bank_switch_f8.h"
+    include "refhraktor.h"
+    include "bank_switch_f6.h"
 
 SUPERCHIP = 1
 
@@ -52,26 +53,28 @@ GS_ATTRACT_TITLE       = $03;
 ; FUTURE: instructions
 ; FUTURE: shoutouts
 
-GS_MENU                = $10; 
+GS_MENU_GAME           = $10; 
+GS_MENU_EQUIP          = $20; 
+GS_MENU_STAGE          = $30; 
+GS_MENU_TRACK          = $40; 
 ; select game types
 __MENU_GAME_VERSUS     = $00
-__MENU_GAME_QUEST      = $01
-__MENU_GAME_TOURNAMENT = $02
+__MENU_GAME_QUEST      = $04
+__MENU_GAME_TOURNAMENT = $08
+; player choice lock
+__MENU_PLAYER_0_LOCK   = $01
+__MENU_PLAYER_1_LOCK   = $02
 
 GS_GAME                = $80
 GS_GAME_VERSUS         = $80;
 GS_GAME_QUEST          = $90;
 GS_GAME_TOURNAMENT     = $a0;
 ; game types
-
 __GAME_MODE_PLAY       = $00
 __GAME_MODE_CELEBRATE  = $01
 __GAME_MODE_DROP       = $02
 __GAME_MODE_GAME_OVER  = $03
 __GAME_MODE_START      = $04
-__GAME_SELECT_PLAYERS  = $05 ; choose equipment
-__GAME_SELECT_STAGE    = $06 ; choose stage 
-__GAME_SELECT_TUNE     = $07 ; choose chiptune
 
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
@@ -110,16 +113,16 @@ game_timer   ds 1  ; countdown
 audio_tracker ds 2  ; next track
 audio_timer   ds 2  ; time left on audio
 
-game_state        ds 1  ; current game state
-formation_select  ds 1           ; which  level
-chiptune_select   ds 1           ; which audio track
-player_select     ds NUM_PLAYERS ; player options 
-
-player_input  ds NUM_PLAYERS      ; player input buffer
-player_sprite ds 2 * NUM_PLAYERS  ; pointer
+game_state       ds 1  ; current game state
+formation_select ds 1           ; which level
+track_select     ds 1           ; which audio track
+player_select    ds NUM_PLAYERS ; what player options
 
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
+
+player_input  ds NUM_PLAYERS      ; player input buffer
+player_sprite ds 2 * NUM_PLAYERS  ; pointer
 
 formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
@@ -531,29 +534,29 @@ TARGET_2
 TARGET_3
     byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
 ; BUGBUG; TODO: PLAYER GRAPHICS
-; MT_MKI_0
+; MTP_MKI_0
 ;     byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
-; MT_MKI_1
+; MTP_MKI_1
 ;     byte $18,$3c,$ff,$aa,$ff,$0,$3c,$18; 8
-; MT_MKI_2
+; MTP_MKI_2
 ;     byte $18,$3c,$ff,$55,$ff,$c,$3c,$18; 8
-; MT_MKI_3
+; MTP_MKI_3
 ;     byte $18,$3c,$ff,$aa,$ff,$3c,$3c,$18; 8
-; MT_MKIV_0
+; MTP_MKIV_0
 ;     byte $18,$7e,$f7,$55,$55,$f7,$7e,$3c; 8
-; MT_MKIV_1
+; MTP_MKIV_1
 ;     byte $18,$7e,$ef,$aa,$aa,$ef,$7e,$3c; 8
-; MT_MKIV_2
+; MTP_MKIV_2
 ;     byte $18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
-; MT_MKIV_3
+; MTP_MKIV_3
 ;     byte $18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
-; RADAR_TANK_0
+; MTP_MX888_0
 ;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
-; RADAR_TANK_1
+; MTP_MX888_1
 ;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
-; RADAR_TANK_2
+; MTP_MX888_2
 ;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
-; RADAR_TANK_3
+; MTP_MX888_3
 ;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
 TARGET_COLOR_0
     byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
@@ -565,21 +568,14 @@ TARGET_BG_0
     START_BANK 1
 
 ; ----------------------------------
-; code
-
+; Main Bank
 
 CleanStart
     ; do the clean start macro
             CLEAN_START
 
     ; game setup
-    lda #0
-    sta scroll
-    lda #DROP_DELAY
-    sta game_timer
-    lda #GS_ATTRACT_TITLE 
-    sta game_state
-    jsr kernel_title_setup
+    jsr title_setup
 
     ; initial formation
     jsr formation_diamonds
@@ -643,57 +639,21 @@ newFrame
     ; check reset switches
             lda #$01
             bit SWCHB
-            bne done_switches
+            bne _end_switches
             jmp CleanStart
-done_switches
+_end_switches
 
-            ldx #NUM_AUDIO_CHANNELS - 1
-audio_loop 
-            lda audio_tracker,x
-            beq audio_next_channel
-            ldy audio_timer,x
-            beq _audio_next_note
-            dey
-            sty audio_timer,x
-            jmp audio_next_channel
-_audio_next_note
-            tay
-            lda AUDIO_TRACKS,y
-            beq _audio_pause
-            cmp #255
-            beq _audio_stop
-            sta AUDC0,x
-            iny
-            lda AUDIO_TRACKS,y
-            sta AUDF0,x
-            iny
-            lda AUDIO_TRACKS,y
-            sta AUDV0,x
-            jmp _audio_next_timer
-_audio_pause
-            lda #$0
-            sta AUDC0,x
-            sta AUDV0,x
-_audio_next_timer
-            iny
-            lda AUDIO_TRACKS,y
-            sta audio_timer,x
-            iny
-            sty audio_tracker,x
-            jmp audio_next_channel
-_audio_stop
-            lda #$0
-            sta AUDV0,x
-            sta audio_tracker,x
-            sta audio_timer,x
-audio_next_channel
-            dex
-            bpl audio_loop
+            ; jump to audio bank
+            JMP_LBL bank_audio_tracker
+        DEF_LBL bank_return_audio_tracker
 
-; game state switch 
-; BUGBUG: TODO: jump table?
+            ; sub process input
+            jsr sub_jx_update
+
+            ; game state switch 
+            ; BUGBUG: TODO: jump table?
             lda game_state
-            bpl _jmpAttractMenu
+            bpl _jmpAttractMenuKernels
             and #$7f 
             beq kernel_playGame
             dex
@@ -702,20 +662,9 @@ audio_next_channel
             beq kernel_dropBall
             dex 
             beq kernel_gameOver
-            dex
-            beq kernel_startGame
-            dex
-            jmp kernel_gameOptions
-_jmpAttractMenu
-            cmp #GS_MENU
-            bcs _jmpMenu 
-            cmp #GS_ATTRACT_TITLE
-            beq _jmpTitle
-            jmp kernel_showSplash
-_jmpMenu
-            jmp kernel_menu
-_jmpTitle
-            jmp kernel_title
+            jmp kernel_startGame
+_jmpAttractMenuKernels
+            JMP_LBL attract_menu_kernels
 
 ;--------------------
 ; gameplay update kernel
@@ -1124,69 +1073,47 @@ _player_aim_save_laser_x
             JMP_LBL fhrakas_kernel
     DEF_LBL return_main_kernel
 
-
 ;--------------------
 ; Overscan start
 
-waitOnOverscan
+    DEF_LBL waitOnOverscan
             ldx #30
 waitOnOverscan_loop
             sta WSYNC
             dex
             bne waitOnOverscan_loop
-
             jmp newFrame
 
 ;------------------------
-; title kernel
+; title kernel state transition
 
-kernel_title_setup
+title_setup
+            lda #GS_ATTRACT_TITLE 
+            sta game_state
             ; start sound
             lda #TRACK_0      
             sta audio_tracker
             sta audio_tracker + 1
             ; input jump tables
-            SET_JX_CALLBACKS title_on_press_down, title_on_move
+            SET_JX_CALLBACKS title_on_press_down, noop_on_move
             rts
 
 title_on_press_down
             ; change loop
-            jsr kernel_menu_setup
+            jsr menu_game_setup
             jmp jx_on_press_down_return
 
-kernel_title
-            jsr sub_jx_update
 
-            jsr waitOnVBlank ; SL 34
-            sta WSYNC ; SL 35
-            lda #0
-            sta COLUBK
+;---------------------------
+; menu controls
 
-            ldx #192 / 2 - TITLE_HEIGHT * 2 - 10
-            jsr sky_kernel
-
-            jsr title_kernel
-
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
-            jsr grid_kernel
-
-            ; jump back
-            jmp waitOnOverscan
-
-;------------------------
-; game options menu
-
-kernel_gameOptions_setup
-            ; get game type
+menu_equip_setup
+            ; move game type selection into D3/D2
             lda game_state
             asl
             asl
-            asl
-            asl
-            ora #GS_GAME
-kernel_gameOptions_player_setup
-            and #$f0
-            ora #__GAME_SELECT_PLAYERS
+            and #$0f
+            ora #GS_MENU_EQUIP
             sta game_state
             ; load string
             ldx #STRING_BUFFER_0
@@ -1195,302 +1122,130 @@ kernel_gameOptions_player_setup
             ; load string
             ldx #STRING_BUFFER_1
             ldy #STRING_P2
+            ; load player graphics
+            lda #>MTP_MKI_0
+            sta player_sprite + 1
+            sta player_sprite + 3
+            lda #3
+            sta player_select
+            sta player_select + 1
+            ldx #1
+            jsr switch_player
+            ldx #0
+            jsr switch_player
             ; jmp tables
-            SET_JX_CALLBACKS gameOptions_player_on_press_down, gameOptions_player_on_move
+            SET_JX_CALLBACKS menu_equip_on_press_down, menu_equip_on_move
             ; done
             rts
 
-gameOptions_player_on_press_down
-            ; select player
-            jsr strfmt
+menu_equip_on_press_down
+            ; move ahead
+            lda game_state
+            clc 
+            adc #$10
+            sta game_state
             ; load string
             ldx #STRING_BUFFER_6
             ldy #STRING_CHOOSE_STAGE
             jsr strfmt
-            SET_JX_CALLBACKS gameOptions_stage_on_press_down, gameOptions_stage_on_move
-            inc game_state
+            ; jmp tables
+            SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
             jmp jx_on_press_down_return
 
-gameOptions_player_on_move
+menu_equip_on_move
             and #$0f
             eor #$0f
-            beq _gameOptions_player_on_move_end      
+            beq _menu_equip_on_move_end      
             and player_input,x
-            beq _gameOptions_player_on_move_end      
+            beq _menu_equip_on_move_end      
             ; BUGBUG sense the jx proper
             jsr switch_player
-_gameOptions_player_on_move_end
+_menu_equip_on_move_end
             jmp jx_on_move_return
 
-gameOptions_stage_on_press_down
-            ; select stage
-            jsr strfmt
+menu_stage_on_press_down
+            ; move ahead
+            lda game_state
+            clc 
+            adc #$10
+            sta game_state
             ; load string
             ldx #STRING_BUFFER_6
             ldy #STRING_CHOOSE_TRACK
             jsr strfmt
-            SET_JX_CALLBACKS gameOptions_track_on_press_down, gameOptions_track_on_move
-            inc game_state
+            SET_JX_CALLBACKS menu_track_on_press_down, menu_track_on_move
             jmp jx_on_press_down_return
 
-gameOptions_stage_on_move
+menu_stage_on_move
             and #$0f
             eor #$0f
-            beq _gameOptions_stage_on_move_end      
+            beq _menu_stage_on_move_end      
             and player_input,x
-            beq _gameOptions_stage_on_move_end      
+            beq _menu_stage_on_move_end      
             ; BUGBUG sense the jx proper
             jsr switch_formation
-_gameOptions_stage_on_move_end
+_menu_stage_on_move_end
             jmp jx_on_move_return
 
-gameOptions_track_on_press_down
-            ; select stage
+menu_track_on_press_down
+            ; game setuos
+            lda #0
+            sta scroll
+            lda #DROP_DELAY
+            sta game_timer
+            ; move to game
             lda game_state
-            and #$f0
-            ora #__GAME_MODE_START
+            asl
+            asl
+            and #$30
+            ora #(GS_GAME + __GAME_MODE_START)
             sta game_state
             jmp jx_on_press_down_return
 
-gameOptions_track_on_move
+menu_track_on_move
             and #$0f
             eor #$0f
-            beq _gameOptions_track_on_move_end      
+            beq _menu_track_on_move_end      
             and player_input,x
-            beq _gameOptions_track_on_move_end      
+            beq _menu_track_on_move_end      
             ; BUGBUG sense the jx proper
             jsr switch_track
-_gameOptions_track_on_move_end
+_menu_track_on_move_end
             jmp jx_on_move_return
 
 
-kernel_gameOptions
+;-------------------------
+; game menu controls
+;
 
-            jsr sub_jx_update
-
-            jsr waitOnVBlank ; SL 34
-
-            ; skip empty space
-            ldx #30 
-            jsr sky_kernel
-            
-            jsr title_kernel
-
-            ; skip empty space
-            ldx #10 
-            jsr sky_kernel
-
-
-            ;;
-            ;; players
-            ;;
-            ; menu choice text
-            ldx #STRING_BUFFER_0
-            jsr text_kernel
-
-            ; menu title text
-            ldx #STRING_BUFFER_1
-            jsr text_kernel
-
-                        ; menu title text
-            ldx #STRING_BUFFER_2
-            jsr text_kernel
-
-            ; menu title text
-            ldx #STRING_BUFFER_5
-            jsr text_kernel
-
-            ;;
-            ;; stage
-            ;;
-
-            ;;
-            ;; track
-            ;;
-            
-            ; bottom grid
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
-            jsr grid_kernel
-            
-            jmp waitOnOverscan
-
-
-;------------------------
-; menu kernel
-
-kernel_menu_setup
+menu_game_setup
             ; load string
             ldx #STRING_BUFFER_6
             ldy #STRING_CHOOSE_GAME
             jsr strfmt
             ; jmp tables
-            SET_JX_CALLBACKS menu_on_press_down, menu_on_move
+            SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             ; setup game mode 
-            lda #(GS_MENU + __MENU_GAME_TOURNAMENT)
+            lda #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT / 4)
             sta game_state
             jsr switch_game_mode
             rts
 
-menu_on_press_down
+menu_game_on_press_down
             ; select game
-            jsr kernel_gameOptions_setup
+            jsr menu_equip_setup
             jmp jx_on_press_down_return
 
-menu_on_move
+menu_game_on_move
             and #$0f
             eor #$0f
-            beq _menu_on_move_end      
+            beq _menu_game_on_move_end      
             and player_input,x
-            beq _menu_on_move_end      
+            beq _menu_game_on_move_end      
             ; BUGBUG sense the jx proper
             jsr switch_game_mode
-_menu_on_move_end
+_menu_game_on_move_end
             jmp jx_on_move_return
-
-kernel_menu
-            jsr sub_jx_update
-
-            jsr waitOnVBlank ; SL 34
-
-            ; skip empty space
-            ldx #30 
-            jsr sky_kernel
-            
-            jsr title_kernel
-
-            ; skip empty space
-            ldx #10 
-            jsr sky_kernel
-
-            ; menu choice text
-            ldx #STRING_BUFFER_6
-            jsr text_kernel
-
-            ; menu title text
-            ldx #STRING_BUFFER_0
-            jsr text_kernel
-
-
-            ; bottom grid
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
-            jsr grid_kernel
-            
-            jmp waitOnOverscan
-
-;--------------------------
-; sky drawing routing
-
-            ; x is number of lines
-sky_kernel
-            sta WSYNC
-            lda #$00
-            sta COLUBK
-            dex
-            bne sky_kernel
-            rts
-
-;--------------------------
-; text drawing kernel
-
-text_kernel
-_text_setup_0
-            sta WSYNC
-            lda #$01
-            sta VDELP0
-            sta VDELP1
-            SLEEP 24
-            sta RESP0    
-            sta RESP1
-            lda #$03
-            sta NUSIZ0
-            sta NUSIZ1
-            lda #30
-            sta COLUP0
-            sta COLUP1
-            lda #$ff
-            sta HMP0
-            lda #$00
-            sta HMP1
-            sta WSYNC
-            sta HMOVE
-
-            txa
-            sta local_pf_y_min
-            clc
-            adc #7
-            tay
-            tsx
-            stx local_pf_stack
-_text_draw_0
-            sta WSYNC                                     ;3   0
-            ; load and store first 3 
-            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
-            sta GRP0                                      ;3   7
-            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
-            sta GRP1                                      ;3  14
-            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
-            sta GRP0                                      ;3  21
-            ; load next 3 EDF
-            ldx SUPERCHIP_READ + STRING_BUFFER_4,y        ;4  25
-            txs                                           ;2  27
-            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  31
-            lda SUPERCHIP_READ + STRING_BUFFER_5,y        ;4  35
-            stx.w GRP1                                    ;4  39
-            tsx                                           ;2  41
-            stx GRP0                                      ;3  44
-            sta GRP1                                      ;3  47
-            sty GRP0                                      ;3  50 force vdelp
-            dey
-            cpy local_pf_y_min
-            bpl _text_draw_0
-            ldx local_pf_stack
-            txs
-            lda #$00
-            sta NUSIZ0
-            sta NUSIZ1
-            sta GRP0
-            sta GRP1
-            sta VDELP0
-            sta VDELP1
-            rts
-
-;--------------------------
-; grid drawing kernel
-
-            ; x is number of lines
-grid_kernel
-            lda #0 
-            sta NUSIZ0    
-            sta NUSIZ1    
-            sta GRP0
-            sta GRP1
-            sta WSYNC
-
-            lda #$00
-            sta local_grid_inc
-            lda #$01
-            sta local_grid_gap
-            tay 
-_grid_loop
-            sta WSYNC
-            dey
-            beq _grid_drawGridLine 
-            lda #$00
-            sta COLUBK
-            jmp _grid_nextGridLine
-_grid_drawGridLine
-            lda #LOGO_COLOR
-            sta COLUBK
-            lda local_grid_gap
-            asl
-            sta local_grid_gap
-            clc
-            adc local_grid_inc
-            tay
-_grid_nextGridLine
-            dex
-            bne _grid_loop
-            rts
 
 ;--------------------------
 ; joystick menu
@@ -1499,11 +1254,9 @@ noop_on_press_down
             ; # noop
             jmp jx_on_press_down_return
 
-title_on_move
 noop_on_move
             ; # noop
             jmp jx_on_move_return
-
 
 sub_jx_update
             ldx #NUM_PLAYERS - 1
@@ -1730,9 +1483,9 @@ switch_game_mode
             lda game_state
             clc
             adc #$01
-            cmp #(GS_MENU + __MENU_GAME_TOURNAMENT + 1)
+            cmp #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT / 4 + 1)
             bcc _switch_game_mode_save_state
-            lda #(GS_MENU + __MENU_GAME_VERSUS)
+            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS / 4)
 _switch_game_mode_save_state
             sta game_state
             and #$0f
@@ -1746,6 +1499,24 @@ _switch_game_mode_save_state
 ; player select subroutines
 
 switch_player
+            ldy player_select,x
+            iny 
+            cpy #3
+            bcc _switch_player_save
+            ldy #0
+_switch_player_save
+            sty player_select,x
+            tya
+            asl
+            asl
+            asl
+            clc
+            adc #<MTP_MKI_0
+            cpx #1
+            bne _switch_player_save_sprite
+            inx           
+_switch_player_save_sprite
+            sta player_sprite,x
             rts
 
 ;-------------------------
@@ -1880,6 +1651,405 @@ FORMATION_DIAMONDS_P2
     word #P2_WALLS_CUBES_BOTTOM
     word #P2_GOAL_BOTTOM
 
+;------------------------
+; vblank sub
+
+waitOnVBlank
+            ldx #$00
+waitOnVBlank_loop          
+            cpx INTIM
+            bmi waitOnVBlank_loop
+            stx VBLANK
+            rts 
+
+;-----------------------------
+; Font
+; 4x7 bit font packed into 8x32 byte array
+
+    ALIGN 256 
+
+FONT_0
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8
+    byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
+    byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
+    byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
+    byte $0,$42,$a2,$a6,$ea,$aa,$22,$cc; 8
+    byte $0,$0,$0,$40,$e,$40,$0,$0; 8
+    byte $0,$0,$2,$46,$ee,$46,$2,$0; 8
+    byte $0,$0,$8,$ec,$e,$ec,$8,$0; 8
+    byte $0,$64,$40,$e0,$40,$e0,$0,$e0; 8
+    byte $0,$44,$0,$44,$42,$42,$48,$4c; 8
+    byte $0,$ac,$aa,$ea,$ac,$aa,$22,$ec; 8
+    byte $0,$ec,$8a,$8a,$8a,$8a,$2,$ec; 8
+    byte $0,$e8,$88,$88,$cc,$88,$0,$ee; 8
+    byte $0,$ea,$aa,$aa,$8e,$8a,$2,$ea; 8
+    byte $0,$4e,$4a,$42,$2,$42,$0,$42; 8
+    byte $0,$ae,$a8,$a8,$c8,$a8,$20,$a8; 8
+    byte $0,$aa,$aa,$aa,$a,$ea,$2,$ee; 8
+    byte $0,$e8,$a8,$a8,$ae,$aa,$22,$ee; 8
+    byte $0,$6a,$8a,$ac,$aa,$aa,$22,$ee; 8
+    byte $0,$e4,$24,$24,$e4,$84,$0,$ee; 8
+    byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
+    byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
+    byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+
+STRING_CONSTANTS
+STRING_CHOOSE_GAME = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 112, 88, 136, 104, 0
+STRING_CHOOSE_POD = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 145, 144, 97, 0
+STRING_CHOOSE_STAGE = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 160, 161, 88, 112, 104, 0
+STRING_CHOOSE_TRACK = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 1, 161, 153, 88, 96, 128, 0
+STRING_P1 = . - STRING_CONSTANTS
+    byte 145, 9, 0
+STRING_P2 = . - STRING_CONSTANTS
+    byte 145, 16, 0
+STRING_LC008 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 8, 40, 0
+STRING_LC0X1 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 177, 9, 0
+STRING_MX888 = . - STRING_CONSTANTS
+    byte 136, 177, 40, 40, 40, 0
+STRING_VERSUS = . - STRING_CONSTANTS
+    byte 169, 104, 153, 160, 168, 160, 0
+STRING_QUEST = . - STRING_CONSTANTS
+    byte 152, 168, 104, 160, 161, 0
+STRING_TOURNAMENT = . - STRING_CONSTANTS
+    byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
+STRING_GET_READY = . - STRING_CONSTANTS
+    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
+STRING_GATE = . - STRING_CONSTANTS
+    byte 112, 88, 161, 104, 0
+STRING_CLEAR = . - STRING_CONSTANTS
+    byte 96, 129, 104, 88, 153, 0
+STRING_GAME_OVER = . - STRING_CONSTANTS
+    byte 112, 88, 136, 104, 1, 144, 169, 104, 153, 0
+STRING_PLAYER_1 = . - STRING_CONSTANTS
+    byte 145, 129, 88, 184, 104, 153, 1, 9, 0
+STRING_PLAYER_2 = . - STRING_CONSTANTS
+    byte 145, 129, 88, 184, 104, 153, 1, 16, 0
+STRING_CLICK = . - STRING_CONSTANTS
+    byte 96, 129, 120, 96, 128, 0
+STRING_TABLA = . - STRING_CONSTANTS
+    byte 161, 88, 89, 129, 88, 0
+STRING_GLITCH = . - STRING_CONSTANTS
+    byte 112, 129, 120, 161, 96, 113, 0
+
+    
+PLAYER_SPRITE_NAMES
+    byte STRING_LC008
+    byte STRING_LC0X1
+    byte STRING_MX888
+
+GAME_MODE_TITLES
+    byte STRING_VERSUS
+    byte STRING_QUEST
+    byte STRING_TOURNAMENT
+
+
+
+    END_BANK
+
+    START_BANK 2
+
+;
+; ATTRACT MODE KERNELS
+; MENU KERNELS
+;
+
+        DEF_LBL attract_menu_kernels
+            lda game_state
+            cmp #GS_MENU_GAME
+            bcs _jmpMenu 
+            cmp #GS_ATTRACT_TITLE
+            beq _jmpTitle
+            jmp kernel_showSplash
+_jmpMenu
+            jmp kernel_menu
+_jmpTitle
+            jmp kernel_title
+
+
+;------------------
+; title
+
+kernel_title
+            jsr waitOnVBlank_2 ; SL 34
+
+            sta WSYNC ; SL 35
+            lda #0
+            sta COLUBK
+
+            ldx #192 / 2 - TITLE_HEIGHT * 2 - 10
+            jsr sky_kernel
+
+            jsr title_kernel
+
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
+            jsr grid_kernel
+
+            ; jump back
+            JMP_LBL waitOnOverscan
+
+;------------------
+; game options
+
+kernel_gameOptions
+
+            ; BUGBUG standardize
+            jsr waitOnVBlank_2 ; SL 34
+
+            ; skip empty space
+            ldx #30 
+            jsr sky_kernel
+            
+            jsr title_kernel
+
+            ; skip empty space
+            ldx #10 
+            jsr sky_kernel
+
+            ;;
+            ;; players
+            ;;
+            sta WSYNC               ;3   0
+            lda player_x + 1        ;3   3
+            sec                     ;2   5
+_p1_sel_resp_loop
+            sbc #15                 ;2   7
+            sbcs _p1_sel_resp_loop  ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            SLEEP 3                 ;3  21+
+            sta RESP0               ;3  24+ 
+            sta WSYNC
+            sta HMOVE
+            lda #5
+            sta NUSIZ0
+            ldy #PLAYER_HEIGHT - 1
+_p1_sel_draw_loop
+            sta WSYNC
+            lda (player_sprite + 2),y
+            sta GRP0
+            sta WSYNC
+            sta WSYNC
+            sta WSYNC
+            dey
+            bpl _p1_sel_draw_loop 
+            sta WSYNC 
+            lda #0
+            sta GRP0
+
+            ; menu choice text
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+
+            ; menu title text
+            ldx #STRING_BUFFER_1
+            jsr text_kernel
+
+            sta WSYNC               ;3   0
+            lda player_x          ;3   3
+            sec                     ;2   5
+_p0_sel_resp_loop
+            sbc #15                 ;2   7
+            sbcs _p0_sel_resp_loop  ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            SLEEP 3                 ;3  21+
+            sta RESP0               ;3  24+ 
+            sta WSYNC
+            sta HMOVE
+            lda #5
+            sta NUSIZ0
+            ldy #PLAYER_HEIGHT - 1
+_p0_sel_draw_loop
+            sta WSYNC
+            lda (player_sprite),y
+            sta GRP0
+            sta WSYNC
+            sta WSYNC
+            sta WSYNC
+            dey
+            bpl _p0_sel_draw_loop 
+            sta WSYNC 
+            lda #0
+            sta GRP0         
+
+            ;;
+            ;; stage
+            ;;
+
+            ;;
+            ;; track
+            ;;
+            
+            ; bottom grid
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
+            jsr grid_kernel
+            
+            JMP_LBL waitOnOverscan ; BUGBUG jump back
+
+;------------------------
+; menu kernel
+
+kernel_menu
+            ; BUGBUG standardize
+            jsr waitOnVBlank_2 ; SL 34
+
+            ; skip empty space
+            ldx #30 
+            jsr sky_kernel
+            
+            jsr title_kernel
+
+            ; skip empty space
+            ldx #10 
+            jsr sky_kernel
+
+            ; menu choice text
+            ldx #STRING_BUFFER_6
+            jsr text_kernel
+
+            ; menu title text
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+
+
+            ; bottom grid
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
+            jsr grid_kernel
+            
+            JMP_LBL waitOnOverscan
+
+;--------------------------
+; sky drawing routine
+
+            ; x is number of lines
+sky_kernel
+            sta WSYNC
+            lda #$00
+            sta COLUBK
+            dex
+            bne sky_kernel
+            rts
+
+;--------------------------
+; text drawing kernel
+
+text_kernel
+_text_setup_0
+            sta WSYNC
+            lda #$01
+            sta VDELP0
+            sta VDELP1
+            SLEEP 24
+            sta RESP0    
+            sta RESP1
+            lda #$03
+            sta NUSIZ0
+            sta NUSIZ1
+            lda #30
+            sta COLUP0
+            sta COLUP1
+            lda #$ff
+            sta HMP0
+            lda #$00
+            sta HMP1
+            sta WSYNC
+            sta HMOVE
+
+            txa
+            sta local_pf_y_min
+            clc
+            adc #7
+            tay
+            tsx
+            stx local_pf_stack
+_text_draw_0
+            sta WSYNC                                     ;3   0
+            ; load and store first 3 
+            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
+            sta GRP0                                      ;3   7
+            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
+            sta GRP1                                      ;3  14
+            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
+            sta GRP0                                      ;3  21
+            ; load next 3 EDF
+            ldx SUPERCHIP_READ + STRING_BUFFER_4,y        ;4  25
+            txs                                           ;2  27
+            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  31
+            lda SUPERCHIP_READ + STRING_BUFFER_5,y        ;4  35
+            stx.w GRP1                                    ;4  39
+            tsx                                           ;2  41
+            stx GRP0                                      ;3  44
+            sta GRP1                                      ;3  47
+            sty GRP0                                      ;3  50 force vdelp
+            dey
+            cpy local_pf_y_min
+            bpl _text_draw_0
+            ldx local_pf_stack
+            txs
+            lda #$00
+            sta NUSIZ0
+            sta NUSIZ1
+            sta GRP0
+            sta GRP1
+            sta VDELP0
+            sta VDELP1
+            rts
+
+;--------------------------
+; grid drawing kernel
+
+            ; x is number of lines
+grid_kernel
+            lda #0 
+            sta NUSIZ0    
+            sta NUSIZ1    
+            sta GRP0
+            sta GRP1
+            sta WSYNC
+
+            lda #$00
+            sta local_grid_inc
+            lda #$01
+            sta local_grid_gap
+            tay 
+_grid_loop
+            sta WSYNC
+            dey
+            beq _grid_drawGridLine 
+            lda #$00
+            sta COLUBK
+            jmp _grid_nextGridLine
+_grid_drawGridLine
+            lda #LOGO_COLOR
+            sta COLUBK
+            lda local_grid_gap
+            asl
+            sta local_grid_gap
+            clc
+            adc local_grid_inc
+            tay
+_grid_nextGridLine
+            dex
+            bne _grid_loop
+            rts
+
 	ALIGN 256
 
 title_kernel    
@@ -1958,6 +2128,9 @@ title_96x2_frame_0
             SLEEP 4                ;4   2
             dey                    ;2   4        
             sbpl title_96x2_frame_0 ;2/+ 6/7
+            iny
+            sty GRP0
+            sty GRP1
             rts
 
     ALIGN 256
@@ -2022,13 +2195,16 @@ title_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
             SLEEP 8                ;8   2
             dey                    ;2   4        
             sbpl title_96x2_frame_1 ;2/+ 6/7
-            rts
+            iny
+            sty GRP0
+            sty GRP1
+            rts  
 
 ;------------------------
 ; splash kernel
 
 kernel_showSplash
-            jsr waitOnVBlank ; SL 34
+            jsr waitOnVBlank_2 ; SL 34
             sta WSYNC ; SL 35
             lda #0
             sta COLUBK
@@ -2061,125 +2237,31 @@ skipDrawGridLine
             inc game_state
 
 keepSplashing
-            jmp waitOnOverscan
-
+            JMP_LBL waitOnOverscan ; BUGBUG jump
 ;------------------------
 ; vblank sub
 
-waitOnVBlank
+waitOnVBlank_2
             ldx #$00
-waitOnVBlank_loop          
+_waitOnVBlank_loop_2
             cpx INTIM
-            bmi waitOnVBlank_loop
+            bmi _waitOnVBlank_loop_2
             stx VBLANK
             rts 
+;---------------------------
+; player menu graphics
 
-;-----------------------------
-; Font
-; 4x7 bit font packed into 8x32 byte array
-
-    ALIGN 256 
-
-FONT_0
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8
-    byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
-    byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
-    byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
-    byte $0,$42,$a2,$a6,$ea,$aa,$22,$cc; 8
-    byte $0,$0,$0,$40,$e,$40,$0,$0; 8
-    byte $0,$0,$2,$46,$ee,$46,$2,$0; 8
-    byte $0,$0,$8,$ec,$e,$ec,$8,$0; 8
-    byte $0,$64,$40,$e0,$40,$e0,$0,$e0; 8
-    byte $0,$44,$0,$44,$42,$42,$48,$4c; 8
-    byte $0,$ac,$aa,$ea,$ac,$aa,$22,$ec; 8
-    byte $0,$ec,$8a,$8a,$8a,$8a,$2,$ec; 8
-    byte $0,$e8,$88,$88,$cc,$88,$0,$ee; 8
-    byte $0,$ea,$aa,$aa,$8e,$8a,$2,$ea; 8
-    byte $0,$4e,$4a,$42,$2,$42,$0,$42; 8
-    byte $0,$ae,$a8,$a8,$c8,$a8,$20,$a8; 8
-    byte $0,$aa,$aa,$aa,$a,$ea,$2,$ee; 8
-    byte $0,$e8,$a8,$a8,$ae,$aa,$22,$ee; 8
-    byte $0,$6a,$8a,$ac,$aa,$aa,$22,$ee; 8
-    byte $0,$e4,$24,$24,$e4,$84,$0,$ee; 8
-    byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
-    byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
-    byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-
-STRING_CONSTANTS
-STRING_CHOOSE_GAME = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 112, 88, 136, 104, 0
-STRING_CHOOSE_STAGE = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 160, 161, 88, 112, 104, 0
-STRING_CHOOSE_TRACK = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 161, 153, 88, 96, 128, 0
-STRING_P1 = . - STRING_CONSTANTS
-    byte 145, 9, 0
-STRING_P2 = . - STRING_CONSTANTS
-    byte 145, 16, 0
-STRING_LC008 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 8, 40, 0
-STRING_LC0X1 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 177, 9, 0
-STRING_MX888 = . - STRING_CONSTANTS
-    byte 136, 177, 40, 40, 40, 0
-STRING_VERSUS = . - STRING_CONSTANTS
-    byte 169, 104, 153, 160, 168, 160, 0
-STRING_QUEST = . - STRING_CONSTANTS
-    byte 152, 168, 104, 160, 161, 0
-STRING_TOURNAMENT = . - STRING_CONSTANTS
-    byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
-STRING_GET_READY = . - STRING_CONSTANTS
-    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
-STRING_GATE = . - STRING_CONSTANTS
-    byte 112, 88, 161, 104, 0
-STRING_CLEAR = . - STRING_CONSTANTS
-    byte 96, 129, 104, 88, 153, 0
-STRING_GAME_OVER = . - STRING_CONSTANTS
-    byte 112, 88, 136, 104, 1, 144, 169, 104, 153, 0
-
-    
-PLAYER_SPRITE_NAMES
-    byte STRING_LC008
-    byte STRING_LC0X1
-    byte STRING_MX888
-
-GAME_MODE_TITLES
-    byte STRING_VERSUS
-    byte STRING_QUEST
-    byte STRING_TOURNAMENT
-
-; versus
-; quest
-; tournament
-
-; laser mk i
-; laser mk iv
-; maser tank
-; 0123456789:-/=$+.?!
-    
-; player
-; battle
-; fracas
-; combat
-; gateway
-; peril
-; hazard
-; vendetta
-; facing
-; against
-; absconder
+MTP_MKI_0
+     byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
+MTP_MKIV_0
+     byte $18,$7e,$f7,$55,$55,$f7,$7e,$3c; 8
+MTP_MX888_0
+    byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
 
 ;---------------------------
 ; title graphics
+
+    ALIGN 256
 
 TITLE_96x2_00
     byte %00000000
@@ -2208,8 +2290,6 @@ TITLE_96x2_01
     byte %11100011
     byte %11100010
     byte %11000000
-
-    ALIGN 256
 
 TITLE_96x2_02
     byte %00000000
@@ -2351,11 +2431,6 @@ TITLE_96x2_11
     byte %11111000
     byte %11110000
 
-AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
-    byte 0,
-TRACK_0 = . - AUDIO_TRACKS
-    byte 3,31,15,64,3,31,7,16,3,31,3,8,3,31,1,16,255;
-
 SPLASH_0_GRAPHICS
     byte $ff ; loading... (8 bit console?)  message incoming... (scratching)
 SPLASH_1_GRAPHICS
@@ -2365,101 +2440,66 @@ SPLASH_2_GRAPHICS
 SPLASH_GRAPHICS
     byte $00 ; -- to menu - ReFhRaKtOr - players - controls - menu
 
-    MAC SET_JX_CALLBACKS ; given down + move callbacks
-            lda #>{1}
-            sta jx_on_press_down + 1
-            lda #<{1}
-            sta jx_on_press_down
-            lda #>{2}
-            sta jx_on_move + 1
-            lda #<{2}
-            sta jx_on_move
-    ENDM
 
-    MAC FORMATION ; given p0, p1, p2, c, mask addr
-._pl0_loop_0_hm
-            lda ({1}),y                  ;5   5
-            sta PF0                      ;3   8
-            lda ({2}),y                  ;5  13
-            sta PF1                      ;3  16 
-            ldx {4},y                    ;4  20
-            ;; p2 ahead
-            lda ({3}),y                  ;5  25
-            ;; adjust playfield color
-            stx COLUBK                   ;3  28
-            sta PF2                      ;3  31
-            ;; set beam hmov          
-            lda laser_hmov_0,y           ;4  35
-            sta HMM0                     ;3  38
-            SLEEP 7                      ;7  45
-            ; lda laser_hmov_1,y           ;4  42
-            ; sta HMM1                     ;3  45
-            ;; ball graphics
-            ldx ball_voffset             ;3  48
-            cpx #$00                     ;2  50
-            bpl ._pl0_draw_grp_0         ;2  52  ; sbpl
-            lda #$00                     ;2  54
-            jmp ._pl0_end_grp_0          ;3  57
-._pl0_draw_grp_0
-            lda BALL_GRAPHICS,x          ;4  57
-._pl0_end_grp_0
-            sta GRP0                     ;3  60
-            sta GRP1                     ;3  63 
-            SLEEP 3                      ;3  66
-            ;; EOL
-            lda #$00                     ;2  68
-            sta COLUBK                   ;3  71 
-            sta WSYNC                    ;3  --
-            ;; 2nd line
-            sta HMOVE                    ;3   3
-            ;; 
-            lda local_pf_beam_index      ;3   6
-            clc                          ;2   8
-            adc #$01                     ;2  10
-            and #$0f                     ;2  12
-            sta local_pf_beam_index      ;3  15
-            lda {4},y                    ;4  19
-            iny                          ;2  21 ; getting ready for later
-            SLEEP 4                      ;4  25
-            sta COLUBK                   ;3  28
-            ;; ball offsets
-            cpx #$00                     ;2  30
-            bmi ._pl0_inc_ball_offset    ;2  32 ; sbmi
-            lda CXP0FB                   ;3  35
-            pha                          ;3  38
-            dex                          ;2  40
-            bmi ._pl0_ball_end           ;2  42 ; sbmi
-            SLEEP 3                      ;3  45
-            jmp ._pl0_save_ball_offset   ;3  48
-._pl0_ball_end
-            ldx #128                     ;2  45
-            jmp ._pl0_save_ball_offset   ;3  48
-._pl0_inc_ball_offset 
-            SLEEP 8                      ;8  41
-            inx                          ;2  43
-            beq ._pl0_ball_start         ;2  45 ; sbeq
-            jmp ._pl0_save_ball_offset   ;3  48
-._pl0_ball_start 
-            ldx #BALL_HEIGHT - 1         ;2  48
-._pl0_save_ball_offset
-            stx ball_voffset             ;3  51
-            dec display_playfield_limit  ;3  54
-            bpl ._pl0_continue           ;2  56 ; sbpl
-            jmp formation_end            ;3  59
-._pl0_continue
-            ldx #$00                     ;2  61
-            tya                          ;2  63
-            and #{5}                     ;2  65
-            beq ._pl0_advance_formation  ;2  67 ; sbeq
-            stx.w COLUBK                 ;4  71
-            ;; EOL
-            SLEEP 2                      ;2  73
-            jmp ._pl0_loop_0_hm          ;3  --
-._pl0_advance_formation
-            stx COLUBK                   ;4  71
-            tay                          ;2  73
-            jmp {6}                      ;3  --
-    ENDM
+    END_BANK
+
+    START_BANK 3
+    ;
+    ; -- audio bank
+    ;
+
+            DEF_LBL bank_audio_tracker
+            ldx #NUM_AUDIO_CHANNELS - 1
+audio_loop 
+            lda audio_tracker,x
+            beq audio_next_channel
+            ldy audio_timer,x
+            beq _audio_next_note
+            dey
+            sty audio_timer,x
+            jmp audio_next_channel
+_audio_next_note
+            tay
+            lda AUDIO_TRACKS,y
+            beq _audio_pause
+            cmp #255
+            beq _audio_stop
+            sta AUDC0,x
+            iny
+            lda AUDIO_TRACKS,y
+            sta AUDF0,x
+            iny
+            lda AUDIO_TRACKS,y
+            sta AUDV0,x
+            jmp _audio_next_timer
+_audio_pause
+            lda #$0
+            sta AUDC0,x
+            sta AUDV0,x
+_audio_next_timer
+            iny
+            lda AUDIO_TRACKS,y
+            sta audio_timer,x
+            iny
+            sty audio_tracker,x
+            jmp audio_next_channel
+_audio_stop
+            lda #$0
+            sta AUDV0,x
+            sta audio_tracker,x
+            sta audio_timer,x
+audio_next_channel
+            dex
+            bpl audio_loop
+
+            JMP_LBL bank_return_audio_tracker
+
+AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
+    byte 0,
+TRACK_0 = . - AUDIO_TRACKS
+    byte 3,31,15,64,3,31,7,16,3,31,3,8,3,31,1,16,255;
+
+
 
 ; game notes - MVP
 ; DONE
@@ -2471,16 +2511,25 @@ SPLASH_GRAPHICS
 ;  - replace ball in center after score
 ;  - alternate playfields
 ;  - bank switching
-; TODO
 ;  - menu system
-;    - choose pod
-;    - choose mode
+;    - choose game mode
 ;       - versus
 ;       - quest
 ;       - tournament
+; TODO
+;  - menu system
+;    - choose pod
+;         -  player 1 opt in (whoever pressed go/or)
+;         - show player 1 pod and allow switch
+;         - second player opt in (whoever pressed go/or)
+;         - show player 2 pod and allow switch
+;         - double press - on both press go to stage
 ;    - choose stage
-;    - second player opt in (either/or)
-;       - vs / co-op
+;         - show stage and allow switch
+;         - double press - on both press go to track
+;    - choose track
+;         - show track and allow switch
+;         - double press - on both press go to game
 ;  - different ships
 ;  - power grid
 ;  - dynamic playfield
@@ -2588,5 +2637,6 @@ SPLASH_GRAPHICS
 ;;     - 4k banks = 12@8k, 36@16k, 84@32k
 ;;     - 2k banks = 12@8k, 44@16k, 108@32k
 ;;     - 1k banks = 12@8k, 44@16k, 108@32k
+
 
     END_BANK

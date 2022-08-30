@@ -1,4 +1,4 @@
-; F8 bank switching
+; F6 bank switching
 ; Modified from TJ's Atari standard bankswitching macros
 
 BANK_SIZE        = $1000 ; 4K bank size 
@@ -26,19 +26,19 @@ BANK_RORG   SET $1000 + BANK_NUM * BANK_SIZE * 2
    ENDIF
     ; from reset, always jump to bank 1  
 ON_RESET = (. & $fff) | $1000 
-    lda $fff9
+    lda $fff7
     jmp CleanStart 
 SWITCH_BANKS = (. & $fff) | $1000 
-    lda $fff8,y
+    lda $fff6,y
     rts
   ENDM
  
 ; put at the end of every bank
   MAC END_BANK 
-    ORG     BANK_ORG + $ff8
-    RORG    BANK_RORG + $ff8
-    ; 2 hot spots
-    ds      2, 0 
+    ORG     BANK_ORG + $ff6
+    RORG    BANK_RORG + $ff6
+    ; 4 hot spots
+    ds      4, 0 
 	; nmi, reset and break vectors
    IF SUPERCHIP = 1
     .word  $5343                          ; SUPERCHIP magic word
