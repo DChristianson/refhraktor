@@ -116,6 +116,7 @@ formation_select ds 1           ; which level
 track_select     ds 1           ; which audio track
 player_select    ds NUM_PLAYERS ; what player options
 
+tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
@@ -578,7 +579,7 @@ CleanStart
             CLEAN_START
 
     ; game setup
-    jsr gs_title_setup
+    jsr gs_splash_setup
 
     ; initial formation
     jsr formation_diamonds
@@ -649,6 +650,9 @@ _end_switches
             ; jump to audio bank
             JMP_LBL bank_audio_tracker
         DEF_LBL bank_return_audio_tracker
+
+            ; timed event
+            jsr sub_tx_update
 
             ; sub process input
             jsr sub_jx_update
@@ -1094,6 +1098,31 @@ waitOnOverscan_loop
             jmp newFrame
 
 ;------------------------
+; splash kernel state transition
+
+gs_splash_setup
+            lda #GS_ATTRACT_SPLASH_0
+            sta game_state
+            ;
+            SET_TX_CALLBACK splash_on_timer, SPLASH_DELAY
+            ; input jump tables
+            SET_JX_CALLBACKS noop_on_press_down, noop_on_move
+            rts
+
+splash_on_timer
+            ; next state
+            inc game_state
+            lda game_state
+            cmp #GS_ATTRACT_TITLE
+            bne _splash_timer_repeat
+            jsr gs_title_setup
+            jmp tx_on_timer_return
+_splash_timer_repeat
+            lda #SPLASH_DELAY
+            sta game_timer
+            jmp tx_on_timer_return
+
+;------------------------
 ; title kernel state transition
 
 gs_title_setup
@@ -1239,7 +1268,20 @@ _menu_game_on_move_end
             jmp jx_on_move_return
 
 ;--------------------------
-; joystick menu
+; timed event
+
+sub_tx_update
+            lda game_timer
+            beq _tx_update_end
+            dec game_timer
+            bne _tx_update_end
+            jmp (tx_on_timer)
+tx_on_timer_return
+_tx_update_end
+            rts
+
+;--------------------------
+; joystick control
 
 noop_on_press_down
             ; # noop
@@ -2244,15 +2286,8 @@ skipDrawGridLine
             dex
             bne drawSplashGrid
 
-            dec game_timer
-            bne keepSplashing
-            ; next screen
-            lda #SPLASH_DELAY
-            sta game_timer
-            inc game_state
-
-keepSplashing
             JMP_LBL waitOnOverscan ; BUGBUG jump
+
 ;------------------------
 ; vblank sub
 

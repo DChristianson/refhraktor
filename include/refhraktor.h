@@ -9,6 +9,15 @@
             sta jx_on_move
     ENDM
 
+    MAC SET_TX_CALLBACK ; given timer callback + time
+            lda #{2}
+            sta game_timer
+            lda #>{1}
+            sta tx_on_timer + 1
+            lda #<{1}
+            sta tx_on_timer
+    ENDM
+
     MAC FORMATION ; given p0, p1, p2, c, mask addr
 ._pl0_loop_0_hm
             lda ({1}),y                  ;5   5
