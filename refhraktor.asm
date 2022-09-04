@@ -1122,6 +1122,11 @@ gs_menu_equip_setup
             and #$f0
             ora #GS_MENU_EQUIP
             sta game_state
+            ; position players
+            lda #120
+            sta player_x + 1
+            lda #0
+            sta player_x
             ldx #1
             jsr switch_player
             ldx #0
@@ -1618,8 +1623,6 @@ kernel_menu_equip
             ldx #30 
             jsr sky_kernel
             
-            jsr title_kernel
-
             ; skip empty space
             ldx #10 
             jsr sky_kernel
@@ -2662,43 +2665,73 @@ TRACK_0 = . - AUDIO_TRACKS
 ;  - replace ball in center after score
 ;  - alternate playfields
 ;  - bank switching
+;  - different ships
 ;  - menu system
 ;    - choose game mode
 ;       - versus
 ;       - quest
-;       - tournament
-; TODO
-;  - menu system
 ;    - choose pod
-;         -  player 1 opt in (whoever pressed go/or)
 ;         - show player 1 pod and allow switch
-;         - second player opt in (whoever pressed go/or)
 ;         - show player 2 pod and allow switch
-;         - double press - on both press go to stage
 ;    - choose stage
 ;         - show stage and allow switch
-;         - double press - on both press go to track
 ;    - choose track
 ;         - show track and allow switch
-;         - double press - on both press go to game
-;  - different ships
-;  - power grid
-;  - gradient field bachground
-;  - dynamic playfield
-;  - framerate glitches
-;  - manual aim ability
-;  - clean up screen / make room for score
-;  - play with grid design
-;  - special attacks
-;  - initial, weak, opposing ai
-;  - make lasers  still refract off ball (maybe showing the power of the shot?)
-;  - speed limit
-;  - friction  
-;  - collision bugs (stuck)
-;  - auto move ability
-;  - auto fire ability
+; PRIORITY TODO
+;  - stabilize framerate
+;  - power grid mechanics
+;   - play track
+;   - boost player shots
+;   - drain player power
+;  - remove framerate glitches
+;  - remove play glitches
+;     - top player cutoff glitch
+;     - scan line glitchy?
+;     - ball score not in goal
+;     - lasers off at certain positions
+;     - collision bugs (stuck)
+;  - clean up menus / startup / transitions
+;  - clean up play screen / make room for score / power
 ;  - better colors
-;  - add logo
+;  - shield weapon
+;  - basic quest mode
+;  - basic special attacks
+;    - gravity blast
+;    - emp
+;  THINK ABOUT 
+;  - menu system
+;    - choose game mode
+;         - tournament
+;    - choose pod
+;         - show pod capabilities
+;         - player 1 opt in (whoever pressed go/or)
+;         - second player opt in (whoever pressed go/or)
+;         - double press - on both press go to stage
+;    - choose stage
+;         - double press - on both press go to track
+;    - choose defenses
+;         - each player configures their defence
+;    - choose track
+;         - double press - on both press go to game
+;    - join fhaktion 
+;         - build pod / more combinations
+;    - secret code
+;         - extra special weapons
+;  - physics
+;    - friction
+;    - gradient field 
+;    - boost zones
+;    - speed limit
+;  - dynamic playfield
+;    - animated levels
+;    - gradient fields 
+;    - cellular automata
+;    - dark levels
+;  - play with grid design
+;  - initial, weak, opposing ai
+;    - auto move ability
+;    - auto fire ability
+;  - make lasers refract off ball (maybe showing the power of the shot?)
 ;  - start / end game logic
 ;  - intro screen
 ;  - game timer
@@ -2722,7 +2755,7 @@ TRACK_0 = . - AUDIO_TRACKS
 ;        - bank buddies
 ;          - players can both sit on the back rail and draw power
 ;  - versus mode : battle fracas combat
-;  - quest  mode : gateway peril hazard 
+;  - quest mode : gateway peril hazard 
 ;        - time attack
 ;        - no opposing player (or maybe... sometimes ai), but continuous gravity down
 ;        - playfield extends up infinitely through a series of gates
@@ -2734,13 +2767,6 @@ TRACK_0 = . - AUDIO_TRACKS
 ;        - after the players lock in their choices for goal, they choose the next level up / down
 ;        - can play from 2 to 6 levels each (not counting midfield)
 ;        - game begins when the players have locked in their choices behind midfield
-;
-;
-; top player cutoff glitch
-; scan line glitchy?
-; ball score not in goal
-; lasers off at certain positions
-;
 ; button mash avoidance
 ;   continuous fire with button down
 ;   instead of continuous fire, have button down charge
@@ -2762,6 +2788,10 @@ TRACK_0 = . - AUDIO_TRACKS
 ;   gamma laser
 ;   gravity wave
 ;   meson bomb
+;
+; NOT DO
+;  - add in game logo?
+;  - manual aim ability
 ;;
 ;; F600 - FB00
 ;; need - say 1536 bytes for current kernel scheme (256 bytes x 6)
