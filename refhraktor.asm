@@ -1606,7 +1606,7 @@ kernel_menu_equip
             sta player_sprite + 3
             ldy player_select + 1
             lda PLAYER_SPRITES,y
-            sta player_sprite + 3
+            sta player_sprite + 2
             ldy player_select
             lda PLAYER_SPRITES,y
             sta player_sprite
@@ -2262,6 +2262,8 @@ _waitOnVBlank_loop_2
             rts 
 ;---------------------------
 ; player menu graphics
+
+    ALIGN 256 
 
 MTP_MKI_0
      byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
