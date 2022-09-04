@@ -39,9 +39,10 @@ SCANLINES = 262
 ;
 ; game states
 ; 
-; $0000xxxx : attract mode screens
-; $0001xxxx ; menu to select games
-; $1yyyxxxx ; game types
+; $0yyyxxxx : attract/menu screens
+; $1yyyxxxx ; game play screens
+;  xxxx = current screen
+;   yyy = game control
 ;
 GS_ATTRACT             = $00;
 GS_ATTRACT_SPLASH_0    = $00;
@@ -53,17 +54,14 @@ GS_ATTRACT_TITLE       = $03;
 ; FUTURE: instructions
 ; FUTURE: shoutouts
 
-GS_MENU_GAME           = $10; 
-GS_MENU_EQUIP          = $20; 
-GS_MENU_STAGE          = $30; 
-GS_MENU_TRACK          = $40; 
+GS_MENU_GAME           = $04; 
+GS_MENU_EQUIP          = $05; 
+GS_MENU_STAGE          = $06; 
+GS_MENU_TRACK          = $07; 
 ; select game types
 __MENU_GAME_VERSUS     = $00
-__MENU_GAME_QUEST      = $04
-__MENU_GAME_TOURNAMENT = $08
-; player choice lock
-__MENU_PLAYER_0_LOCK   = $01
-__MENU_PLAYER_1_LOCK   = $02
+__MENU_GAME_QUEST      = $10
+__MENU_GAME_TOURNAMENT = $20
 
 GS_GAME                = $80
 GS_GAME_VERSUS         = $80;
@@ -165,10 +163,15 @@ LOCAL_OVERLAY           ds 8
 local_jx_player_input = LOCAL_OVERLAY
 local_jx_player_count = LOCAL_OVERLAY + 1
 
-local_strfmt_stack    = LOCAL_OVERLAY + 2
-local_strfmt_index_hi = LOCAL_OVERLAY + 3
-local_strfmt_index_lo = LOCAL_OVERLAY + 4
-local_strfmt_count    = LOCAL_OVERLAY + 5
+; -- jmp table
+local_jmp_addr = LOCAL_OVERLAY
+
+; -- strfmt locals
+local_strfmt_stack    = LOCAL_OVERLAY 
+local_strfmt_index_hi = LOCAL_OVERLAY + 1
+local_strfmt_index_lo = LOCAL_OVERLAY + 2
+local_strfmt_index_offset = LOCAL_OVERLAY + 3
+local_strfmt_start = LOCAL_OVERLAY + 4
 
 ; -- grid kernel locals
 local_grid_gap = LOCAL_OVERLAY      
@@ -575,7 +578,7 @@ CleanStart
             CLEAN_START
 
     ; game setup
-    jsr title_setup
+    jsr gs_title_setup
 
     ; initial formation
     jsr formation_diamonds
@@ -650,21 +653,27 @@ _end_switches
             ; sub process input
             jsr sub_jx_update
 
-            ; game state switch 
-            ; BUGBUG: TODO: jump table?
+            ; game state processing 
             lda game_state
-            bpl _jmpAttractMenuKernels
-            and #$7f 
-            beq kernel_playGame
-            dex
-            beq kernel_celebrateScore
-            dex
-            beq kernel_dropBall
-            dex 
-            beq kernel_gameOver
-            jmp kernel_startGame
-_jmpAttractMenuKernels
+            bpl _jmp_attract_menu_kernels
+            and #$0f
+            asl
+            tax
+            lda GAME_JUMP_TABLE,x
+            sta local_jmp_addr
+            lda GAME_JUMP_TABLE + 1,x
+            sta local_jmp_addr + 1
+            jmp (local_jmp_addr)
+_jmp_attract_menu_kernels
             JMP_LBL attract_menu_kernels
+
+GAME_JUMP_TABLE
+    word kernel_playGame
+    word kernel_celebrateScore
+    word kernel_dropBall
+    word kernel_gameOver
+    word kernel_startGame
+
 
 ;--------------------
 ; gameplay update kernel
@@ -1087,7 +1096,7 @@ waitOnOverscan_loop
 ;------------------------
 ; title kernel state transition
 
-title_setup
+gs_title_setup
             lda #GS_ATTRACT_TITLE 
             sta game_state
             ; start sound
@@ -1100,35 +1109,19 @@ title_setup
 
 title_on_press_down
             ; change loop
-            jsr menu_game_setup
+            jsr gs_menu_game_setup
             jmp jx_on_press_down_return
 
 
 ;---------------------------
 ; menu controls
 
-menu_equip_setup
-            ; move game type selection into D3/D2
+gs_menu_equip_setup
+            ; switch to equip
             lda game_state
-            asl
-            asl
-            and #$0f
+            and #$f0
             ora #GS_MENU_EQUIP
             sta game_state
-            ; load string
-            ldx #STRING_BUFFER_0
-            ldy #STRING_P1
-            jsr strfmt
-            ; load string
-            ldx #STRING_BUFFER_1
-            ldy #STRING_P2
-            ; load player graphics
-            lda #>MTP_MKI_0
-            sta player_sprite + 1
-            sta player_sprite + 3
-            lda #3
-            sta player_select
-            sta player_select + 1
             ldx #1
             jsr switch_player
             ldx #0
@@ -1139,17 +1132,7 @@ menu_equip_setup
             rts
 
 menu_equip_on_press_down
-            ; move ahead
-            lda game_state
-            clc 
-            adc #$10
-            sta game_state
-            ; load string
-            ldx #STRING_BUFFER_6
-            ldy #STRING_CHOOSE_STAGE
-            jsr strfmt
-            ; jmp tables
-            SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
+            jsr gs_menu_stage_setup
             jmp jx_on_press_down_return
 
 menu_equip_on_move
@@ -1163,17 +1146,17 @@ menu_equip_on_move
 _menu_equip_on_move_end
             jmp jx_on_move_return
 
-menu_stage_on_press_down
-            ; move ahead
+gs_menu_stage_setup
             lda game_state
-            clc 
-            adc #$10
+            and #$f0
+            ora #GS_MENU_STAGE
             sta game_state
-            ; load string
-            ldx #STRING_BUFFER_6
-            ldy #STRING_CHOOSE_TRACK
-            jsr strfmt
-            SET_JX_CALLBACKS menu_track_on_press_down, menu_track_on_move
+            ; jmp tables
+            SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
+            rts
+
+menu_stage_on_press_down
+            jsr gs_menu_track_setup
             jmp jx_on_press_down_return
 
 menu_stage_on_move
@@ -1186,6 +1169,14 @@ menu_stage_on_move
             jsr switch_formation
 _menu_stage_on_move_end
             jmp jx_on_move_return
+
+gs_menu_track_setup
+            lda game_state
+            and #$f0
+            ora #GS_MENU_TRACK
+            sta game_state
+            SET_JX_CALLBACKS menu_track_on_press_down, menu_track_on_move
+            rts
 
 menu_track_on_press_down
             ; game setuos
@@ -1213,27 +1204,22 @@ menu_track_on_move
 _menu_track_on_move_end
             jmp jx_on_move_return
 
-
 ;-------------------------
 ; game menu controls
 ;
 
-menu_game_setup
-            ; load string
-            ldx #STRING_BUFFER_6
-            ldy #STRING_CHOOSE_GAME
-            jsr strfmt
-            ; jmp tables
-            SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
+gs_menu_game_setup
             ; setup game mode 
-            lda #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT / 4)
+            lda #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT)
             sta game_state
             jsr switch_game_mode
+            ; jmp tables
+            SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
 
 menu_game_on_press_down
             ; select game
-            jsr menu_equip_setup
+            jsr gs_menu_equip_setup
             jmp jx_on_press_down_return
 
 menu_game_on_move
@@ -1292,189 +1278,6 @@ jx_on_move_return
 jx_menu_end
             rts
 
-;--------------------------
-; text blitter routine
-; x = graphics buffer offset
-; y = char buffer offset
-
-strfmt
-            txa
-            tsx
-            stx local_strfmt_stack
-            tax 
-            txs
-_strfmt_loop
-            lda #7
-            sta local_strfmt_count
-            lda STRING_CONSTANTS,y      
-            bne _strfmt_cont
-            jmp _strfmt_stop
-_strfmt_cont
-            lsr
-            bcc _strfmt_hi___
-_strfmt_lo___
-            asl
-            sta local_strfmt_index_hi
-            iny 
-            lda STRING_CONSTANTS,y      
-            beq _strfmt_lo_00
-            lsr 
-            bcs _strfmt_lo_lo
-            ; hi << 4 + lo >> 4 
-_strfmt_lo_hi
-            asl
-            sta local_strfmt_index_lo
-_strfmt_lo_hi_loop
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            asl
-            asl
-            asl
-            asl
-            tsx
-            sta STRING_WRITE,x
-            ldx local_strfmt_index_lo
-            lda FONT_0,x
-            lsr
-            lsr
-            lsr
-            lsr
-            tsx
-            ora STRING_READ,x
-            sta STRING_WRITE,x 
-            inx
-            txs
-            inc local_strfmt_index_hi
-            inc local_strfmt_index_lo
-            dec local_strfmt_count
-            bpl _strfmt_lo_hi_loop
-            iny 
-            jmp _strfmt_loop
-            ; hi << 4 + lo & 0f
-_strfmt_lo_lo
-            asl
-            sta local_strfmt_index_lo
-_strfmt_lo_lo_loop
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            asl
-            asl
-            asl
-            asl
-            tsx
-            sta STRING_WRITE,x
-            ldx local_strfmt_index_lo
-            lda FONT_0,x
-            and #$0f
-            tsx
-            ora STRING_READ,x
-            sta STRING_WRITE,x 
-            inx
-            txs
-            inc local_strfmt_index_hi
-            inc local_strfmt_index_lo
-            dec local_strfmt_count
-            bpl _strfmt_lo_lo_loop
-            iny 
-            jmp _strfmt_loop
-_strfmt_lo_00            
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            asl
-            asl
-            asl
-            asl
-            tsx
-            sta STRING_WRITE,x
-            inx
-            txs
-            inc local_strfmt_index_hi
-            dec local_strfmt_count
-            bpl _strfmt_lo_00
-            jmp _strfmt_stop_00
-_strfmt_hi___
-            asl
-            sta local_strfmt_index_hi
-            iny 
-            lda STRING_CONSTANTS,y      
-            beq _strfmt_hi_00
-            lsr 
-            bcs _strfmt_hi_lo
-_strfmt_hi_hi
-            asl
-            sta local_strfmt_index_lo
-_strfmt_hi_hi_loop
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            and #$f0
-            tsx
-            sta STRING_WRITE,x
-            ldx local_strfmt_index_lo
-            lda FONT_0,x
-            lsr
-            lsr
-            lsr
-            lsr
-            tsx
-            ora STRING_READ,x
-            sta STRING_WRITE,x 
-            inx
-            txs
-            inc local_strfmt_index_hi
-            inc local_strfmt_index_lo
-            dec local_strfmt_count
-            bpl _strfmt_hi_hi_loop
-            iny 
-            jmp _strfmt_loop
-            ; hi << 4 + lo & 0f
-_strfmt_hi_lo
-            asl
-            sta local_strfmt_index_lo
-_strfmt_hi_lo_loop
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            and #$f0
-            tsx
-            sta STRING_WRITE,x
-            ldx local_strfmt_index_lo
-            lda FONT_0,x
-            and #$0f
-            tsx
-            ora STRING_READ,x
-            sta STRING_WRITE,x 
-            inx
-            txs
-            inc local_strfmt_index_hi
-            inc local_strfmt_index_lo
-            dec local_strfmt_count
-            bpl _strfmt_hi_lo_loop
-            iny 
-            jmp _strfmt_loop
-_strfmt_hi_00            
-            ldx local_strfmt_index_hi
-            lda FONT_0,x
-            and #$f0
-            tsx
-            sta STRING_WRITE,x
-            inx
-            txs
-            inc local_strfmt_index_hi
-            dec local_strfmt_count
-            bpl _strfmt_hi_00
-_strfmt_stop_00
-            lda #$00
-_strfmt_stop
-            tsx
-_strfmt_00_loop
-            cpx #(6 * 8) ; TODO: this should be start + max len
-            bpl _strfmt_end
-            sta STRING_WRITE,x
-            inx
-            jmp _strfmt_00_loop
-_strfmt_end
-            ldx local_strfmt_stack
-            txs
-            rts
 
 ;--------------------------
 ; switch game subroutines
@@ -1482,17 +1285,12 @@ _strfmt_end
 switch_game_mode
             lda game_state
             clc
-            adc #$01
-            cmp #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT / 4 + 1)
+            adc #$10
+            cmp #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT + 1)
             bcc _switch_game_mode_save_state
-            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS / 4)
+            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
 _switch_game_mode_save_state
             sta game_state
-            and #$0f
-            tax
-            ldy GAME_MODE_TITLES,x  
-            ldx #STRING_BUFFER_0
-            jsr strfmt
             rts
 
 ;--------------------------
@@ -1506,40 +1304,35 @@ switch_player
             ldy #0
 _switch_player_save
             sty player_select,x
-            tya
-            asl
-            asl
-            asl
-            clc
-            adc #<MTP_MKI_0
-            cpx #1
-            bne _switch_player_save_sprite
-            inx           
-_switch_player_save_sprite
-            sta player_sprite,x
             rts
 
 ;-------------------------
 ; track select subroutines
 
 switch_track
+            ldy track_select,x
+            iny 
+            cpy #3
+            bcc _switch_track_save
+            ldy #0
+_switch_track_save
+            sty track_select,x
             rts
 
 ;--------------------------
 ; formation select subroutines
 
 switch_formation
-            lda formation_select
-            clc
-            adc #$01
-            and #$03
-            sta formation_select
-            tax 
+            ldy formation_select
+            iny
+            cpy #3
+            bcc _switch_stage_save
+            ldy #0
+_switch_stage_save
+            sty formation_select
             beq formation_chute
-            dex
+            dey
             beq formation_diamonds
-            dex
-            beq formation_chute
 formation_void
             ldx #14
 _populate_formation_void_dl
@@ -1662,123 +1455,39 @@ waitOnVBlank_loop
             stx VBLANK
             rts 
 
-;-----------------------------
-; Font
-; 4x7 bit font packed into 8x32 byte array
-
-    ALIGN 256 
-
-FONT_0
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8
-    byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
-    byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
-    byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
-    byte $0,$42,$a2,$a6,$ea,$aa,$22,$cc; 8
-    byte $0,$0,$0,$40,$e,$40,$0,$0; 8
-    byte $0,$0,$2,$46,$ee,$46,$2,$0; 8
-    byte $0,$0,$8,$ec,$e,$ec,$8,$0; 8
-    byte $0,$64,$40,$e0,$40,$e0,$0,$e0; 8
-    byte $0,$44,$0,$44,$42,$42,$48,$4c; 8
-    byte $0,$ac,$aa,$ea,$ac,$aa,$22,$ec; 8
-    byte $0,$ec,$8a,$8a,$8a,$8a,$2,$ec; 8
-    byte $0,$e8,$88,$88,$cc,$88,$0,$ee; 8
-    byte $0,$ea,$aa,$aa,$8e,$8a,$2,$ea; 8
-    byte $0,$4e,$4a,$42,$2,$42,$0,$42; 8
-    byte $0,$ae,$a8,$a8,$c8,$a8,$20,$a8; 8
-    byte $0,$aa,$aa,$aa,$a,$ea,$2,$ee; 8
-    byte $0,$e8,$a8,$a8,$ae,$aa,$22,$ee; 8
-    byte $0,$6a,$8a,$ac,$aa,$aa,$22,$ee; 8
-    byte $0,$e4,$24,$24,$e4,$84,$0,$ee; 8
-    byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
-    byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
-    byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-
-STRING_CONSTANTS
-STRING_CHOOSE_GAME = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 112, 88, 136, 104, 0
-STRING_CHOOSE_POD = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 145, 144, 97, 0
-STRING_CHOOSE_STAGE = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 160, 161, 88, 112, 104, 0
-STRING_CHOOSE_TRACK = . - STRING_CONSTANTS
-    byte 96, 113, 144, 144, 160, 104, 1, 161, 153, 88, 96, 128, 0
-STRING_P1 = . - STRING_CONSTANTS
-    byte 145, 9, 0
-STRING_P2 = . - STRING_CONSTANTS
-    byte 145, 16, 0
-STRING_LC008 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 8, 40, 0
-STRING_LC0X1 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 177, 9, 0
-STRING_MX888 = . - STRING_CONSTANTS
-    byte 136, 177, 40, 40, 40, 0
-STRING_VERSUS = . - STRING_CONSTANTS
-    byte 169, 104, 153, 160, 168, 160, 0
-STRING_QUEST = . - STRING_CONSTANTS
-    byte 152, 168, 104, 160, 161, 0
-STRING_TOURNAMENT = . - STRING_CONSTANTS
-    byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
-STRING_GET_READY = . - STRING_CONSTANTS
-    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
-STRING_GATE = . - STRING_CONSTANTS
-    byte 112, 88, 161, 104, 0
-STRING_CLEAR = . - STRING_CONSTANTS
-    byte 96, 129, 104, 88, 153, 0
-STRING_GAME_OVER = . - STRING_CONSTANTS
-    byte 112, 88, 136, 104, 1, 144, 169, 104, 153, 0
-STRING_PLAYER_1 = . - STRING_CONSTANTS
-    byte 145, 129, 88, 184, 104, 153, 1, 9, 0
-STRING_PLAYER_2 = . - STRING_CONSTANTS
-    byte 145, 129, 88, 184, 104, 153, 1, 16, 0
-STRING_CLICK = . - STRING_CONSTANTS
-    byte 96, 129, 120, 96, 128, 0
-STRING_TABLA = . - STRING_CONSTANTS
-    byte 161, 88, 89, 129, 88, 0
-STRING_GLITCH = . - STRING_CONSTANTS
-    byte 112, 129, 120, 161, 96, 113, 0
-
-    
-PLAYER_SPRITE_NAMES
-    byte STRING_LC008
-    byte STRING_LC0X1
-    byte STRING_MX888
-
-GAME_MODE_TITLES
-    byte STRING_VERSUS
-    byte STRING_QUEST
-    byte STRING_TOURNAMENT
-
-
 
     END_BANK
-
-    START_BANK 2
 
 ;
 ; ATTRACT MODE KERNELS
 ; MENU KERNELS
 ;
 
+    START_BANK 2
+
+        ; select which screen to show
         DEF_LBL attract_menu_kernels
             lda game_state
-            cmp #GS_MENU_GAME
-            bcs _jmpMenu 
-            cmp #GS_ATTRACT_TITLE
-            beq _jmpTitle
-            jmp kernel_showSplash
-_jmpMenu
-            jmp kernel_menu
-_jmpTitle
-            jmp kernel_title
+            and #$0f
+            asl
+            tax
+            lda MENU_JUMP_TABLE,x
+            sta local_jmp_addr
+            lda MENU_JUMP_TABLE + 1,x
+            sta local_jmp_addr + 1
+            jmp (local_jmp_addr)
+
+    align 2
+
+MENU_JUMP_TABLE
+    word kernel_showSplash
+    word kernel_showSplash
+    word kernel_showSplash
+    word kernel_title
+    word kernel_menu_game
+    word kernel_menu_equip
+    word kernel_menu_stage
+    word kernel_menu_track
 
 
 ;------------------
@@ -1802,10 +1511,105 @@ kernel_title
             ; jump back
             JMP_LBL waitOnOverscan
 
-;------------------
-; game options
 
-kernel_gameOptions
+;------------------------
+; std menu kernels
+
+kernel_menu_game
+            lda game_state
+            lsr
+            lsr
+            lsr
+            lsr
+            tax
+            ldy GAME_MODE_NAMES,x
+            lda #12
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+            ; load string
+            lda #12
+            ldx #STRING_BUFFER_6
+            ldy #STRING_GAME
+            jsr strfmt
+            jmp _kernel_menu
+kernel_menu_stage
+            lda #12
+            ldx formation_select
+            ldy STAGE_NAMES,x
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+            ; load string
+            lda #12
+            ldx #STRING_BUFFER_6
+            ldy #STRING_STAGE
+            jsr strfmt
+            jmp _kernel_menu
+kernel_menu_track
+            lda #12
+            ldx track_select
+            ldy TRACK_NAMES,x
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+            ; load string
+            lda #12
+            ldx #STRING_BUFFER_6
+            ldy #STRING_TRACK
+            jsr strfmt
+_kernel_menu
+            ; BUGBUG standardize
+            jsr waitOnVBlank_2 ; SL 34
+
+            ; skip empty space
+            ldx #30 
+            jsr sky_kernel
+            
+            jsr title_kernel
+
+            ; skip empty space
+            ldx #10 
+            jsr sky_kernel
+
+            ; menu choice text
+            ldx #STRING_BUFFER_6
+            jsr text_kernel
+
+            ; menu title text
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+
+
+            ; bottom grid
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
+            jsr grid_kernel
+            
+            JMP_LBL waitOnOverscan
+
+;------------------
+; equip menu kernel
+    
+    align 256
+
+kernel_menu_equip
+           ; load string
+            lda #2
+            ldx #STRING_BUFFER_0
+            ldy #STRING_P1
+            jsr strfmt
+            ; load string
+            lda #2
+            ldx #STRING_BUFFER_1
+            ldy #STRING_P2
+            jsr strfmt
+            ; load player graphics
+            lda #>MTP_MKI_0
+            sta player_sprite + 1
+            sta player_sprite + 3
+            ldy player_select + 1
+            lda PLAYER_SPRITES,y
+            sta player_sprite + 3
+            ldy player_select
+            lda PLAYER_SPRITES,y
+            sta player_sprite
 
             ; BUGBUG standardize
             jsr waitOnVBlank_2 ; SL 34
@@ -1889,13 +1693,6 @@ _p0_sel_draw_loop
             lda #0
             sta GRP0         
 
-            ;;
-            ;; stage
-            ;;
-
-            ;;
-            ;; track
-            ;;
             
             ; bottom grid
             ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
@@ -1903,40 +1700,8 @@ _p0_sel_draw_loop
             
             JMP_LBL waitOnOverscan ; BUGBUG jump back
 
-;------------------------
-; menu kernel
-
-kernel_menu
-            ; BUGBUG standardize
-            jsr waitOnVBlank_2 ; SL 34
-
-            ; skip empty space
-            ldx #30 
-            jsr sky_kernel
-            
-            jsr title_kernel
-
-            ; skip empty space
-            ldx #10 
-            jsr sky_kernel
-
-            ; menu choice text
-            ldx #STRING_BUFFER_6
-            jsr text_kernel
-
-            ; menu title text
-            ldx #STRING_BUFFER_0
-            jsr text_kernel
-
-
-            ; bottom grid
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 57
-            jsr grid_kernel
-            
-            JMP_LBL waitOnOverscan
-
 ;--------------------------
-; sky drawing routine
+; sky drawing minikernel
 
             ; x is number of lines
 sky_kernel
@@ -1948,7 +1713,7 @@ sky_kernel
             rts
 
 ;--------------------------
-; text drawing kernel
+; text drawing minikernel
 
 text_kernel
 _text_setup_0
@@ -2048,6 +1813,253 @@ _grid_drawGridLine
 _grid_nextGridLine
             dex
             bne _grid_loop
+            rts
+
+;--------------------------
+; text blitter routine
+; a = chars to write
+; x = graphics buffer offset
+; y = char buffer offset
+
+strfmt
+            sty local_strfmt_start
+            clc
+            adc local_strfmt_start
+            sta local_strfmt_start
+            ;; only write one line per run
+            lda frame
+            and #$07
+            sta local_strfmt_index_offset
+            txa
+            ;; push stack counter
+            tsx
+            stx local_strfmt_stack
+            clc
+            adc local_strfmt_index_offset
+            tax 
+            txs
+_strfmt_loop
+            lda STRING_CONSTANTS,y      
+            bne _strfmt_cont
+            jmp _strfmt_stop
+_strfmt_cont
+            lsr
+            bcc _strfmt_hi___
+_strfmt_lo___
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_hi
+            iny 
+            lda STRING_CONSTANTS,y      
+            beq _strfmt_lo_00
+            lsr 
+            bcs _strfmt_lo_lo
+            ; hi << 4 + lo >> 4 
+_strfmt_lo_hi
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_lo
+_strfmt_lo_hi_loop
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            ldx local_strfmt_index_lo
+            lda FONT_0,x
+            lsr
+            lsr
+            lsr
+            lsr
+            tsx
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; inc local_strfmt_index_lo
+            ; dec local_strfmt_count
+            ; bpl _strfmt_lo_hi_loop
+            iny 
+            jmp _strfmt_loop
+            ; hi << 4 + lo & 0f
+_strfmt_lo_lo
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_lo
+_strfmt_lo_lo_loop
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            ldx local_strfmt_index_lo
+            lda FONT_0,x
+            and #$0f
+            tsx
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; inc local_strfmt_index_lo
+            ; dec local_strfmt_count
+            ; bpl _strfmt_lo_lo_loop
+            iny 
+            jmp _strfmt_loop
+_strfmt_lo_00            
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            asl
+            asl
+            asl
+            asl
+            tsx
+            sta STRING_WRITE,x
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; dec local_strfmt_count
+            ; bpl _strfmt_lo_00
+            jmp _strfmt_stop
+_strfmt_hi___
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_hi
+            iny 
+            lda STRING_CONSTANTS,y      
+            beq _strfmt_hi_00
+            lsr 
+            bcs _strfmt_hi_lo
+_strfmt_hi_hi
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_lo
+_strfmt_hi_hi_loop
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            tsx
+            sta STRING_WRITE,x
+            ldx local_strfmt_index_lo
+            lda FONT_0,x
+            lsr
+            lsr
+            lsr
+            lsr
+            tsx
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; inc local_strfmt_index_lo
+            ; dec local_strfmt_count
+            ; bpl _strfmt_hi_hi_loop
+            iny 
+            jmp _strfmt_loop
+            ; hi << 4 + lo & 0f
+_strfmt_hi_lo
+            asl
+            clc
+            adc local_strfmt_index_offset
+            sta local_strfmt_index_lo
+_strfmt_hi_lo_loop
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            tsx
+            sta STRING_WRITE,x
+            ldx local_strfmt_index_lo
+            lda FONT_0,x
+            and #$0f
+            tsx
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; inc local_strfmt_index_lo
+            ; dec local_strfmt_count
+            ; bpl _strfmt_hi_lo_loop
+            iny 
+            jmp _strfmt_loop
+_strfmt_hi_00            
+            ldx local_strfmt_index_hi
+            lda FONT_0,x
+            and #$f0
+            tsx
+            sta STRING_WRITE,x
+            txa
+            clc
+            adc #$08
+            tax
+            txs
+            ; inx
+            ; txs
+            ; inc local_strfmt_index_hi
+            ; dec local_strfmt_count
+            ; bpl _strfmt_hi_00
+            ; fallthrough
+_strfmt_stop
+            tya
+            sec
+            sbc local_strfmt_start
+            bpl _strfmt_end
+            eor #$ff
+            adc #$00
+            lsr
+            tay
+            tsx
+_strfmt_00_loop
+            lda #$00
+            sta STRING_WRITE,x
+            txa
+            clc
+            adc #$08
+            tax
+            ; inx
+            dey
+            bpl _strfmt_00_loop
+_strfmt_end
+            ldx local_strfmt_stack
+            txs
             rts
 
 	ALIGN 256
@@ -2258,6 +2270,142 @@ MTP_MKIV_0
 MTP_MX888_0
     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
 
+PLAYER_SPRITES
+    byte #<MTP_MKI_0
+    byte #<MTP_MKIV_0
+    byte #<MTP_MX888_0
+    
+;-----------------------------
+; Font
+; 4x7 bit font packed into 8x32 byte array
+
+    ALIGN 256 
+
+FONT_0
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$4e,$a4,$a4,$a4,$a4,$20,$cc; 8
+    byte $0,$6c,$82,$82,$66,$22,$0,$cc; 8
+    byte $0,$2c,$22,$62,$ac,$a8,$20,$a6; 8
+    byte $0,$48,$a8,$a8,$c4,$82,$0,$6e; 8
+    byte $0,$42,$a2,$a6,$ea,$aa,$22,$cc; 8
+    byte $0,$0,$0,$40,$e,$40,$0,$0; 8
+    byte $0,$0,$2,$46,$ee,$46,$2,$0; 8
+    byte $0,$0,$8,$ec,$e,$ec,$8,$0; 8
+    byte $0,$64,$40,$e0,$40,$e0,$0,$e0; 8
+    byte $0,$44,$0,$44,$42,$42,$48,$4c; 8
+    byte $0,$ac,$aa,$ea,$ac,$aa,$22,$ec; 8
+    byte $0,$ec,$8a,$8a,$8a,$8a,$2,$ec; 8
+    byte $0,$e8,$88,$88,$cc,$88,$0,$ee; 8
+    byte $0,$ea,$aa,$aa,$8e,$8a,$2,$ea; 8
+    byte $0,$4e,$4a,$42,$2,$42,$0,$42; 8
+    byte $0,$ae,$a8,$a8,$c8,$a8,$20,$a8; 8
+    byte $0,$aa,$aa,$aa,$a,$ea,$2,$ee; 8
+    byte $0,$e8,$a8,$a8,$ae,$aa,$22,$ee; 8
+    byte $0,$6a,$8a,$ac,$aa,$aa,$22,$ee; 8
+    byte $0,$e4,$24,$24,$e4,$84,$0,$ee; 8
+    byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
+    byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
+    byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+
+STRING_CONSTANTS
+STRING_GAME = . - STRING_CONSTANTS
+    byte 112, 88, 136, 104, 0
+STRING_EQUIP = . - STRING_CONSTANTS
+    byte 104, 152, 168, 120, 145, 0
+STRING_STAGE = . - STRING_CONSTANTS
+    byte 160, 161, 88, 112, 104, 0
+STRING_TRACK = . - STRING_CONSTANTS
+    byte 161, 153, 88, 96, 128, 0
+STRING_P1 = . - STRING_CONSTANTS
+    byte 145, 9, 0
+STRING_P2 = . - STRING_CONSTANTS
+    byte 145, 16, 0
+STRING_LC008 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 8, 40, 0
+STRING_LC0X1 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 177, 9, 0
+STRING_MX888 = . - STRING_CONSTANTS
+    byte 136, 177, 40, 40, 40, 0
+STRING_VERSUS = . - STRING_CONSTANTS
+    byte 169, 104, 153, 160, 168, 160, 0
+STRING_QUEST = . - STRING_CONSTANTS
+    byte 152, 168, 104, 160, 161, 0
+STRING_TOURNAMENT = . - STRING_CONSTANTS
+    byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
+STRING_GET_READY = . - STRING_CONSTANTS
+    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
+STRING_GATE = . - STRING_CONSTANTS
+    byte 112, 88, 161, 104, 0
+STRING_CLEAR = . - STRING_CONSTANTS
+    byte 96, 129, 104, 88, 153, 0
+STRING_GAME_OVER = . - STRING_CONSTANTS
+    byte 112, 88, 136, 104, 1, 144, 169, 104, 153, 0
+STRING_PLAYER_1 = . - STRING_CONSTANTS
+    byte 145, 129, 88, 184, 104, 153, 1, 9, 0
+STRING_PLAYER_2 = . - STRING_CONSTANTS
+    byte 145, 129, 88, 184, 104, 153, 1, 16, 0
+STRING_CLICK = . - STRING_CONSTANTS
+    byte 96, 129, 120, 96, 128, 0
+STRING_TABLA = . - STRING_CONSTANTS
+    byte 161, 88, 89, 129, 88, 0
+STRING_GLITCH = . - STRING_CONSTANTS
+    byte 112, 129, 120, 161, 96, 113, 0
+STRING_VOID = . - STRING_CONSTANTS
+    byte 169, 144, 120, 97, 0
+STRING_CHUTE = . - STRING_CONSTANTS
+    byte 96, 113, 168, 161, 104, 0
+STRING_DIAMONDS = . - STRING_CONSTANTS
+    byte 97, 120, 88, 136, 144, 137, 97, 160, 0
+STRING_BATTLE = . - STRING_CONSTANTS
+    byte 89, 88, 161, 161, 129, 104, 0
+STRING_FRACAS = . - STRING_CONSTANTS
+    byte 105, 153, 88, 96, 88, 160, 0
+STRING_COMBAT = . - STRING_CONSTANTS
+    byte 96, 144, 136, 89, 88, 161, 0
+STRING_GATEWAY = . - STRING_CONSTANTS
+    byte 112, 88, 161, 104, 176, 88, 184, 0
+STRING_PERIL = . - STRING_CONSTANTS
+    byte 145, 104, 153, 120, 129, 0
+STRING_HAZARD = . - STRING_CONSTANTS
+    byte 113, 88, 185, 88, 153, 97, 0
+STRING_VENDETTA = . - STRING_CONSTANTS
+    byte 169, 104, 137, 97, 104, 161, 161, 88, 0
+STRING_FACING = . - STRING_CONSTANTS
+    byte 105, 88, 96, 120, 137, 112, 0
+STRING_AGAINST = . - STRING_CONSTANTS
+    byte 88, 112, 88, 120, 137, 160, 161, 0
+STRING_ABSCONDER = . - STRING_CONSTANTS
+    byte 88, 89, 160, 96, 144, 137, 97, 104, 153, 0
+
+    
+PLAYER_SPRITE_NAMES
+    byte STRING_LC008
+    byte STRING_LC0X1
+    byte STRING_MX888
+
+GAME_MODE_NAMES
+    byte STRING_VERSUS
+    byte STRING_QUEST
+    byte STRING_TOURNAMENT
+
+STAGE_NAMES
+    byte STRING_VOID
+    byte STRING_CHUTE
+    byte STRING_DIAMONDS
+
+TRACK_NAMES
+    byte STRING_CLICK
+    byte STRING_TABLA
+    byte STRING_GLITCH
+
 ;---------------------------
 ; title graphics
 
@@ -2443,10 +2591,11 @@ SPLASH_GRAPHICS
 
     END_BANK
 
+;
+; -- audio bank
+;
+
     START_BANK 3
-    ;
-    ; -- audio bank
-    ;
 
             DEF_LBL bank_audio_tracker
             ldx #NUM_AUDIO_CHANNELS - 1
@@ -2532,6 +2681,7 @@ TRACK_0 = . - AUDIO_TRACKS
 ;         - double press - on both press go to game
 ;  - different ships
 ;  - power grid
+;  - gradient field bachground
 ;  - dynamic playfield
 ;  - framerate glitches
 ;  - manual aim ability

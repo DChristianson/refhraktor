@@ -1,7 +1,7 @@
-choose game
-choose pod
-choose stage
-choose track
+game
+equip
+stage
+track
 p1
 p2
 LC008
@@ -19,6 +19,9 @@ player 2
 click
 tabla
 glitch
+void
+chute
+diamonds
 battle
 fracas
 combat
