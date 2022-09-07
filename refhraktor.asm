@@ -93,7 +93,7 @@ BALL_MAX_X = 132
 GOAL_SCORE_DEPTH = 4
 GOAL_HEIGHT = 16
 BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
-PLAYER_HEIGHT = TARGET_1 - TARGET_0
+PLAYER_HEIGHT = MTP_MKI_1 - MTP_MKI_0
 TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
@@ -126,8 +126,8 @@ player_sprite ds 2 * NUM_PLAYERS  ; pointer
 
 formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
-formation_p1_dl  ds 10  ; playfield ptr pf1
-formation_p2_dl  ds 10  ; playfield ptr pf2
+formation_p1_dl  ds 12  ; playfield ptr pf1
+formation_p2_dl  ds 12  ; playfield ptr pf2
 
 player_state  ds NUM_PLAYERS
 player_x      ds NUM_PLAYERS  ; player x position
@@ -152,11 +152,9 @@ ball_color   ds 1
 ball_voffset ds 1 ; ball position countdown
 ball_cx      ds BALL_HEIGHT ; collision registers
 
-
 display_scroll    ; scroll adjusted to modulo block
 scroll       ds 1 ; y value to start showing playfield
 
-display_formation_jmp   ds 2   ; formation jump ptr
 display_playfield_limit ds 1
 
 LOCAL_OVERLAY           ds 8
@@ -166,7 +164,7 @@ local_jx_player_input = LOCAL_OVERLAY
 local_jx_player_count = LOCAL_OVERLAY + 1
 
 ; -- jmp table
-local_jmp_addr = LOCAL_OVERLAY
+local_jmp_addr = LOCAL_OVERLAY ; (ds 2)
 
 ; -- strfmt locals
 local_strfmt_stack    = LOCAL_OVERLAY 
@@ -192,6 +190,8 @@ local_player_draw_buffer = LOCAL_OVERLAY + 5 ; (ds 2)
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
 local_pf_beam_index = LOCAL_OVERLAY + 1  ; hold beam offset during playfield kernel 
 local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min 
+
+; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
 ; ----------------------------------
 ; menu RAM
@@ -345,14 +345,14 @@ _skip_laser_color_1
             sta local_pf_beam_index      ;3  35
             lda #$01                     ;2  37
             sta VDELP1                   ;3  40
-            jmp (display_formation_jmp)  ;3  43
+            jmp formation_0              ;3  43
 
     ; try to avoid page branching problems
     ALIGN 256
 
 formation_0
     sta WSYNC
-    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, PLAYFIELD_COLORS_0, #$0f, formation_1_jmp
+    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, PLAYFIELD_COLORS_1, #$0f, formation_1_jmp
 formation_1
     sta WSYNC
 formation_1_jmp
@@ -372,15 +372,7 @@ formation_4_jmp
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, PLAYFIELD_COLORS_1, #$0f, formation_6_jmp
-formation_6
-    sta WSYNC
-formation_6_jmp
-    FORMATION formation_p0, formation_p1_dl + 12, formation_p2_dl + 12, PLAYFIELD_COLORS_1, #$0f, formation_7_jmp
-formation_7
-    sta WSYNC
-formation_7_jmp
-    FORMATION formation_p0, formation_p1_dl + 14, formation_p2_dl + 14, PLAYFIELD_COLORS_2, #$0f, formation_end
+    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, PLAYFIELD_COLORS_1, #$0f, formation_end
 formation_end
 
             lda #$00
@@ -473,6 +465,38 @@ playfield_shim_loop
 
     JMP_LBL return_main_kernel
 
+;------------------------
+; equip sub
+
+    DEF_LBL equip_kernel
+            ldy #PLAYER_HEIGHT - 1
+_equip_p1_draw_loop
+            sta WSYNC
+            lda #P1_GRAPHICS_0,y
+            sta GRP0
+            lda (player_sprite),y
+            sta GRP1
+            dey
+            bpl _equip_p1_draw_loop 
+            ldy #PLAYER_HEIGHT - 1
+_equip_p2_draw_loop
+            sta WSYNC
+            lda #P2_GRAPHICS_0,y
+            sta GRP0
+            lda (player_sprite + 2),y
+            sta GRP1
+            dey
+            bpl _equip_p2_draw_loop
+            JMP_LBL equip_kernel_return
+
+P1_GRAPHICS_0
+    byte $0, $8e, $84, $84, $e4, $a4, $20, $ec
+P2_GRAPHICS_0
+    byte $0, $86, $88, $88, $e6, $a2, $20, $ec
+
+;------------------------
+; game data
+
     ; try to avoid page branching problems
     ALIGN 256
 
@@ -535,43 +559,34 @@ STD_HMOVE_BEGIN
     byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
 STD_HMOVE_END
 
-TARGET_0
-    byte $00,$18,$7e,$77,$55,$55,$77,$7e,$3c; 9
-TARGET_1
-    byte $00,$18,$7e,$ee,$aa,$aa,$ee,$7e,$3c; 9
-TARGET_2
-    byte $00,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 9
-TARGET_3
-    byte $00,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 9
-; BUGBUG; TODO: PLAYER GRAPHICS
-; MTP_MKI_0
-;     byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
-; MTP_MKI_1
-;     byte $18,$3c,$ff,$aa,$ff,$0,$3c,$18; 8
-; MTP_MKI_2
-;     byte $18,$3c,$ff,$55,$ff,$c,$3c,$18; 8
-; MTP_MKI_3
-;     byte $18,$3c,$ff,$aa,$ff,$3c,$3c,$18; 8
-; MTP_MKIV_0
-;     byte $18,$7e,$f7,$55,$55,$f7,$7e,$3c; 8
-; MTP_MKIV_1
-;     byte $18,$7e,$ef,$aa,$aa,$ef,$7e,$3c; 8
-; MTP_MKIV_2
-;     byte $18,$7e,$dd,$55,$55,$dd,$7e,$3c; 8
-; MTP_MKIV_3
-;     byte $18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 8
-; MTP_MX888_0
-;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
-; MTP_MX888_1
-;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
-; MTP_MX888_2
-;     byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
-; MTP_MX888_3
-;     byte $54,$1,$bc,$e7,$42,$ff,$e7,$81; 8
+MTP_MKI_0
+    byte $0,$18,$3c,$ff,$55,$ff,$30,$3c,$18; 9
+MTP_MKI_1
+    byte $0,$18,$3c,$ff,$aa,$ff,$0,$3c,$18; 9
+MTP_MKI_2
+    byte $0,$18,$3c,$ff,$55,$ff,$c,$3c,$18; 9
+MTP_MKI_3
+    byte $0,$18,$3c,$ff,$aa,$ff,$3c,$3c,$18; 9
+MTP_MKIV_0
+    byte $0,$18,$7e,$f7,$55,$55,$f7,$7e,$3c; 9
+MTP_MKIV_1
+    byte $0,$18,$7e,$ef,$aa,$aa,$ef,$7e,$3c; 9
+MTP_MKIV_2
+    byte $0,$18,$7e,$dd,$55,$55,$dd,$7e,$3c; 9
+MTP_MKIV_3
+    byte $0,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 9
+MTP_MX888_0
+    byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
+MTP_MX888_1
+    byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
+MTP_MX888_2
+    byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
+MTP_MX888_3
+    byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
 TARGET_COLOR_0
-    byte $00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 8
+    byte $0,$00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 9
 TARGET_BG_0
-    byte $00,$02,$00,$02,$00,$02,$00,$02,$00; 8
+    byte $0,$00,$02,$00,$02,$00,$02,$00,$02,$00; 9
 
     END_BANK
 
@@ -588,23 +603,12 @@ CleanStart
     jsr gs_splash_setup
 
     ; initial formation
-    jsr formation_diamonds
-    lda #<FORMATION_CHUTE_UP
-    sta formation_up
-    lda #>FORMATION_CHUTE_UP
-    sta formation_up + 1
     lda #<P0_WALLS
     sta formation_p0
     lda #>P0_WALLS
     sta formation_p0 + 1
 
     ; player setup
-    lda #>TARGET_0
-    sta player_sprite + 1
-    sta player_sprite + 3
-    lda #<TARGET_0
-    sta player_sprite + 0
-    sta player_sprite + 2
     lda #>TARGET_BG_0
     sta player_bg + 1
     sta player_bg + 3
@@ -838,21 +842,7 @@ _scroll_update_store
 formation_update
             jmp (formation_up)
 formation_update_return 
-            ; figure out which formation block is first
-            ; and where it starts
             lda scroll
-            tay
-            lsr
-            lsr
-            lsr
-            lsr
-            asl
-            tax
-            lda FORMATION_JMP_TABLE,x
-            sta display_formation_jmp
-            lda FORMATION_JMP_TABLE+1,x
-            sta display_formation_jmp + 1
-            tya
             and #$0f
             sta display_scroll
 
@@ -860,7 +850,7 @@ player_update
             ldx #NUM_PLAYERS - 1
 _player_update_loop
             ;
-            ; TODO: control player
+            ; TODO: control player using jx_ callback
             ;
             ; manual player movement
             ldy #$00
@@ -885,9 +875,9 @@ _player_update_right
             lda player_sprite,y ; bugbug can do indirectly?
             clc 
             adc #PLAYER_HEIGHT
-            cmp #<TARGET_3
+            cmp #<MTP_MKI_3 ; TODO: swap
             bcc _player_update_anim_right
-            lda #<TARGET_0
+            lda #<MTP_MKI_0 ; TODO: swap
 _player_update_anim_right
             sta player_sprite,y
             jmp _player_end_move
@@ -900,9 +890,9 @@ _player_update_left
             lda player_sprite,y ; bugbug can do indirectly?
             sec 
             sbc #PLAYER_HEIGHT
-            cmp #<TARGET_0
+            cmp #<MTP_MKI_0 ; TODO: swap
             bcs _player_update_anim_left
-            lda #<TARGET_3
+            lda #<MTP_MKI_3 ; TODO: swap
 _player_update_anim_left
             sta player_sprite,y
 _player_end_move
@@ -1192,6 +1182,7 @@ gs_menu_stage_setup
             and #$f0
             ora #GS_MENU_STAGE
             sta game_state
+            jsr switch_formation
             ; jmp tables
             SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
             rts
@@ -1227,12 +1218,14 @@ menu_track_on_press_down
             lda #DROP_DELAY
             sta game_timer
             ; move to game
+            ; TODO: JSR
             lda game_state
             asl
             asl
             and #$30
             ora #(GS_GAME + __GAME_MODE_START)
             sta game_state
+            SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
             jmp jx_on_press_down_return
 
 menu_track_on_move
@@ -1391,64 +1384,109 @@ _switch_stage_save
             dey
             beq formation_diamonds
 formation_void
-            ldx #14
-_populate_formation_void_dl
-            lda FORMATION_VOID_P1,x
-            sta formation_p1_dl,x
-            lda FORMATION_VOID_P1+1,x
-            sta formation_p1_dl+1,x
-            lda FORMATION_VOID_P2,x
-            sta formation_p2_dl,x
-            lda FORMATION_VOID_P2+1,x
-            sta formation_p2_dl+1,x
-            dex
-            dex
-            bpl _populate_formation_void_dl
+            lda #<FORMATION_VOID_UP
+            sta formation_up
+            lda #>FORMATION_VOID_UP
+            sta formation_up + 1
             rts
 formation_chute
-            ldx #14
-_populate_formation_chute_dl
-            lda FORMATION_CHUTE_P1,x
-            sta formation_p1_dl,x
-            lda FORMATION_CHUTE_P1+1,x
-            sta formation_p1_dl+1,x
-            lda FORMATION_CHUTE_P2,x
-            sta formation_p2_dl,x
-            lda FORMATION_CHUTE_P2+1,x
-            sta formation_p2_dl+1,x
-            dex
-            dex
-            bpl _populate_formation_chute_dl
+            lda #<FORMATION_CHUTE_UP
+            sta formation_up
+            lda #>FORMATION_CHUTE_UP
+            sta formation_up + 1
             rts
 formation_diamonds
-            ldx #14
-_populate_formation_diamonds_dl
-            lda FORMATION_DIAMONDS_P1,x
-            sta formation_p1_dl,x
-            lda FORMATION_DIAMONDS_P1+1,x
-            sta formation_p1_dl+1,x
-            lda FORMATION_DIAMONDS_P2,x
-            sta formation_p2_dl,x
-            lda FORMATION_DIAMONDS_P2+1,x
-            sta formation_p2_dl+1,x
-            dex
-            dex
-            bpl _populate_formation_diamonds_dl
+            lda #<FORMATION_DIAMONDS_UP
+            sta formation_up
+            lda #>FORMATION_DIAMONDS_UP
+            sta formation_up + 1
             rts
 
     ALIGN 256
 
-FORMATION_JMP_TABLE
-    word #formation_0
-    word #formation_1
-    word #formation_2
-    word #formation_3
-    word #formation_4
-    word #formation_5
-
 FORMATION_VOID_UP
+            ; figure out which formation block is first
+            ; and where it starts
+            lda scroll
+            lsr
+            lsr
+            lsr
+            lsr
+            asl
+            tax
+            ldy #0
+_formation_void_dl_loop
+            lda FORMATION_VOID_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_VOID_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            lda FORMATION_VOID_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_VOID_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            cpy #12
+            bcc _formation_chute_dl_loop
+            jmp formation_update_return
+
 FORMATION_CHUTE_UP
-    jmp formation_update_return
+            ; figure out which formation block is first
+            ; and where it starts
+            lda scroll
+            lsr
+            lsr
+            lsr
+            lsr
+            asl
+            tax
+            ldy #0
+_formation_chute_dl_loop
+            lda FORMATION_CHUTE_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_CHUTE_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            lda FORMATION_CHUTE_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_CHUTE_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            cpy #12
+            bcc _formation_chute_dl_loop
+            jmp formation_update_return
+
+FORMATION_DIAMONDS_UP
+            ; figure out which formation block is first
+            ; and where it starts
+            lda scroll
+            lsr
+            lsr
+            lsr
+            lsr
+            asl
+            tax
+            ldy #0
+_formation_diamonds_dl_loop
+            lda FORMATION_DIAMONDS_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_DIAMONDS_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            lda FORMATION_DIAMONDS_P1,x
+            sta formation_p1_dl,y
+            lda FORMATION_DIAMONDS_P2,x
+            sta formation_p2_dl,y
+            inx
+            iny
+            cpy #12
+            bcc _formation_diamonds_dl_loop
+            jmp formation_update_return
 
 FORMATION_VOID_P1
     word #P1_GOAL_TOP
@@ -1511,7 +1549,6 @@ waitOnVBlank_loop
             bmi waitOnVBlank_loop
             stx VBLANK
             rts 
-
 
     END_BANK
 
@@ -1655,24 +1692,8 @@ _equip_resp_loop
             lda #0
             sta NUSIZ0
             sta NUSIZ1
-            ldy #PLAYER_HEIGHT - 1
-_equip_p1_draw_loop
-            sta WSYNC
-            lda #P1_GRAPHICS_0,y
-            sta GRP0
-            lda (player_sprite),y
-            sta GRP1
-            dey
-            bpl _equip_p1_draw_loop 
-            ldy #PLAYER_HEIGHT - 1
-_equip_p2_draw_loop
-            sta WSYNC
-            lda #P2_GRAPHICS_0,y
-            sta GRP0
-            lda (player_sprite + 2),y
-            sta GRP1
-            dey
-            bpl _equip_p2_draw_loop
+            JMP_LBL equip_kernel
+    DEF_LBL equip_kernel_return
             sta WSYNC 
 
             ; stage
@@ -2326,13 +2347,6 @@ STD_HMOVE_BEGIN_2
     byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
 STD_HMOVE_END_2
 
-MTP_MKI_0
-     byte $0,$18,$3c,$ff,$55,$ff,$30,$3c,$18; 9
-MTP_MKIV_0
-     byte $0,$18,$7e,$f7,$55,$55,$f7,$7e,$3c; 9
-MTP_MX888_0
-    byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
-
 PLAYER_SPRITES
     byte #<MTP_MKI_0
     byte #<MTP_MKIV_0
@@ -2470,11 +2484,6 @@ TRACK_NAMES
     byte STRING_CLICK
     byte STRING_TABLA
     byte STRING_GLITCH
-
-P1_GRAPHICS_0
-    byte $0, $8e, $84, $84, $e4, $a4, $20, $ec
-P2_GRAPHICS_0
-    byte $0, $86, $88, $88, $e6, $a2, $20, $ec
 
 ;---------------------------
 ; title graphics
