@@ -487,6 +487,7 @@ _equip_p2_draw_loop
             sta GRP1
             dey
             bpl _equip_p2_draw_loop
+            sta GRP0 ; for vdelay
             JMP_LBL equip_kernel_return
 
 P1_GRAPHICS_0
@@ -1643,7 +1644,7 @@ kernel_menu_track
             ldx #STRING_BUFFER_6
             jsr strfmt
             ; load track
-            lda #6
+            lda #8
             ldx track_select
             ldy TRACK_NAMES,x
             ldx #STRING_BUFFER_C
@@ -1716,7 +1717,7 @@ _not_stage
             ldy #30
 _not_track
             ldx #STRING_BUFFER_C
-            jsr text_kernel
+            jsr text_kernel_4
 
             ldx #19
             jsr sky_kernel
@@ -1740,54 +1741,6 @@ sky_kernel
             bne sky_kernel
             rts
 
-;--------------------------
-; blank yext placeholder minikernel
-
-text_blank_kernel
-_text_blank_setup_0
-            sta WSYNC
-            lda #$01
-            sta VDELP0
-            sta VDELP1
-            SLEEP 24
-;             lda #30
-;             sec
-; _text_blank_resp_loop
-;             sbc #15
-;             bcs _text_blank_resp_loop
-            sta RESP0    
-            sta RESP1
-            lda #$03
-            sta NUSIZ0
-            sta NUSIZ1
-            lda #30
-            sta COLUP0
-            sta COLUP1
-            lda #$ff
-            sta HMP0
-            lda #$00
-            sta HMP1
-            sta WSYNC
-            sta HMOVE
-
-            ldy #7
-_text_blank_draw_0
-            sta WSYNC                                     ;3   0
-            ; load and store first 3 
-            lda #$ff                                      ;3   3
-            sta GRP0                                      ;3   6
-            sta GRP1                                      ;3  14
-            dey
-            bpl _text_blank_draw_0
-            lda #$00
-            sta NUSIZ0
-            sta NUSIZ1
-            sta GRP0
-            sta GRP1
-            sta VDELP0
-            sta VDELP1
-            rts
-
 
 
 ;--------------------------
@@ -1796,7 +1749,6 @@ _text_blank_draw_0
 ; y is color
 
 text_kernel
-_text_setup_0
             sta WSYNC
             lda #$01
             sta VDELP0
@@ -1852,6 +1804,62 @@ _text_draw_0
             bpl _text_draw_0
             ldx local_pf_stack
             txs
+            lda #$00
+            sta NUSIZ0
+            sta NUSIZ1
+            sta GRP0
+            sta GRP1
+            sta VDELP0
+            sta VDELP1
+            rts
+
+text_kernel_4
+            sta WSYNC
+            lda #$01
+            sta VDELP0
+            sta VDELP1
+            SLEEP 24
+;             lda #30
+;             sec
+; _text_resp_loop
+;             sbc #15
+;             bcs _text_resp_loop
+            sta RESP0    
+            sta RESP1
+            lda #$01
+            sta NUSIZ0
+            sta NUSIZ1
+            sty COLUP0
+            sty COLUP1
+            lda #$ff
+            sta HMP0
+            lda #$00
+            sta HMP1
+            sta WSYNC
+            sta HMOVE
+
+            txa
+            sta local_pf_y_min
+            clc
+            adc #7 ; font height
+            tay
+_text_draw_4_0
+            sta WSYNC                                     ;3   0
+            ; load and store first 3 
+            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
+            sta GRP0                                      ;3   7
+            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
+            sta GRP1                                      ;3  14
+            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
+            sta GRP0                                      ;3  21
+            ; load next 3 EDF
+            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  25
+            SLEEP 10                                      ;10 35
+            stx.w GRP1                                    ;4  39
+            sty GRP0                                      ;3  42 force vdelp
+            dey
+            cpy local_pf_y_min
+            bpl _text_draw_4_0
             lda #$00
             sta NUSIZ0
             sta NUSIZ1
@@ -2029,6 +2037,7 @@ _strfmt_lo_00
             ; inc local_strfmt_index_hi
             ; dec local_strfmt_count
             ; bpl _strfmt_lo_00
+            iny
             jmp _strfmt_stop
 _strfmt_hi___
             asl
@@ -2120,6 +2129,7 @@ _strfmt_hi_00
             ; inc local_strfmt_index_hi
             ; dec local_strfmt_count
             ; bpl _strfmt_hi_00
+            iny
             ; fallthrough
 _strfmt_stop
             tya
@@ -2760,21 +2770,30 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;         - show track and allow switch
 ;  - stabilize framerate
 ; PRIORITY TODO
-;  - remove play glitches
-;     - remove any framerate glitches
-;     - top player cutoff glitch
-;     - scan line glitchy?
-;     - ball score not in goal
+;  - clean up play screen 
+;     - adjust background / foreground color
+;     - free up player/missile/ball
+;     - add power track
+;     - add score
+;     - add special powerup indicator
+;     - remove player cutoff
+;  - graphical glitches
+;     - remove color change glitches
+;     - remove vdelay glitch on ball update
+;     - remove extra scanline glitch due to player
 ;     - lasers off at certain positions
-;     - collision bugs (stuck)
 ;  - power grid mechanics
-;   - play track
 ;   - boost player shots
 ;   - drain player power
-;  - clean up menus / startup / transitions
-;  - clean up play screen / make room for score / power
-;  - better colors
+;  - physics glitches
+;     - ball score not in goal
+;     - collision bugs (stuck)
+;  - clean up menus 
+;     - better startup behavior
+;     - forward/back/left/right transitions
+;     - gradient color
 ;  - shield weapon
+;  - make lasers refract off ball (maybe showing the power of the shot?)
 ;  - basic quest mode
 ;  - basic special attacks
 ;    - gravity blast
@@ -2783,7 +2802,7 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;  - menu system
 ;    - choose game mode
 ;         - tournament
-;    - choose pod
+;    - choose equipment
 ;         - show pod capabilities
 ;         - player 1 opt in (whoever pressed go/or)
 ;         - second player opt in (whoever pressed go/or)
@@ -2812,7 +2831,6 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;  - initial, weak, opposing ai
 ;    - auto move ability
 ;    - auto fire ability
-;  - make lasers refract off ball (maybe showing the power of the shot?)
 ;  - start / end game logic
 ;  - intro screen
 ;  - game timer
