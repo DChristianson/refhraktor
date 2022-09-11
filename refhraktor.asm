@@ -231,6 +231,26 @@ STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
 ;---------------------
 ; laser track (hi)
 
+
+            ; resp not
+            lda audio_timer
+            sec
+            sbc #64
+            eor #$ff
+            clc
+            adc #1
+            sta WSYNC
+            sec
+_note_1_resp_loop
+            sbc #15
+            sbcs _note_1_resp_loop
+            tay
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMM0                ;3  18+
+            sta RESM0
+            lda #2
+            sta ENAM0
+
             ; resp top player
             sta WSYNC               ;3   0
             lda player_x + 1        ;3   3
@@ -241,7 +261,7 @@ _player_1_resp_loop
             tay                     ;2  11+
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMP1                ;3  18+
-            SLEEP 3                 ;3  21+
+            SLEEP 3                 ;3  21+ ; BUGBUG: leftover
             sta RESP1               ;3  24+ 
 
             sta WSYNC
@@ -457,7 +477,7 @@ _player_0_draw_loop
             sta ENAM1
             sta COLUBK
 
-            ldx #5
+            ldx #4
 playfield_shim_loop
             sta WSYNC
             dex
@@ -603,26 +623,6 @@ CleanStart
     ; game setup
     jsr gs_splash_setup
 
-    ; initial formation
-    lda #<P0_WALLS
-    sta formation_p0
-    lda #>P0_WALLS
-    sta formation_p0 + 1
-
-    ; player setup
-    lda #>TARGET_BG_0
-    sta player_bg + 1
-    sta player_bg + 3
-    lda #<TARGET_BG_0
-    sta player_bg + 0
-    sta player_bg + 2
-    ldx #NUM_PLAYERS - 1
-_player_setup_loop
-    sta laser_color,x
-    lda #PLAYFIELD_WIDTH / 2
-    sta player_x,x
-    dex
-    bpl _player_setup_loop
 
 newFrame
 
@@ -726,9 +726,13 @@ _drop_flicker_ball
 _drop_save_ball_color
             sta ball_color
 _drop_count_down
-            dec game_timer
+            lda game_timer ; todo: TX this?
             bne _drop_continue
 _drop_init_game
+            ; start audio track
+            ldx track_select
+            lda TRACKS,x
+            sta audio_tracker
             ; init to game
             lda #BALL_COLOR
             sta ball_color
@@ -742,7 +746,7 @@ _drop_continue
 kernel_celebrateScore
             ; TODO: something to celebrate            
             inc ball_color
-            dec game_timer
+            lda game_timer ; todo: TX this?
             bne _celebrate_continue
             lda #DROP_DELAY
             sta game_timer
@@ -1129,6 +1133,8 @@ gs_title_setup
             lda #TRACK_0      
             sta audio_tracker
             sta audio_tracker + 1
+            ; stop_timer
+            SET_TX_CALLBACK noop_on_timer, 0
             ; input jump tables
             SET_JX_CALLBACKS title_on_press_down, noop_on_move
             rts
@@ -1140,7 +1146,7 @@ title_on_press_down
 
 
 ;---------------------------
-; menu controls
+; menu kernel state transition
 
 gs_menu_equip_setup
             ; switch to equip
@@ -1213,20 +1219,8 @@ gs_menu_track_setup
             rts
 
 menu_track_on_press_down
-            ; game setuos
-            lda #0
-            sta scroll
-            lda #DROP_DELAY
-            sta game_timer
-            ; move to game
-            ; TODO: JSR
-            lda game_state
-            asl
-            asl
-            and #$30
-            ora #(GS_GAME + __GAME_MODE_START)
-            sta game_state
-            SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
+            ; game setups
+            jsr gs_game_setup
             jmp jx_on_press_down_return
 
 menu_track_on_move
@@ -1240,10 +1234,6 @@ menu_track_on_move
             jsr switch_track
 _menu_track_on_move_end
             jmp jx_on_move_return
-
-;-------------------------
-; game menu controls
-;
 
 gs_menu_game_setup
             ; setup game mode 
@@ -1271,8 +1261,50 @@ menu_game_on_move
 _menu_game_on_move_end
             jmp jx_on_move_return
 
+;-----------------------------------
+; game init
+
+gs_game_setup
+            lda game_state
+            asl
+            asl
+            and #$30
+            ora #(GS_GAME + __GAME_MODE_START)
+            sta game_state
+            ; move to game
+            lda #0
+            sta scroll
+            lda #DROP_DELAY
+            sta game_timer
+            ; initial formation
+            lda #<P0_WALLS
+            sta formation_p0
+            lda #>P0_WALLS
+            sta formation_p0 + 1
+            ; player setup
+            lda #>TARGET_BG_0
+            sta player_bg + 1
+            sta player_bg + 3
+            lda #<TARGET_BG_0
+            sta player_bg + 0
+            sta player_bg + 2
+            ldx #NUM_PLAYERS - 1
+_player_setup_loop
+            sta laser_color,x
+            lda #PLAYFIELD_WIDTH / 2
+            sta player_x,x
+            dex
+            bpl _player_setup_loop
+            ; disable JX callbacks
+            ; TODO: use JX
+            SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
+            rts
+
 ;--------------------------
-; timed event
+; timed event handling
+
+noop_on_timer
+            jmp tx_on_timer_return
 
 sub_tx_update
             lda game_timer
@@ -1361,14 +1393,19 @@ _switch_player_save
 ; track select subroutines
 
 switch_track
-            ldy track_select,x
+            ldy track_select
             iny 
             cpy #3
             bcc _switch_track_save
             ldy #0
 _switch_track_save
-            sty track_select,x
+            sty track_select
             rts
+
+TRACKS
+    byte CLICK_0
+    byte TABLA_0
+    byte GLITCH_0
 
 ;--------------------------
 ; formation select subroutines
@@ -2353,6 +2390,7 @@ _waitOnVBlank_loop_2
 
 ; TODO: move to another bank?
 
+; TODO: need a better way to dup?
 STD_HMOVE_BEGIN_2
     byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
 STD_HMOVE_END_2
