@@ -4,7 +4,7 @@
     include "macro.h"
     include "math.h"
     include "refhraktor.h"
-    include "bank_switch_f8.h"
+    include "bank_switch_f6.h"
 
 NTSC = 0
 PAL60 = 1
@@ -34,44 +34,6 @@ LOGO_COLOR = $53
 SCANLINES = 262
 #endif
 
-;
-; game states
-; 
-; $0yyyxxxx : attract/menu screens
-; $1yyyxxxx ; game play screens
-;  xxxx = current screen
-;   yyy = game control
-;
-GS_ATTRACT             = $00;
-GS_ATTRACT_SPLASH_0    = $00;
-GS_ATTRACT_SPLASH_1    = $01;
-GS_ATTRACT_SPLASH_2    = $02;
-GS_ATTRACT_TITLE       = $03; 
-; FUTURE: credits
-; FUTURE: hi scores
-; FUTURE: instructions
-; FUTURE: shoutouts
-
-GS_MENU_GAME           = $04; 
-GS_MENU_EQUIP          = $05; 
-GS_MENU_STAGE          = $06; 
-GS_MENU_TRACK          = $07; 
-; select game types
-__MENU_GAME_VERSUS     = $00
-__MENU_GAME_QUEST      = $10
-__MENU_GAME_TOURNAMENT = $20
-
-GS_GAME                = $80
-GS_GAME_VERSUS         = $80;
-GS_GAME_QUEST          = $90;
-GS_GAME_TOURNAMENT     = $a0;
-; game types
-__GAME_MODE_PLAY       = $00
-__GAME_MODE_CELEBRATE  = $01
-__GAME_MODE_DROP       = $02
-__GAME_MODE_GAME_OVER  = $03
-__GAME_MODE_START      = $04
-
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
 
@@ -90,12 +52,9 @@ BALL_MAX_X = 132
 
 GOAL_SCORE_DEPTH = 4
 GOAL_HEIGHT = 16
-BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
-PLAYER_HEIGHT = MTP_MKI_1 - MTP_MKI_0
-TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
+PLAYER_HEIGHT = MTP_MKIV_1 - MTP_MKIV_0
 
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
-LOOKUP_STD_HMOVE_2 = STD_HMOVE_END_2 - 256
 
 ; ----------------------------------
 ; variables
@@ -107,8 +66,16 @@ LOOKUP_STD_HMOVE_2 = STD_HMOVE_END_2 - 256
 frame        ds 1  ; frame counter
 game_timer   ds 1  ; countdown
 
-audio_tracker ds 2  ; next track
-audio_timer   ds 2  ; time left on audio
+audio_order        ds 1  ; where are we in song
+audio_row_idx      ds 1  ; where are we in pattern
+audio_pattern_idx  ds 2  ; which pattern is playing
+audio_waveform_idx ds 2  ; where are we in waveform
+audio_timer        ds 2  ; time left on next action
+tmp_pattern_ptr    ds 2  ; holding for pattern ptr
+tmp_waveform_ptr   ds 2  ; holding for waveform ptr
+
+grid_x        ds 1
+grid_power    ds 1
 
 track_select     ds 1           ; which audio track
 
@@ -118,6 +85,8 @@ jx_on_move       ds 2  ; on move sub ptr
 
 player_input  ds NUM_PLAYERS      ; player input buffer
 player_sprite ds 2 * NUM_PLAYERS  ; pointer
+player_x      ds NUM_PLAYERS  ; player x position
+player_bg     ds 2 * NUM_PLAYERS  ; 
 
 LOCAL_OVERLAY           ds 8
 
@@ -145,13 +114,8 @@ _top_margin_loop
 
 
             ; resp not
-            lda audio_timer
-            sec
-            sbc #64
-            eor #$ff
-            clc
-            adc #1
             sta WSYNC
+            lda grid_x
             sec
 _note_1_resp_loop
             sbc #15
@@ -162,6 +126,8 @@ _note_1_resp_loop
             sta RESM0
             lda #2
             sta ENAM0
+            lda #11
+            sta COLUPF
 
             ; resp top player
             sta WSYNC               ;3   0
@@ -176,34 +142,51 @@ _player_1_resp_loop
             SLEEP 3                 ;3  21+ ; BUGBUG: leftover
             sta RESP1               ;3  24+ 
 
+            ldy #9                  ;3   6
             sta WSYNC
             sta HMOVE               ;3   3
-            ldy #PLAYER_HEIGHT - 1  ;3   6
-            lda (player_bg+2),y     ;6  12
-            sta COLUBK              ;3  15
-            lda (player_sprite+2),y ;6  21
-            sta GRP1                ;3  23
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP1              ;3  32
-            lda #$00                ;3  35
-            sta HMP1                ;3  38
-            dey                     ;2  46
+            lda #%01100000          ;-----
+            sta PF0                 ;3  10
+            lda (player_bg+2),y     ;6  16
+            sta COLUBK              ;3  19
+            lda (player_sprite+2),y ;6  25
+            sta GRP1                ;3  28
+            lda #%11011011
+            sta PF1
+            lda #%10110110
+            sta PF2
+            lda TARGET_COLOR_0,y    ;4  32
+            sta COLUP1              ;3  35
+            lda #$00                ;3  38
+            sta HMP1                ;3  41
+            dey                     ;2  43
 
 _player_1_draw_loop
             sta WSYNC
-            lda (player_bg+2),y     ;6   6
-            sta COLUBK              ;3   9
-            lda (player_sprite+2),y ;6  15
-            sta GRP1                ;3  18
-            lda TARGET_COLOR_0,y    ;-----
+            lda #%01100000          ;-----
+            sta PF0                 ;3   7
+            lda (player_bg+2),y     ;6  13
+            sta COLUBK              ;3  16
+            lda (player_sprite+2),y ;6  22
+            sta GRP1                ;3  25
+            lda TARGET_COLOR_0,y    ;4  29
             sta COLUP1              ;3  28
+            lda #%11011011
+            sta PF1
+            lda #%10110110
+            sta PF2
             dey                     ;2  30
             bpl _player_1_draw_loop ;2  32
-
+            lda #0
+            sta COLUBK
+            sta PF0
+            sta PF1
+            sta PF2
+            sta ENAM0
 ;---------------------
 ; arena
            
-            ldy #15
+            ldy #45
 _arena_loop
             sta WSYNC
             dey 
@@ -212,6 +195,8 @@ _arena_loop
 ;---------------------
 ; laser track (lo)
 
+            lda #2
+            sta ENAM0
             ; resp lo player
             sta WSYNC               ;3   0
             lda player_x            ;3   3
@@ -225,15 +210,19 @@ _player_0_resp_loop
             sta HMM0                ;3  21+ ; just for timing shim
             sta RESP0               ;3  24+ 
 
+            ldy #$00                ;3   6
             sta WSYNC
             sta HMOVE               ;3   3
-            ldy #$00                ;3   6
-            lda (player_bg),y       ;6  12
-            sta COLUBK              ;3  15
-            lda (player_sprite),y   ;6  21
-            sta GRP0                ;3  23
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP0              ;3  32
+            lda TRACK_PF0,y         ;4   7
+            sta PF0                 ;3  10
+            lda (player_sprite),y   ;6  16
+            sta GRP0                ;3  21
+            lda TRACK_PF1,y         ;4  25
+            sta PF1                 ;3  28
+            lda TRACK_PF2,y         ;4  32
+            sta PF2                 ;3  35
+            lda TARGET_COLOR_0,y    ;4  35
+            sta COLUP0              ;3  38
             lda #$00                ;3  35
             sta HMP0                ;3  38
             sta ENAM0               ;3  41
@@ -241,20 +230,23 @@ _player_0_resp_loop
 
 _player_0_draw_loop
             sta WSYNC
-            lda (player_bg),y       ;6   6
-            sta COLUBK              ;3   9
-            lda (player_sprite),y   ;6  15
-            sta GRP0                ;3  18
-            lda TARGET_COLOR_0,y    ;-----
-            sta COLUP0              ;3  28
+            lda TRACK_PF0,y         ;4   4
+            sta PF0                 ;3   7
+            lda TRACK_PF1,y         ;-----
+            sta PF1                 ;-----
+            lda TRACK_PF2,y         ;-----
+            sta PF2                 ;-----
+            lda (player_bg),y       ;6  13
+            sta COLUBK              ;3  16
+            lda (player_sprite),y   ;6  22
+            sta GRP0                ;3  25
+            lda TARGET_COLOR_0,y    ;4  29
+            sta COLUP0              ;3  32
             iny                     ;2  30
             cpy #PLAYER_HEIGHT      ;2  32
             bcc _player_0_draw_loop ;2  34
 
 ; kernel exit
-
-            ldx local_pf_stack      ;3   --
-            txs                     ;2   --
 
             sta WSYNC
             lda #$00
@@ -317,6 +309,62 @@ MTP_MX888_2
     byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
 MTP_MX888_3
     byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
+TARGET_COLOR_0
+    byte $0,$00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 9
+
+
+TARGET_BG_0
+    byte $00,$00,$02,$00,$00,$00,$02,$00,$00; 8
+TARGET_BG_1
+    byte $02,$00,$02,$00,$00,$00,$02,$00,$02; 8
+TARGET_BG_2
+    byte $04,$04,$04,$02,$02,$02,$04,$04,$04; 8
+TARGET_BG_3
+    byte $08,$04,$04,$02,$02,$02,$04,$04,$08; 8
+TARGET_BG_4
+    byte $04,$04,$04,$04,$04,$04,$04,$04,$04; 8
+TARGET_BG_5
+    byte $02,$04,$08,$08,$08,$08,$08,$04,$02; 8
+TARGET_BG_6
+    byte $01,$02,$04,$08,$0f,$08,$04,$02,$01; 8
+TARGET_BG_7
+    byte $00,$00,$02,$08,$0f,$08,$02,$00,$00; 8
+
+
+TRACK_PF0
+	.byte %11110000
+	.byte %10010000
+	.byte %11110000
+	.byte %10110000
+	.byte %00100000
+	.byte %01000000
+	.byte %10000000
+	.byte %00000000
+	.byte %11110000
+
+
+TRACK_PF1
+	.byte %11111111
+	.byte %00100100
+	.byte %11111111
+	.byte %00100100
+	.byte %10010010
+	.byte %10001010
+	.byte %01000101
+	.byte %10100000
+	.byte %11111111
+
+
+TRACK_PF2
+	.byte %11111111
+	.byte %01001001
+	.byte %11111111
+	.byte %00000001
+	.byte %01001010
+	.byte %00010000
+	.byte %01000010
+	.byte %00010100
+	.byte %11111111
 
     END_BANK
 
@@ -329,6 +377,31 @@ CleanStart
     ; do the clean start macro
             CLEAN_START
 
+    ; setup
+            SET_TX_CALLBACK noop_on_timer, 0
+            SET_JX_CALLBACKS noop_on_press_down, noop_on_move
+            ldx #NUM_PLAYERS - 1
+_player_setup_loop
+            lda #PLAYFIELD_WIDTH / 2
+            sta player_x,x
+            dex
+            bpl _player_setup_loop
+            ; load player graphics
+            lda #>MTP_MKIV_0
+            sta player_sprite + 1
+            sta player_sprite + 3
+            lda #<MTP_MKIV_0
+            sta player_sprite
+            sta player_sprite + 2
+            lda #>TARGET_BG_0
+            sta player_bg + 1
+            sta player_bg + 3
+            lda #<TARGET_BG_0
+            sta player_bg + 0
+
+            ; load track
+            JMP_LBL bank_audio_init
+        DEF_LBL bank_return_audio_init
 
 newFrame
 
@@ -374,6 +447,71 @@ _end_switches
             ; sub process input
             jsr sub_jx_update
 
+            ; power graphics
+            lda grid_power
+            and #$07
+            asl
+            asl
+            asl
+            clc
+            adc #<TARGET_BG_0
+            sta player_bg + 0
+            sta player_bg + 2
+
+player_update
+            ldx #NUM_PLAYERS - 1
+_player_update_loop
+            ;
+            ; TODO: control player using jx_ callback
+            ;
+            ; manual player movement
+            ldy #$00
+            lda #$80
+            cpx #$00
+            beq _player_update_checkbits
+            ldy #$02
+            lda #$08
+_player_update_checkbits
+            bit SWCHA                 
+            beq _player_update_right          
+            lsr                      
+            bit SWCHA                 
+            beq _player_update_left       
+            jmp _player_end_move
+_player_update_right
+            lda player_x,x
+            cmp #PLAYER_MAX_X
+            bcs _player_end_move
+            adc #$01 
+            sta player_x,x
+            lda player_sprite,y ; bugbug can do indirectly?
+            clc 
+            adc #PLAYER_HEIGHT
+            cmp #<MTP_MKI_3 ; TODO: swap
+            bcc _player_update_anim_right
+            lda #<MTP_MKI_0 ; TODO: swap
+_player_update_anim_right
+            sta player_sprite,y
+            jmp _player_end_move
+_player_update_left
+            lda player_x,x
+            cmp #PLAYER_MIN_X
+            bcc _player_end_move
+            sbc #$01
+            sta player_x,x
+            lda player_sprite,y ; bugbug can do indirectly?
+            sec 
+            sbc #PLAYER_HEIGHT
+            cmp #<MTP_MKI_0 ; TODO: swap
+            bcs _player_update_anim_left
+            lda #<MTP_MKI_3 ; TODO: swap
+_player_update_anim_left
+            sta player_sprite,y
+_player_end_move
+            ;; next player
+            dex
+            bpl _player_update_loop
+            
 ;---------------------
 ; end vblank
 
@@ -476,9 +614,9 @@ _switch_track_save
             rts
 
 TRACKS
-    byte CLICK_0
-    byte TABLA_0
-    byte GLITCH_0
+    ; byte CLICK_0
+    ; byte TABLA_0
+    ; byte GLITCH_0
 
 ;------------------------
 ; vblank sub
@@ -491,71 +629,136 @@ waitOnVBlank_loop
             stx VBLANK
             rts 
 
+    END_BANK
 
 ;
 ; -- audio bank
 ;
 
+    START_BANK 2
+
+            DEF_LBL bank_audio_init
+            ldy #0
+            lda ORDERS,y
+            sta audio_pattern_idx
+            iny
+            lda ORDERS,y
+            sta audio_pattern_idx+1
+            iny
+            sty audio_order
+            JMP_LBL bank_return_audio_init
+
             DEF_LBL bank_audio_tracker
+audio_tracker           
             ldx #NUM_AUDIO_CHANNELS - 1
 audio_loop 
-            lda audio_tracker,x
-            beq audio_next_channel
             ldy audio_timer,x
             beq _audio_next_note
             dey
             sty audio_timer,x
-            jmp audio_next_channel
+            jmp _audio_next_channel
 _audio_next_note
-            tay
-            lda AUDIO_TRACKS,y
-            beq _audio_pause
+            ldy audio_pattern_idx,x 
+            lda PAT_TABLE_START,y
+_audio_next_note_t
+            sta tmp_pattern_ptr
+            lda PAT_TABLE_START+1,y
+            sta tmp_pattern_ptr + 1
+            ldy audio_row_idx
+            lda (tmp_pattern_ptr),y
+_audio_next_note_ty
+            tay                       ; y is now waveform ptr
+            lda WF_TABLE_START,y
+            sta tmp_waveform_ptr
+            lda WF_TABLE_START+1,y
+            sta tmp_waveform_ptr + 1
+            ldy audio_waveform_idx,x
+            lda (tmp_waveform_ptr),y
             cmp #255
-            beq _audio_stop
+            beq _audio_advance_tracker
             sta AUDC0,x
             iny
-            lda AUDIO_TRACKS,y
+            lda (tmp_waveform_ptr),y
             sta AUDF0,x
             iny
-            lda AUDIO_TRACKS,y
+            lda (tmp_waveform_ptr),y
             sta AUDV0,x
-            jmp _audio_next_timer
-_audio_pause
-            lda #$0
-            sta AUDC0,x
-            sta AUDV0,x
-_audio_next_timer
+            sta grid_power,x
             iny
-            lda AUDIO_TRACKS,y
+            lda (tmp_waveform_ptr),y
             sta audio_timer,x
             iny
-            sty audio_tracker,x
-            jmp audio_next_channel
-_audio_stop ; got a 255
-            iny 
-            lda AUDIO_TRACKS,y ; store next track #
-            sta audio_tracker,x 
-            bne _audio_next_note ; if not zero loop back 
-            sta AUDV0,x
+            sty audio_waveform_idx,x
+            jmp _audio_next_channel
+_audio_advance_tracker ; got a 255 on waveform
+            lda #255
             sta audio_timer,x
-audio_next_channel
+            lda #255
+            sta audio_waveform_idx,x
+_audio_next_channel
             dex
             bpl audio_loop
 
+            ; update track - check if both waveforms done
+            lda audio_waveform_idx
+            and audio_waveform_idx+1
+            cmp #255
+            bne audio_end            
+            lda #0
+            sta audio_timer
+            sta audio_timer+1
+            sta audio_waveform_idx
+            sta audio_waveform_idx+1
+            ldy audio_row_idx
+            iny
+            lda (tmp_pattern_ptr),y
+            cmp #255
+            beq _audio_advance_order
+            sty audio_row_idx
+            jmp audio_tracker; if not 255 loop back 
+_audio_advance_order ; got a 255 on pattern
+            lda #0
+            sta audio_row_idx
+            ldy audio_order
+            lda ORDERS,y
+            cmp #255
+            bne _audio_advance_order_advance_pattern
+            ldy #0
+            lda ORDERS,y
+_audio_advance_order_advance_pattern
+            sta audio_pattern_idx
+            iny
+            lda ORDERS,y
+            sta audio_pattern_idx+1
+            iny
+            sty audio_order
+            jmp audio_tracker;  loop back 
+
+audio_end
+
+_grid_update
+            dec grid_power
+            bpl _grid_advance
+            lda #0
+            sta grid_power
+_grid_advance
+            lda grid_x
+            clc
+            adc #1
+            cmp #90
+            bcc _end_grid_update
+            lda #$00
+_end_grid_update
+            sta grid_x
+
             JMP_LBL bank_return_audio_tracker
 
-AUDIO_TRACKS ; AUDCx,AUDFx,AUDVx,T
-    byte 0,
-TRACK_0 = . - AUDIO_TRACKS
-    byte 3,31,15,64,3,31,7,16,3,31,3,8,3,31,1,16,255,0;
-CLICK_0 = . - AUDIO_TRACKS
-    byte 3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,255,CLICK_0;
-TABLA_0 = . - AUDIO_TRACKS
-    byte 3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,255,TABLA_0;
-GLITCH_0 = . - AUDIO_TRACKS
-    byte 3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,255,GLITCH_0;
+    ALIGN 256
 
+    #include "game_tracks.inc"
 
+    END_BANK
 
+    START_BANK 3
 
     END_BANK

@@ -522,8 +522,79 @@ P2_GRAPHICS_0
     ALIGN 256
 
 P0_WALLS
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
-    byte #$30,#$c0,#$80,#$00,#$30,#$c0,#$80,#$00
+	; .byte %11000000
+	; .byte %10000000
+	; .byte %10000000
+	; .byte %01000000
+	; .byte %01000000
+	; .byte %11000000
+	; .byte %11000000
+	; .byte %01000000
+	; .byte %01000000
+	; .byte %00000000
+	; .byte %11000000
+	; .byte %10000000
+	; .byte %11000000
+	; .byte %00000000
+	; .byte %10000000
+	; .byte %11000000
+
+	.byte %11000000
+	.byte %11000000
+	.byte %01000000
+	.byte %11000000
+	.byte %11000000
+	.byte %10000000
+	.byte %11000000
+	.byte %11000000
+	.byte %01000000
+	.byte %11000000
+	.byte %11000000
+	.byte %10000000
+	.byte %11000000
+	.byte %11000000
+	.byte %01000000
+	.byte %11000000
+	.byte %11000000
+	.byte %10000000
+
+	; .byte %11000000
+	; .byte %11000000
+	; .byte %01000000
+	; .byte %01000000
+	; .byte %11000000
+	; .byte %11000000
+	; .byte %10000000
+	; .byte %10000000
+	; .byte %11000000
+	; .byte %11000000
+	; .byte %01000000
+	; .byte %01000000
+	; .byte %11000000
+	; .byte %11000000
+	; .byte %10000000
+	; .byte %10000000
+
+	; .byte %10000000
+	; .byte %10110000
+	; .byte %01100000
+	; .byte %11010000
+	; .byte %00010000
+	; .byte %11010000
+	; .byte %01100000
+	; .byte %10110000
+	; .byte %10000000
+	; .byte %10110000
+	; .byte %01100000
+	; .byte %11010000
+	; .byte %00010000
+	; .byte %11010000
+	; .byte %01100000
+	; .byte %10110000
+
+
+    ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
+    ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
 
 P2_GOAL_TOP
     byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
@@ -2808,6 +2879,14 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;         - show track and allow switch
 ;  - stabilize framerate
 ; PRIORITY TODO
+;  - power grid mechanics
+;   - boost player shots
+;   - drain player power
+;  - graphical glitches
+;     - remove color change glitches
+;     - remove vdelay glitch on ball update
+;     - remove extra scanline glitch due to player
+;     - lasers off at certain positions
 ;  - clean up play screen 
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball
@@ -2815,14 +2894,6 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;     - add score
 ;     - add special powerup indicator
 ;     - remove player cutoff
-;  - graphical glitches
-;     - remove color change glitches
-;     - remove vdelay glitch on ball update
-;     - remove extra scanline glitch due to player
-;     - lasers off at certain positions
-;  - power grid mechanics
-;   - boost player shots
-;   - drain player power
 ;  - physics glitches
 ;     - ball score not in goal
 ;     - collision bugs (stuck)
