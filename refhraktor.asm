@@ -22,7 +22,6 @@ SYSTEM = NTSC
 ; NTSC Colors
 WHITE = $0f
 BLACK = 0
-WALL_COLOR = $A0
 BALL_COLOR = $2C
 LOGO_COLOR = $C4
 SCANLINES = 262
@@ -30,7 +29,6 @@ SCANLINES = 262
 ; PAL Colors
 WHITE = $0E
 BLACK = 0
-WALL_COLOR = $92
 BALL_COLOR = $2A
 LOGO_COLOR = $53
 SCANLINES = 262
@@ -128,6 +126,8 @@ formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
 formation_p1_dl  ds 12  ; playfield ptr pf1
 formation_p2_dl  ds 12  ; playfield ptr pf2
+formation_colupf ds 2
+formation_colubk ds 2
 
 player_state  ds NUM_PLAYERS
 player_x      ds NUM_PLAYERS  ; player x position
@@ -355,10 +355,11 @@ _lo_resp_loop
             sta COLUP0                   ;3  21
 _skip_laser_color_1
             lda display_scroll           ;3  24
-            and #$0f
-            tay
-            lda #80
-            sta display_playfield_limit  
+            eor #$ff                     ;      ; invert as we will count down
+            and #$0f                     ;
+            tay                          ;
+            lda #80                      ;
+            sta display_playfield_limit  ;
             lda #$00                     ;2  26 
             sta HMP0                     ;3  29 
             sta HMP1                     ;3  32
@@ -372,27 +373,31 @@ _skip_laser_color_1
 
 formation_0
     sta WSYNC
-    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, PLAYFIELD_COLORS_1, #$0f, formation_1_jmp
+    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, formation_colubk, formation_colupf, #$0f, formation_1_jmp
 formation_1
     sta WSYNC
 formation_1_jmp
-    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, PLAYFIELD_COLORS_1, #$0f, formation_2_jmp
+    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, formation_colubk, formation_colupf, #$0f, formation_2_jmp
 formation_2
     sta WSYNC
 formation_2_jmp
-    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, PLAYFIELD_COLORS_1, #$0f, formation_3_jmp
+    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, formation_colubk, formation_colupf, #$0f, formation_3_jmp
+
+    ; try to avoid page branching problems
+    ALIGN 256
+
 formation_3
     sta WSYNC
 formation_3_jmp
-    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, PLAYFIELD_COLORS_1, #$0f, formation_4_jmp
+    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, formation_colubk, formation_colupf, #$0f, formation_4_jmp
 formation_4
     sta WSYNC
 formation_4_jmp
-    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, PLAYFIELD_COLORS_1, #$0f, formation_5_jmp
+    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, formation_colubk, formation_colupf, #$0f, formation_5_jmp
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, PLAYFIELD_COLORS_1, #$0f, formation_end
+    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end
 formation_end
 
             lda #$00
@@ -541,19 +546,17 @@ P0_WALLS
 
 	.byte %11000000
 	.byte %11000000
+	.byte %11000000
 	.byte %01000000
+	.byte %11000000
 	.byte %11000000
 	.byte %11000000
 	.byte %10000000
 	.byte %11000000
 	.byte %11000000
-	.byte %01000000
-	.byte %11000000
-	.byte %11000000
-	.byte %10000000
-	.byte %11000000
 	.byte %11000000
 	.byte %01000000
+	.byte %11000000
 	.byte %11000000
 	.byte %11000000
 	.byte %10000000
@@ -591,7 +594,6 @@ P0_WALLS
 	; .byte %11010000
 	; .byte %01100000
 	; .byte %10110000
-
 
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
@@ -632,15 +634,19 @@ P2_WALLS_CUBES_BOTTOM
     
     ALIGN 256
 
-PLAYFIELD_COLORS_0
+COLUBK_COLORS_0
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-PLAYFIELD_COLORS_1
+COLUBK_COLORS_1
     byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
     byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
-PLAYFIELD_COLORS_2
+COLUBK_COLORS_2
     byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+
+COLUPF_COLORS_0
+    byte #$06,#$06,#$08,#$08,#$0a,#$0a,#$0c,#$0c
+    byte #$0e,#$0e,#$0c,#$0c,#$0a,#$0a,#$08,#$08
 
 BALL_GRAPHICS
     byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
@@ -679,6 +685,16 @@ TARGET_COLOR_0
     byte $0,$00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 9
 TARGET_BG_0
     byte $0,$00,$02,$00,$02,$00,$02,$00,$02,$00; 9
+
+COLUBK_0_ADDR
+    word #COLUBK_COLORS_0
+COLUBK_1_ADDR
+    word #COLUBK_COLORS_1
+COLUBK_2_ADDR
+    word #COLUBK_COLORS_2
+
+COLUPF_0_ADDR
+    word #COLUPF_COLORS_0
 
     END_BANK
 
@@ -1151,8 +1167,6 @@ _player_aim_save_laser_x
             sta WSYNC ; SL 35
             lda #1
             sta CTRLPF ; reflect playfield
-            lda #WALL_COLOR
-            sta COLUPF
 
             ; jump out to draw screen and back
             JMP_LBL fhrakas_kernel
@@ -1352,6 +1366,14 @@ gs_game_setup
             sta formation_p0
             lda #>P0_WALLS
             sta formation_p0 + 1
+            lda #<COLUPF_COLORS_0
+            sta formation_colupf
+            lda #>COLUPF_COLORS_0
+            sta formation_colupf + 1
+            lda #<COLUBK_COLORS_1
+            sta formation_colubk
+            lda #>COLUBK_COLORS_1
+            sta formation_colubk + 1
             ; player setup
             lda #>TARGET_BG_0
             sta player_bg + 1
