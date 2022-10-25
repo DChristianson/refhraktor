@@ -599,28 +599,32 @@ P0_WALLS
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
 
 P2_GOAL_TOP
-    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
-    byte #$01,#$01 ; stealing from next
-
-PX_WALLS_BLANK
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00 ; stealing from next
-
-P2_GOAL_BOTTOM   
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
     byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
 
+PX_WALLS_BLANK
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+
+P2_GOAL_BOTTOM   
+    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
+    byte #$01,#$01,#$00,#$00,#$00,#$00,#$00,#$00
+
 
 P1_GOAL_BOTTOM
-    byte #$00,#$00,#$01,#$01,#$ff,#$ff,#$ff,#$7f ; stealing from next
-P1_GOAL_TOP
     byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
     byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
 
+P1_GOAL_TOP
+    byte #$00,#$00,#$01,#$01,#$7f,#$ff,#$ff,#$ff 
+    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
+
+
+
 P1_WALLS_CHUTE
 P2_WALLS_CHUTE
-    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
-    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
+    byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
 
 P1_WALLS_DIAMONDS
     byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
