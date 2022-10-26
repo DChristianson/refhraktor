@@ -397,11 +397,13 @@ formation_4_jmp
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end
+    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end_jmp
 formation_end
-
-            lda #$00
-            sta COLUBK
+            SLEEP 6     ;6 66
+            lda #$00    ;2 68
+            sta COLUBK  ;3 71
+            sta WSYNC
+formation_end_jmp
             sta ENAM0
             sta ENAM1
             sta PF0
@@ -662,13 +664,13 @@ STD_HMOVE_BEGIN
 STD_HMOVE_END
 
 MTP_MKI_0
-    byte $0,$18,$3c,$ff,$55,$ff,$30,$3c,$18; 9
+    byte $0,$18,$3c,$30,$ff,$55,$ff,$3c,$18; 9
 MTP_MKI_1
-    byte $0,$18,$3c,$ff,$aa,$ff,$0,$3c,$18; 9
+    byte $0,$18,$3c,$0,$ff,$aa,$ff,$3c,$18; 9
 MTP_MKI_2
-    byte $0,$18,$3c,$ff,$55,$ff,$c,$3c,$18; 9
+    byte $0,$18,$3c,$c,$ff,$55,$ff,$3c,$18; 9
 MTP_MKI_3
-    byte $0,$18,$3c,$ff,$aa,$ff,$3c,$3c,$18; 9
+    byte $0,$18,$3c,$3c,$ff,$aa,$ff,$3c,$18; 9
 MTP_MKIV_0
     byte $0,$18,$7e,$f7,$55,$55,$f7,$7e,$3c; 9
 MTP_MKIV_1
@@ -686,7 +688,7 @@ MTP_MX888_2
 MTP_MX888_3
     byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
 TARGET_COLOR_0
-    byte $0,$00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 9
+    byte $0,$0a,$0c,$0e,$0e,$0f,$0e,$0e,$0c,$0a; 9
 TARGET_BG_0
     byte $0,$00,$02,$00,$02,$00,$02,$00,$02,$00; 9
 
