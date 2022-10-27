@@ -399,32 +399,34 @@ formation_5
 formation_5_jmp
     FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end_jmp
 formation_end
-            SLEEP 6     ;6 66
-            lda #$00    ;2 68
-            sta COLUBK  ;3 71
-            sta WSYNC
+            SLEEP 6                         ;6  66
+            lda #$00                        ;2  68
+            sta COLUBK                      ;3  71
+            sta WSYNC                       ;3   0
 formation_end_jmp
-            sta ENAM0
-            sta ENAM1
-            sta PF0
-            sta PF1
-            sta PF2
-            sta ball_ax + 1
-            sta ball_ax
-            sta ball_ay + 1
-            sta ball_ay
-            sta VDELP1
-            lda frame
-            and #$01
-            tax
+            sta ENAM0                       ;3   3
+            sta ENAM1                       ;3   6
+            sta PF0                         ;3   9
+            sta PF1                         ;3  12
+            sta PF2                         ;3  15
+            sta ball_ax + 1                 ;3  18
+            sta ball_ax                     ;3  21
+            sta ball_ay + 1                 ;3  24
+            sta ball_ay                     ;3  27
+            sta VDELP1                      ;3  30
+            lda frame                       ;3  33
+            and #$01                        ;2  35
+            tax                             ;2  37
 _laser_hit_test
-            lda #$40
-            and CXM0P
-            beq _laser_hit_test_end
-            ADD16_8x ball_ax, laser_ax
-            ADD16_8x ball_ay, laser_ay
-_laser_hit_test_end     
+            lda #$40                        ;2  39
+            and CXM0P                       ;2  41
+            bne _laser_hit_test_hit         ;2  43
             sta WSYNC 
+            jmp _laser_hit_test_end
+_laser_hit_test_hit
+            ADD16_8x ball_ax, laser_ax      ;26 70
+            ADD16_8x ball_ay, laser_ay      ;26 ..
+_laser_hit_test_end
 
 ;---------------------
 ; laser track (lo)
