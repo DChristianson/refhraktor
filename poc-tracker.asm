@@ -75,6 +75,7 @@ tmp_pattern_ptr    ds 2  ; holding for pattern ptr
 tmp_waveform_ptr   ds 2  ; holding for waveform ptr
 
 grid_x        ds 1
+grid_timer    ds 1
 grid_power    ds 1
 
 track_select     ds 1           ; which audio track
@@ -94,6 +95,9 @@ LOCAL_OVERLAY           ds 8
 local_jx_player_input = LOCAL_OVERLAY
 local_jx_player_count = LOCAL_OVERLAY + 1
 
+; -- player track locals
+local_pf0 = LOCAL_OVERLAY
+
 ; ----------------------------------
 ; bank 0
 
@@ -112,7 +116,6 @@ _top_margin_loop
 ;---------------------
 ; laser track (hi)
 
-
             ; resp not
             sta WSYNC
             lda grid_x
@@ -126,7 +129,7 @@ _note_1_resp_loop
             sta RESM0
             lda #2
             sta ENAM0
-            lda #11
+            lda #2
             sta COLUPF
 
             ; resp top player
@@ -142,43 +145,51 @@ _player_1_resp_loop
             SLEEP 3                 ;3  21+ ; BUGBUG: leftover
             sta RESP1               ;3  24+ 
 
-            ldy #9                  ;3   6
+            ldy #PLAYER_HEIGHT - 1
+            lda (player_sprite+2),y 
+            ldx #%10110000 
+            stx local_pf0           ; BUGBUG: sloppy                 
             sta WSYNC
-            sta HMOVE               ;3   3
-            lda #%01100000          ;-----
-            sta PF0                 ;3  10
-            lda (player_bg+2),y     ;6  16
-            sta COLUBK              ;3  19
-            lda (player_sprite+2),y ;6  25
-            sta GRP1                ;3  28
-            lda #%11011011
-            sta PF1
-            lda #%10110110
-            sta PF2
-            lda TARGET_COLOR_0,y    ;4  32
-            sta COLUP1              ;3  35
-            lda #$00                ;3  38
-            sta HMP1                ;3  41
-            dey                     ;2  43
+            sta HMOVE               ;3   3 ; TODO: move to early HMOVE
+            stx PF0                 ;3   6
+            sta GRP1                ;3   9
+            lda TARGET_COLOR_0,y    ;4  13
+            sta COLUP1              ;3  16
+            lda TRACK_PF1,y         ;4  20
+            sta PF1                 ;3  23
+            lda TRACK_PF2,y         ;4  27
+            sta PF2                 ;3  30
+            lda #$00                ;2  32
+            sta HMP1                ;3  35
+            dey                     ;2  37
+            SLEEP 5                 ;6  43
 
 _player_1_draw_loop
+            lda local_pf0           ;2  45
+            eor #%01000000          ;2  47
+            sta local_pf0           ;3  50
+            ldx #$00                ;3  53
+            lda (player_sprite+2),y ;5  58
+            SLEEP 10                ;10 68
+            stx COLUBK              ;3  71
+            ldx local_pf0           ;3  74
+            stx PF0                 ;3   1
+            sta GRP1                ;3   4
+            lda TARGET_COLOR_0,y    ;4   8
+            sta COLUP1              ;3  11
+            lda TRACK_PF1,y         ;4  15
+            sta PF1                 ;3  18
+            SLEEP 2                 ;2  20
+            lda (player_bg+2),y     ;5  25
+            sta COLUBK              ;3  28
+            lda TRACK_PF2,y         ;4  32
+            sta PF2                 ;3  35
+            dey                     ;2  37
+            SLEEP 3                 ;3  40
+            bpl _player_1_draw_loop ;2  42
             sta WSYNC
-            lda #%01100000          ;-----
-            sta PF0                 ;3   7
-            lda (player_bg+2),y     ;6  13
-            sta COLUBK              ;3  16
-            lda (player_sprite+2),y ;6  22
-            sta GRP1                ;3  25
-            lda TARGET_COLOR_0,y    ;4  29
-            sta COLUP1              ;3  28
-            lda #%11011011
-            sta PF1
-            lda #%10110110
-            sta PF2
-            dey                     ;2  30
-            bpl _player_1_draw_loop ;2  32
-            lda #0
-            sta COLUBK
+            lda #0                  ;2  44
+            sta COLUBK              
             sta PF0
             sta PF1
             sta PF2
@@ -186,17 +197,96 @@ _player_1_draw_loop
 ;---------------------
 ; arena
            
-            ldy #45
+            ldy #15
 _arena_loop
             sta WSYNC
             dey 
             bpl _arena_loop
 
 ;---------------------
+; laser track (mid)
+
+            ; resp lo player
+            sta WSYNC               ;3   0
+            lda player_x            ;3   3
+            sec                     ;2   5
+_player_m_resp_loop
+            sbc #15                 ;2   7
+            sbcs _player_m_resp_loop;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            sta HMM0                ;3  21+ ; just for timing shim
+            sta RESP0               ;3  24+ 
+
+            ldy #$00                ;3   6
+mid_line_0
+            ; top line
+            sta WSYNC
+            sta HMOVE               ;3   3
+            lda (player_sprite),y   ;6   9
+            sta GRP0                ;3  12
+            lda TARGET_COLOR_0,y    ;4  16
+            sta COLUP0              ;3  19
+            lda #$00                ;2  21
+            sta COLUPF              ;3  24
+            sta COLUBK              ;3  27
+            sta HMP0                ;3  36
+            lda #$30                ;2  38
+            sta PF0                 ;3  41
+            iny                     ;2  43
+_player_m_draw_loop
+            lda (player_sprite),y   ;5  48
+            ldx TARGET_COLOR_0,y    ;4  52
+
+            sta WSYNC
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda (player_bg),y       ;5  11
+            sta COLUPF              ;3  14
+            iny                     ;2  16
+            cpy #PLAYER_HEIGHT      ;2  18
+            bcc _player_m_draw_loop ;2  20
+            sta WSYNC
+            sta COLUBK
+            lda #11
+            sta COLUPF           
+            lda #$90   
+            sta PF0
+            lda #$ff
+            sta PF1
+            sta PF2
+            lda #0
+            sta GRP0
+            sta WSYNC
+            lda #$10
+            sta PF0
+            lda #0
+            sta PF1
+            sta PF2
+            sta WSYNC
+            lda #$90   
+            sta PF0
+            lda #$ff
+            sta PF1
+            sta PF2
+            sta WSYNC
+            lda #0
+            sta PF0
+            sta PF1
+            sta PF2
+            sta COLUBK
+;---------------------
+; arena
+            ldy #15
+_arena_lo_loop
+            sta WSYNC
+            dey 
+            bpl _arena_lo_loop
+
+;---------------------
 ; laser track (lo)
 
-            lda #2
-            sta ENAM0
             ; resp lo player
             sta WSYNC               ;3   0
             lda player_x            ;3   3
@@ -211,40 +301,106 @@ _player_0_resp_loop
             sta RESP0               ;3  24+ 
 
             ldy #$00                ;3   6
+power_line_0
+            ; top line
             sta WSYNC
             sta HMOVE               ;3   3
-            lda TRACK_PF0,y         ;4   7
-            sta PF0                 ;3  10
-            lda (player_sprite),y   ;6  16
-            sta GRP0                ;3  21
-            lda TRACK_PF1,y         ;4  25
-            sta PF1                 ;3  28
-            lda TRACK_PF2,y         ;4  32
-            sta PF2                 ;3  35
-            lda TARGET_COLOR_0,y    ;4  35
-            sta COLUP0              ;3  38
-            lda #$00                ;3  35
-            sta HMP0                ;3  38
-            sta ENAM0               ;3  41
+            lda (player_sprite),y   ;6   9
+            sta GRP0                ;3  12
+            lda TARGET_COLOR_0,y    ;4  16
+            sta COLUP0              ;3  19
+            lda #$00                ;2  21
+            sta COLUPF              ;3  24
+            sta COLUBK              ;3  27
+            sta PF1                 ;3  30
+            sta PF2                 ;3  33
+            sta HMP0                ;3  36
+            lda #$30                ;2  38
+            sta PF0                 ;3  41
+            lda (player_sprite),y   ;5  46
+            ldx TARGET_COLOR_0,y    ;4  50
             iny                     ;2  43
-
-_player_0_draw_loop
             sta WSYNC
-            lda TRACK_PF0,y         ;4   4
-            sta PF0                 ;3   7
-            lda TRACK_PF1,y         ;-----
-            sta PF1                 ;-----
-            lda TRACK_PF2,y         ;-----
-            sta PF2                 ;-----
-            lda (player_bg),y       ;6  13
-            sta COLUBK              ;3  16
-            lda (player_sprite),y   ;6  22
-            sta GRP0                ;3  25
-            lda TARGET_COLOR_0,y    ;4  29
-            sta COLUP0              ;3  32
-            iny                     ;2  30
-            cpy #PLAYER_HEIGHT      ;2  32
-            bcc _player_0_draw_loop ;2  34
+
+power_line_1
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #8                  ;2   8 ; top track color
+            sta COLUBK              ;3  11
+            iny                     ;2  13
+            lda (player_sprite),y   ;5  18
+            ldx TARGET_COLOR_0,y    ;4  22
+            sta WSYNC               ;3  --
+power_line_2
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda (player_bg),y       ;5  11
+            sta COLUBK              ;3  14
+            iny                     ;2  16
+            lda (player_sprite),y   ;5  21
+            ldx TARGET_COLOR_0,y    ;4  25
+            sta WSYNC
+power_line_3
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda (player_bg),y       ;5  11
+            sta COLUBK              ;3  14
+            iny                     ;2  16
+            lda (player_sprite),y   ;5  21
+            ldx TARGET_COLOR_0,y    ;4  25
+            sta WSYNC               ;-----
+power_line_4
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #$0e                ;3   9
+            sta COLUPF              ;3  11
+            lda (player_bg),y       ;5  16
+            sta COLUBK              ;3  19
+            ldx grid_x              ;3  21
+            lda TRACK_PF2_GRID,x    ;4  25
+            sta PF1                 ;3  28
+            lda TRACK_PF1_GRID,x    ;4  32
+            sta PF2                 ;3  35
+            iny                     ;2  37
+            lda (player_sprite),y   ;5  42
+            ldx TARGET_COLOR_0,y    ;4  46
+            sta WSYNC               ;3  --
+power_line_5
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda (player_bg),y       ;5  11
+            sta COLUBK              ;3  14
+            lda #0                  ;2  16
+            sta COLUPF              ;3  19
+            sta PF1                 ;3  21
+            sta PF2                 ;3  24
+            iny                     ;2  26
+            lda (player_sprite),y   ;5  31
+            ldx TARGET_COLOR_0,y    ;4  35
+            sta WSYNC
+power_line_6
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda (player_bg),y       ;5  11
+            sta COLUBK              ;3  14
+            iny                     ;2  16
+            lda (player_sprite),y   ;5  21
+            ldx TARGET_COLOR_0,y    ;4  25
+            sta WSYNC
+power_line_7
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #8                  ;2   8 ; top track color
+            sta COLUBK              ;3  11
+            iny                     ;2  13
+            lda (player_sprite),y   ;5  18
+            ldx TARGET_COLOR_0,y    ;4  22
+            sta WSYNC               ;3  --
+power_line_8
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #0                  ;2   8
+            sta COLUBK              ;3  11
 
 ; kernel exit
 
@@ -310,62 +466,87 @@ MTP_MX888_2
 MTP_MX888_3
     byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
 TARGET_COLOR_0
-    byte $0,$00,$0a,$0c,$0e,$0e,$0e,$0e,$0c,$0a; 9
+    byte $0,$0a,$0c,$0e,$0e,$0f,$0e,$0e,$0c,$0a; 9
 
 
 TARGET_BG_0
-    byte $00,$00,$02,$00,$00,$00,$02,$00,$00; 8
+    byte $00,$00,$00,$00,$00,$00,$00,$00,$00; 8
 TARGET_BG_1
-    byte $02,$00,$02,$00,$00,$00,$02,$00,$02; 8
+    byte $b2,$b0,$b2,$b2,$b0,$b2,$b2,$b0,$b2; 8
 TARGET_BG_2
-    byte $04,$04,$04,$02,$02,$02,$04,$04,$04; 8
+    byte $b4,$b4,$b4,$b2,$b2,$b2,$b4,$b4,$b4; 8
 TARGET_BG_3
-    byte $08,$04,$04,$02,$02,$02,$04,$04,$08; 8
+    byte $b8,$b4,$b8,$b8,$b2,$b8,$b8,$b8,$b8; 8
 TARGET_BG_4
-    byte $04,$04,$04,$04,$04,$04,$04,$04,$04; 8
+    byte $b4,$b4,$ba,$ba,$b4,$b4,$ba,$ba,$b4; 8
 TARGET_BG_5
-    byte $02,$04,$08,$08,$08,$08,$08,$04,$02; 8
+    byte $b2,$b4,$bb,$bb,$b8,$bb,$bb,$b4,$b2; 8
 TARGET_BG_6
-    byte $01,$02,$04,$08,$0f,$08,$04,$02,$01; 8
+    byte $b1,$b2,$bd,$bd,$bf,$bd,$bd,$b2,$b1; 8
 TARGET_BG_7
-    byte $00,$00,$02,$08,$0f,$08,$02,$00,$00; 8
-
-
-TRACK_PF0
-	.byte %11110000
-	.byte %10010000
-	.byte %11110000
-	.byte %10110000
-	.byte %00100000
-	.byte %01000000
-	.byte %10000000
-	.byte %00000000
-	.byte %11110000
+    byte $00,$b0,$be,$be,$bf,$be,$be,$b0,$00; 8
 
 
 TRACK_PF1
+	.byte %00000000
 	.byte %11111111
-	.byte %00100100
+	.byte %00000000
+	.byte %10000000
 	.byte %11111111
-	.byte %00100100
-	.byte %10010010
-	.byte %10001010
-	.byte %01000101
-	.byte %10100000
+	.byte %10000000
+	.byte %00000000
 	.byte %11111111
+	.byte %00000000
 
 
 TRACK_PF2
+	.byte %00000000
 	.byte %11111111
-	.byte %01001001
+	.byte %00000000
+	.byte %00000000
 	.byte %11111111
-	.byte %00000001
-	.byte %01001010
-	.byte %00010000
-	.byte %01000010
-	.byte %00010100
+	.byte %00000000
+	.byte %00000000
 	.byte %11111111
+	.byte %00000000
 
+
+TRACK_PF1_GRID
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $01
+	.byte $03
+	.byte $07
+	.byte $0e
+	.byte $1c
+	.byte $38
+	.byte $70
+	.byte $e0
+
+TRACK_PF2_GRID
+	.byte $00
+	.byte $80
+	.byte $c0
+	.byte $e0
+	.byte $70
+	.byte $38
+	.byte $1c
+	.byte $0e
+	.byte $07
+	.byte $03
+	.byte $01
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+    
     END_BANK
 
     START_BANK 1
@@ -511,7 +692,7 @@ _player_end_move
             ;; next player
             dex
             bpl _player_update_loop
-            
+
 ;---------------------
 ; end vblank
 
@@ -683,7 +864,6 @@ _audio_next_note_ty
             iny
             lda (tmp_waveform_ptr),y
             sta AUDV0,x
-            sta grid_power,x
             iny
             lda (tmp_waveform_ptr),y
             sta audio_timer,x
@@ -737,19 +917,21 @@ _audio_advance_order_advance_pattern
 audio_end
 
 _grid_update
-            dec grid_power
-            bpl _grid_advance
-            lda #0
-            sta grid_power
+            dec grid_timer
+            bpl _skip_grid_update
+            lda #4
+            sta grid_timer
 _grid_advance
             lda grid_x
             clc
             adc #1
-            cmp #90
+            cmp #16
             bcc _end_grid_update
+            inc grid_power
             lda #$00
 _end_grid_update
             sta grid_x
+_skip_grid_update
 
             JMP_LBL bank_return_audio_tracker
 
