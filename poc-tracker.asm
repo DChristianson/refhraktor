@@ -95,6 +95,9 @@ LOCAL_OVERLAY           ds 8
 local_jx_player_input = LOCAL_OVERLAY
 local_jx_player_count = LOCAL_OVERLAY + 1
 
+; -- player bkgnd computation
+local_tmp_power = LOCAL_OVERLAY
+
 ; -- player track locals
 local_pf0 = LOCAL_OVERLAY
 
@@ -239,30 +242,39 @@ _player_mkiv_draw_loop_0
             iny                     ;2  16
             cpy #3                  ;2  18
             bcc _player_mkiv_draw_loop_0 ;2  20
-            lda (player_sprite),y   ;5  56
-            ldx TARGET_COLOR_0,y    ;4  60
+            lda (player_sprite),y   ;5  25
+            ldx TARGET_COLOR_0,y    ;4  29
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            lda #$0b 
-            sta COLUPF
-            iny
+            lda #$0b                ;2   8
+            sta COLUPF              ;3  11
+            iny                     ;2  13
 
-            lda (player_sprite),y   ;5  56
-            ldx TARGET_COLOR_0,y    ;4  60
+
+            lda (player_bg),y       ;5  18
+            sta COLUBK              ;3  21
+            lda (player_sprite),y   ;5  26
+            ldx TARGET_COLOR_0,y    ;4  30
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$00                ;2   8
             sta COLUPF              ;3  11
-            lda (player_bg),y       ;5  16
-            sta COLUBK              ;3  19
-            ldx grid_x              ;3  22
-            lda TRACK_PF2_GRID,x    ;4  26
-            sta PF1                 ;3  29
-            lda TRACK_PF1_GRID,x    ;4  32
-            sta PF2                 ;3  35
-            iny                     ;2  16
+            sta PF0                 ;3  14
+            ldx grid_x              ;3  17
+            lda TRACK_PF2_GRID,x    ;4  21
+            sta PF1                 ;3  24
+            lda TRACK_PF1_GRID,x    ;4  28
+            sta PF2                 ;3  31
+            iny                     ;2  33
+            
+            lda (player_sprite),y   ;5  56
+            ldx TARGET_COLOR_0,y    ;4  60
+            sta WSYNC
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            iny                     ;2  33
             
             lda (player_sprite),y   ;5  56
             ldx TARGET_COLOR_0,y    ;4  60
@@ -277,19 +289,18 @@ _player_mkiv_draw_loop_0
             sta PF2
             iny                     ;2  16
             
+            lda (player_bg),y       ;5  11
+            sta COLUBK              ;3  14
             lda (player_sprite),y   ;5  56
             ldx TARGET_COLOR_0,y    ;4  60
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            lda #$30              
+            lda #$30                
             sta PF0
             lda #$00
-            sta COLUBK
             sta PF1
             sta PF2
-            ; lda (player_bg),y       ;5  11
-            ; sta COLUBK              ;3  14
             iny                     ;2  16
 
 _player_mkiv_draw_loop_2
@@ -591,21 +602,21 @@ TARGET_COLOR_0
 
 
 TARGET_BG_0
-    byte $00,$00,$00,$00,$00,$00,$00,$00,$00; 8
+    byte $00,$00,$00,$00,$bf,$00,$00,$00,$00; 8
 TARGET_BG_1
-    byte $b2,$b0,$b2,$b2,$b0,$b2,$b2,$b0,$b2; 8
+    byte $b2,$b0,$b2,$b2,$bf,$00,$00,$00,$b2; 8
 TARGET_BG_2
-    byte $b4,$b4,$b4,$b2,$b2,$b2,$b4,$b4,$b4; 8
+    byte $b4,$b4,$b4,$b2,$bf,$00,$00,$b0,$b2; 8
 TARGET_BG_3
-    byte $b8,$b4,$b8,$b8,$b2,$b8,$b8,$b8,$b8; 8
+    byte $b8,$b4,$b8,$b8,$bf,$00,$00,$b2,$b4; 8
 TARGET_BG_4
-    byte $b4,$b4,$ba,$ba,$b4,$b4,$ba,$ba,$b4; 8
+    byte $b4,$b4,$ba,$ba,$bf,$00,$b0,$b2,$b4; 8
 TARGET_BG_5
-    byte $b2,$b4,$bb,$bb,$b8,$bb,$bb,$b4,$b2; 8
+    byte $b2,$b4,$bb,$bb,$bf,$00,$b2,$b4,$b8; 8
 TARGET_BG_6
-    byte $b1,$b2,$bd,$bd,$bf,$bd,$bd,$b2,$b1; 8
+    byte $b1,$b2,$bd,$bd,$bf,$b0,$b2,$b4,$b8; 8
 TARGET_BG_7
-    byte $00,$b0,$be,$be,$bf,$be,$be,$b0,$00; 8
+    byte $00,$b0,$be,$be,$bf,$b0,$ba,$ba,$ba; 8
 
 
 TRACK_PF1
@@ -633,32 +644,37 @@ TRACK_PF2
 
 
 TRACK_PF1_GRID
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $00
-	.byte $01
-	.byte $03
-	.byte $07
-	.byte $0e
-	.byte $1c
-	.byte $38
-	.byte $70
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $fe
+	.byte $fc
+	.byte $f8
+	.byte $f0
 	.byte $e0
+	.byte $c0
+	.byte $80
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $03
+	.byte $0f
+	.byte $3f
+	.byte $ff
 
 TRACK_PF2_GRID
-	.byte $00
-	.byte $80
-	.byte $c0
-	.byte $e0
-	.byte $70
-	.byte $38
-	.byte $1c
-	.byte $0e
+	.byte $ff
+	.byte $7f
+	.byte $3f
+	.byte $1f
+	.byte $0f
 	.byte $07
 	.byte $03
 	.byte $01
@@ -667,6 +683,17 @@ TRACK_PF2_GRID
 	.byte $00
 	.byte $00
 	.byte $00
+	.byte $00
+	.byte $00
+	.byte $00
+	.byte $c0
+	.byte $f0
+	.byte $fc
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
+	.byte $ff
     
     END_BANK
 
@@ -752,10 +779,12 @@ _end_switches
             ; power graphics
             lda grid_power
             and #$07
+            sta local_tmp_power
             asl
             asl
             asl
             clc
+            adc local_tmp_power
             adc #<TARGET_BG_0
             sta player_bg + 0
             sta player_bg + 2
@@ -1046,7 +1075,7 @@ _grid_advance
             lda grid_x
             clc
             adc #1
-            cmp #16
+            cmp #24
             bcc _end_grid_update
             inc grid_power
             lda #$00
