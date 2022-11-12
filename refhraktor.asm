@@ -97,6 +97,8 @@ TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 LOOKUP_STD_HMOVE_2 = STD_HMOVE_END_2 - 256
 
+PLAYER_STATE_FIRING  = $02
+
 ; ----------------------------------
 ; variables
 
@@ -287,12 +289,12 @@ _lt_hi_draw_loop_2
             dey                          ;2  16
             cpy #PLAYER_HEIGHT - 3       ;2  18
             bcs _lt_hi_draw_loop_2       ;2  20
-            lda #$ff                     ;2  22
+            lda #$00                     ;2  22
             sta PF0                      ;3  25
             sta PF1                      ;3  28
             sta PF2                      ;3  31
-            lda TARGET_BG_0,y          ;5  36
-            sta COLUBK                   ;3  39
+            lda TARGET_BG_0,y            ;5  36
+            sta COLUPF                   ;3  39
 
             lda (player_sprite+2),y ;5  44
             ldx TARGET_COLOR_0,y    ;4  48
@@ -300,7 +302,7 @@ _lt_hi_draw_loop_2
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$00                ;2   8
-            sta COLUPF              ;3  11
+            sta COLUBK              ;3  11
             lda power_grid_pf0 + 1  ;3  14
             sta PF0                 ;3  17
             lda power_grid_pf1 + 1  ;3  20
@@ -309,35 +311,43 @@ _lt_hi_draw_loop_2
             sta PF2                 ;3  29
             dey                     ;2  31
             
-            lda (player_sprite+2),y  ;5  56
+            sta CXCLR               ;3  34 ; start collision
+            lda (player_sprite+2),y ;5  56
             ldx TARGET_COLOR_0,y    ;4  60
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            lda TARGET_BG_0,y    ;5  11
-            sta COLUBK              ;3  14
-            dey                     ;2  16
+            dey                     ;2   8 
 
-            lda (player_sprite+2),y  ;5  56
-            ldx TARGET_COLOR_0,y    ;4  60
+            lda (player_sprite+2),y ;5  16
+            ldx TARGET_COLOR_0,y    ;4  20
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            lda TARGET_BG_0,y       ;5  11
-            sta COLUBK              ;3  14
-            lda #$00                ;2  16
-            sta PF0                 ;3  19
-            sta PF1                 ;3  22
-            sta PF2                 ;3  25
-            dey                     ;2  27
-            
+            ldx CXP0FB              ;3   9
+            lda TARGET_BG_0,y       ;5  14
+            sta COLUBK              ;3  17
+            sta COLUPF              ;3  20
+            lda #$00                ;2  22
+            sta PF0                 ;3  25
+            sta PF1                 ;3  28
+            sta PF2                 ;3  31
+            dey                     ;2  33
+
+            ; power collision test
+            txa                     ;2  35
+            and #$80                ;3  38
+            beq _hi_skip_power      ;2  40
+            inc player_power + 1    ;5  45
+_hi_skip_power
+
 _lt_hi_draw_loop_0
-            lda (player_sprite+2),y   ;5  32
-            ldx TARGET_COLOR_0,y    ;4  36
+            lda (player_sprite+2),y      ;5  --
+            ldx TARGET_COLOR_0,y         ;4  --
             sta WSYNC
             sta GRP0                     ;3   3
             stx COLUP0                   ;3   6
-            lda TARGET_BG_0,y         ;5  11
+            lda TARGET_BG_0,y            ;5  11
             sta COLUBK                   ;3  14
             dey                          ;2  16
             bpl _lt_hi_draw_loop_0       ;2  20
@@ -455,7 +465,7 @@ formation_end_jmp
             tax                             ;2  37
 _laser_hit_test
             lda #$40                        ;2  39
-            and CXM0P                       ;2  41
+            and CXM0P                       ;2  41 ; check collision
             bne _laser_hit_test_hit         ;2  43
             sta WSYNC 
             jmp _laser_hit_test_end
@@ -492,7 +502,6 @@ _lt_lo_resp_loop
             sta COLUPF              ;3  24
             sta COLUBK              ;3  27
             sta HMP0                ;3  30
-            lda #$ff                ;2  32
             sta PF0                 ;3  35
             sta PF1                 ;3  38
             sta PF2                 ;3  41
@@ -515,18 +524,18 @@ _lt_lo_draw_loop_0
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$0b                ;2   8
-            sta COLUPF              ;3  11
+            sta COLUBK              ;3  11
             iny                     ;2  13
 
-            lda TARGET_BG_0,y      ;5  18
-            sta COLUBK              ;3  21
+            lda TARGET_BG_0,y       ;5  18
+            sta COLUPF              ;3  21
             lda (player_sprite),y   ;5  26
             ldx TARGET_COLOR_0,y    ;4  30
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$00                ;2   8
-            sta COLUPF              ;3  11
+            sta COLUBK              ;3  11
             lda power_grid_pf0      ;3  14
             sta PF0                 ;3  17
             lda power_grid_pf1      ;3  20
@@ -534,27 +543,36 @@ _lt_lo_draw_loop_0
             lda power_grid_pf2      ;3  26
             sta PF2                 ;3  29
             iny                     ;2  31
-            
-            lda (player_sprite),y   ;5  36
-            ldx TARGET_COLOR_0,y    ;4  60
+        
+            sta CXCLR               ;3  34 ; start power collision check
+            lda (player_sprite),y   ;5  -- 
+            ldx TARGET_COLOR_0,y    ;4  --
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            iny                     ;2  33
-            
-            lda (player_sprite),y   ;5  56
-            ldx TARGET_COLOR_0,y    ;4  60
+            iny                     ;2   8
+
+            lda (player_sprite),y   ;5  16
+            ldx TARGET_COLOR_0,y    ;4  20
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$0a                ;2   8
             sta COLUPF              ;3  11
-            lda #$ff                ;2  13
-            sta PF0                 ;3  16
-            sta PF1                 ;3  19
-            sta PF2                 ;3  21
-            iny                     ;2  23
-            
+            ldx CXP0FB              ;3  14
+            lda #$ff                ;2  16
+            sta PF0                 ;3  19
+            sta PF1                 ;3  21
+            sta PF2                 ;3  24
+            iny                     ;2  26
+
+            ; power collision test
+            txa                     ;2  28
+            and #$80                ;3  32
+            beq _lo_skip_power      ;2  34
+            inc player_power        ;5  39
+_lo_skip_power
+    
             lda TARGET_BG_0,y       ;5  28
             sta COLUBK              ;3  31
             lda (player_sprite),y   ;5  36
@@ -1127,15 +1145,21 @@ _player_update_left
             bcc _player_end_move
             sbc #$01
             sta player_x,x
-            lda player_sprite,y ; bugbug can do indirectly?
+            lda player_sprite,y ; BUGBUG: can do indirectly?
             sec 
             sbc #PLAYER_HEIGHT
-            cmp #<MTP_MKI_0 ; TODO: swap
+            cmp #<MTP_MKI_0 ; BUGBUG: need to make work correctly
             bcs _player_update_anim_left
-            lda #<MTP_MKI_3 ; TODO: swap
+            lda #<MTP_MKI_3 ; BUGBUG: need to make work correctly
 _player_update_anim_left
             sta player_sprite,y
 _player_end_move
+            ; power ; BUGBUG: debugging power
+            lda player_power,x
+            beq _player_no_fire 
+            inc ball_color ; BUGBUG: just for debug
+            lda #$00
+            sta player_power,x
             lda INPT4,x
             bmi _player_no_fire
             ; firing - auto-aim
@@ -1252,7 +1276,7 @@ _player_draw_beam_skip_bump_hmov
             dey
             bpl _player_draw_beam_loop
             lda player_state,x
-            and #$02
+            and #PLAYER_STATE_FIRING
             bne _player_draw_beam_end
             ; calc ax/ay coefficient
             ldy #$f0
@@ -1819,9 +1843,9 @@ TRACK_PF0_GRID
 	.byte $00
 	.byte $00
 	.byte $00
-	.byte $80
-	.byte $c0
-	.byte $e0
+	.byte $10
+	.byte $30
+	.byte $70
 	.byte $f0
 	.byte $f0
 	.byte $f0
@@ -3126,7 +3150,8 @@ GLITCH_0 = . - AUDIO_TRACKS
 
 
 
-; game notes - MVP
+; game notes
+;
 ; DONE
 ;  - make fire buttons work
 ;  - make lasers not be chained to ball 
@@ -3149,32 +3174,41 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;    - choose track
 ;         - show track and allow switch
 ;  - stabilize framerate
-; PRIORITY TODO
+;  - remove extra scanline glitch due to player
+;  - add power track
+;  - power grid controls firing
+; MVP TODO
 ;  - power grid mechanics
-;   - boost player shots
-;   - drain player power
+;     - boost player shots
+;     - drain player power
+;     - add special powerup indicator
+;  - playfields
+;     - more vertical space
 ;  - graphical glitches
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
-;     - remove extra scanline glitch due to player
 ;     - lasers off at certain positions
 ;  - clean up play screen 
+;     - adjust players
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball
-;     - add power track
 ;     - add score
-;     - add special powerup indicator
 ;     - remove player cutoff
+;  - game over criteria
+;     - some way to end game
 ;  - physics glitches
 ;     - ball score not in goal
 ;     - collision bugs (stuck)
 ;  - clean up menus 
+;     - disable unused game modes
 ;     - better startup behavior
 ;     - forward/back/left/right transitions
 ;     - gradient color
-;  - shield weapon
+;  MAYBE DELAY
+;  - basic quest mode (could be good for testing)
+;  - shield weapon (would be good to test if possible)
+;  DELAY
 ;  - make lasers refract off ball (maybe showing the power of the shot?)
-;  - basic quest mode
 ;  - basic special attacks
 ;    - gravity blast
 ;    - emp
