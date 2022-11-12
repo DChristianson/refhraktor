@@ -106,11 +106,11 @@ PLAYER_STATE_FIRING  = $02
 
     ORG $80
 
-frame        ds 1  ; frame counter
-game_timer   ds 1  ; countdown
+frame            ds 1  ; frame counter
+game_timer       ds 1  ; countdown
 
-audio_tracker ds 2  ; next track
-audio_timer   ds 2  ; time left on audio
+audio_tracker    ds 2  ; next track
+audio_timer      ds 2  ; time left on audio
 
 game_state       ds 1  ; current game state
 formation_select ds 1           ; which level
@@ -121,8 +121,8 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-player_input  ds NUM_PLAYERS      ; player input buffer
-player_sprite ds 2 * NUM_PLAYERS  ; pointer
+player_input     ds NUM_PLAYERS      ; player input buffer
+player_sprite    ds 2 * NUM_PLAYERS  ; pointer
 
 formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
@@ -131,34 +131,35 @@ formation_p2_dl  ds 12  ; playfield ptr pf2
 formation_colupf ds 2
 formation_colubk ds 2
 
-player_state  ds NUM_PLAYERS
-player_x      ds NUM_PLAYERS  ; player x position
-player_aim_x  ds NUM_PLAYERS  ; player aim point x
-player_aim_y  ds NUM_PLAYERS  ; player aim point y
-player_power  ds NUM_PLAYERS  ; player power reserve
-player_score  ds NUM_PLAYERS  ; score
+player_state      ds NUM_PLAYERS
+player_x          ds NUM_PLAYERS  ; player x position
+player_power      ds NUM_PLAYERS  ; player power reserve
+player_score      ds NUM_PLAYERS  ; score
 
-power_grid_pf0 ds NUM_PLAYERS
-power_grid_pf1 ds NUM_PLAYERS
-power_grid_pf2 ds NUM_PLAYERS
+power_grid_pf0    ds NUM_PLAYERS
+power_grid_pf1    ds NUM_PLAYERS
+power_grid_pf2    ds NUM_PLAYERS
+power_grid_pf3    ds NUM_PLAYERS
+power_grid_pf4    ds NUM_PLAYERS
+power_grid_pf5    ds NUM_PLAYERS
 
-laser_ax      ds 2  ;
-laser_ay      ds 2  ;
-laser_lo_x    ds 1  ; start x for the low laser
-laser_hmov_0  ds PLAYFIELD_BEAM_RES
+laser_ax          ds 2  ;
+laser_ay          ds 2  ;
+laser_lo_x        ds 1  ; start x for the low laser
+laser_hmov_0      ds PLAYFIELD_BEAM_RES
 
-ball_y       ds 2 
-ball_x       ds 2
-ball_dy      ds 2
-ball_dx      ds 2
-ball_ay      ds 2
-ball_ax      ds 2
-ball_color   ds 1
-ball_voffset ds 1 ; ball position countdown
-ball_cx      ds BALL_HEIGHT ; collision registers
+ball_y            ds 2 
+ball_x            ds 2
+ball_dy           ds 2
+ball_dx           ds 2
+ball_ay           ds 2
+ball_ax           ds 2
+ball_color        ds 1
+ball_voffset      ds 1 ; ball position countdown
+ball_cx           ds BALL_HEIGHT ; collision registers
 
 display_scroll    ; scroll adjusted to modulo block
-scroll       ds 1 ; y value to start showing playfield
+scroll         ds 1 ; y value to start showing playfield
 
 display_playfield_limit ds 1
 
@@ -184,11 +185,12 @@ local_grid_inc = LOCAL_OVERLAY + 1
 
 ; -- player update kernel locals
 local_player_x_travel    = LOCAL_OVERLAY
-local_player_dy          = LOCAL_OVERLAY + 1 ; use for line drawing computation
-local_player_dx          = LOCAL_OVERLAY + 2
-local_player_D           = LOCAL_OVERLAY + 3
-local_player_hmove       = LOCAL_OVERLAY + 4
-local_player_draw_buffer = LOCAL_OVERLAY + 5 ; (ds 2)
+local_player_aim_x       = LOCAL_OVERLAY + 1 ; player aim point x
+local_player_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computation
+local_player_dx          = LOCAL_OVERLAY + 3
+local_player_D           = LOCAL_OVERLAY + 4
+local_player_hmove       = LOCAL_OVERLAY + 5
+local_player_draw_buffer = LOCAL_OVERLAY + 6 ; (ds 2)
 
 
 ; -- playfield kernel locals
@@ -293,8 +295,9 @@ _lt_hi_draw_loop_2
             sta PF0                      ;3  25
             sta PF1                      ;3  28
             sta PF2                      ;3  31
-            lda TARGET_BG_0,y            ;5  36
-            sta COLUPF                   ;3  39
+            sta CTRLPF                   ;3  34
+            lda TARGET_BG_0,y            ;5  39
+            sta COLUPF                   ;3  42
 
             lda (player_sprite+2),y ;5  44
             ldx TARGET_COLOR_0,y    ;4  48
@@ -306,25 +309,50 @@ _lt_hi_draw_loop_2
             lda power_grid_pf0 + 1  ;3  14
             sta PF0                 ;3  17
             lda power_grid_pf1 + 1  ;3  20
-            sta PF1                 ;3  23
-            lda power_grid_pf2 + 1  ;3  26
-            sta PF2                 ;3  29
-            dey                     ;2  31
-            
-            sta CXCLR               ;3  34 ; start collision
-            lda (player_sprite+2),y ;5  56
-            ldx TARGET_COLOR_0,y    ;4  60
+            sta CXCLR               ;3  23 ; start collision
+            sta PF1                 ;3  26
+            lda power_grid_pf2 + 1  ;3  29
+            sta PF2                 ;3  32
+            dey                     ;2  34
+            lda power_grid_pf3 + 1  ;3  37
+            sta PF0                 ;3  40
+            lda power_grid_pf4 + 1  ;3  43
+            sta PF1                 ;3  46
+            lda power_grid_pf5 + 1  ;3  49
+            sta PF2                 ;3  52
+    
+            lda (player_sprite+2),y ;5  57
+            ldx TARGET_COLOR_0,y    ;4  61
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            dey                     ;2   8 
+            lda power_grid_pf0 + 1  ;3   9
+            sta PF0                 ;3  12
+            lda power_grid_pf1 + 1  ;3  15
+            sta PF1                 ;3  18
+            lda power_grid_pf2 + 1  ;3  21
+            sta PF2                 ;3  24
 
-            lda (player_sprite+2),y ;5  16
-            ldx TARGET_COLOR_0,y    ;4  20
+            ; power collision test
+            lda CXP0FB              ;3  27
+            and #$80                ;3  30
+            beq _hi_skip_power      ;2  32
+            inc player_power + 1    ;5  37
+_hi_skip_power
+
+            lda power_grid_pf3 + 1  ;3  36/40
+            sta PF0                 ;3  39/43
+            lda power_grid_pf4 + 1  ;3  42/46
+            sta PF1                 ;3  45/49
+            lda power_grid_pf5 + 1  ;3  48/52
+            sta PF2                 ;3  51/55
+            dey                     ;2  53/57
+
+            lda (player_sprite+2),y ;5  --
+            ldx TARGET_COLOR_0,y    ;4  --
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            ldx CXP0FB              ;3   9
             lda TARGET_BG_0,y       ;5  14
             sta COLUBK              ;3  17
             sta COLUPF              ;3  20
@@ -333,13 +361,8 @@ _lt_hi_draw_loop_2
             sta PF1                 ;3  28
             sta PF2                 ;3  31
             dey                     ;2  33
-
-            ; power collision test
-            txa                     ;2  35
-            and #$80                ;3  38
-            beq _hi_skip_power      ;2  40
-            inc player_power + 1    ;5  45
-_hi_skip_power
+            lda #$01                ;2  35
+            sta CTRLPF              ;3  38
 
 _lt_hi_draw_loop_0
             lda (player_sprite+2),y      ;5  --
@@ -536,47 +559,68 @@ _lt_lo_draw_loop_0
             stx COLUP0              ;3   6
             lda #$00                ;2   8
             sta COLUBK              ;3  11
-            lda power_grid_pf0      ;3  14
-            sta PF0                 ;3  17
-            lda power_grid_pf1      ;3  20
-            sta PF1                 ;3  23
-            lda power_grid_pf2      ;3  26
-            sta PF2                 ;3  29
-            iny                     ;2  31
+            sta CTRLPF              ;3  13
+            lda power_grid_pf0      ;3  17
+            sta PF0                 ;3  20
+            lda power_grid_pf1      ;3  23
+            sta PF1                 ;3  26
+            sta CXCLR               ;3  29 ; start power collision check
+            lda power_grid_pf2      ;3  32
+            sta PF2                 ;3  35
+            iny                     ;2  38
+            lda power_grid_pf3      ;3  41
+            sta PF0                 ;3  44
+            lda power_grid_pf4      ;3  47
+            sta PF1                 ;3  50
+            lda power_grid_pf5      ;3  53
+            sta PF2                 ;3  56
         
-            sta CXCLR               ;3  34 ; start power collision check
             lda (player_sprite),y   ;5  -- 
             ldx TARGET_COLOR_0,y    ;4  --
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
-            iny                     ;2   8
+            lda power_grid_pf0      ;3   9
+            sta PF0                 ;3  12
+            lda power_grid_pf1      ;3  15
+            sta PF1                 ;3  18
+            lda power_grid_pf2      ;3  21
+            sta PF2                 ;3  24
+            iny                     ;2  26
 
-            lda (player_sprite),y   ;5  16
-            ldx TARGET_COLOR_0,y    ;4  20
+            ; power collision test
+            lda #$80                ;2  28 ; extra cycle to make sure we get a whole line
+            and CXP0FB              ;3  31
+            beq _lo_skip_power      ;2  33
+            inc player_power        ;5  38
+_lo_skip_power
+
+            lda power_grid_pf3      ;3  37/41
+            sta PF0                 ;3  40/44
+            lda power_grid_pf4      ;3  43/47
+            sta PF1                 ;3  46/50
+            lda power_grid_pf5      ;3  49/53
+            sta PF2                 ;3  52/56
+
+            lda (player_sprite),y   ;5  --
+            ldx TARGET_COLOR_0,y    ;4  --
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
             lda #$0a                ;2   8
             sta COLUPF              ;3  11
-            ldx CXP0FB              ;3  14
-            lda #$ff                ;2  16
-            sta PF0                 ;3  19
-            sta PF1                 ;3  21
-            sta PF2                 ;3  24
-            iny                     ;2  26
-
-            ; power collision test
-            txa                     ;2  28
-            and #$80                ;3  32
-            beq _lo_skip_power      ;2  34
-            inc player_power        ;5  39
-_lo_skip_power
+            lda #$ff                ;2  13
+            sta PF0                 ;3  16
+            sta PF1                 ;3  19
+            sta PF2                 ;3  22
+            iny                     ;2  24
+            lda #$01                ;2  26
+            sta CTRLPF              ;3  29
     
-            lda TARGET_BG_0,y       ;5  28
-            sta COLUBK              ;3  31
-            lda (player_sprite),y   ;5  36
-            ldx TARGET_COLOR_0,y    ;4  40
+            lda TARGET_BG_0,y       ;5  34
+            sta COLUBK              ;3  37
+            lda (player_sprite),y   ;5  42
+            ldx TARGET_COLOR_0,y    ;4  46
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6
@@ -934,13 +978,13 @@ kernel_dropBall
             ; ball state
             lda #64 - BALL_HEIGHT / 2
             sta ball_y
-            lda #PLAYER_HEIGHT / 2 - BALL_HEIGHT / 2
-            sta player_aim_y
-            sta player_aim_y + 1
+            ; lda #PLAYER_HEIGHT / 2 - BALL_HEIGHT / 2
+            ; sta player_aim_y
+            ; sta player_aim_y + 1
             lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
             sta ball_x
-            sta player_aim_x
-            sta player_aim_x + 1
+            ; sta player_aim_x
+            ; sta player_aim_x + 1
             lda #$00
             sta ball_ax
             sta ball_ax + 1
@@ -1097,10 +1141,13 @@ power_grid_update
 _power_grid_update_loop
             lda TRACK_PF0_GRID,y
             sta power_grid_pf0,x
+            sta power_grid_pf3,x
             lda TRACK_PF1_GRID,y
             sta power_grid_pf1,x
+            sta power_grid_pf4,x
             lda TRACK_PF2_GRID,y
             sta power_grid_pf2,x
+            sta power_grid_pf5,x
             dex
             bpl _power_grid_update_loop
 
@@ -1162,11 +1209,6 @@ _player_end_move
             sta player_power,x
             lda INPT4,x
             bmi _player_no_fire
-            ; firing - auto-aim
-            lda ball_x
-            sta player_aim_x,x
-            lda ball_voffset
-            sta player_aim_y,x
             lda #$08
             jmp _player_end_fire
 _player_no_fire            
@@ -1189,7 +1231,10 @@ player_aim
             and #$01
             tax
             ; calc distance between player and aim point
-            lda player_aim_y,x
+            ; firing - auto-aim
+            lda ball_x
+            sta local_player_aim_x
+            lda ball_voffset ; get distance to ball
             cpx #$00
             beq _player_aim_beam_lo
 _player_aim_beam_hi
@@ -1201,7 +1246,7 @@ _player_aim_beam_hi
             sta local_player_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
-            sbc player_aim_x,x    ; dx
+            sbc local_player_aim_x    ; dx
             jmp _player_aim_beam_interp
 _player_aim_beam_lo
             clc           ; add view height to get dy
@@ -1209,7 +1254,7 @@ _player_aim_beam_lo
             tay           ; dy
             lda #laser_hmov_0
             sta local_player_draw_buffer ; point to top of beam hmov stack
-            lda player_aim_x,x
+            lda local_player_aim_x
             sec
             sbc player_x,x ; dx
 _player_aim_beam_interp
@@ -3148,8 +3193,6 @@ TABLA_0 = . - AUDIO_TRACKS
 GLITCH_0 = . - AUDIO_TRACKS
     byte 3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,3,31,15,15,0,45,255,GLITCH_0;
 
-
-
 ; game notes
 ;
 ; DONE
@@ -3178,12 +3221,12 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;  - add power track
 ;  - power grid controls firing
 ; MVP TODO
+;  - playfields
+;     - more vertical space
 ;  - power grid mechanics
 ;     - boost player shots
 ;     - drain player power
 ;     - add special powerup indicator
-;  - playfields
-;     - more vertical space
 ;  - graphical glitches
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
@@ -3205,6 +3248,8 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;     - forward/back/left/right transitions
 ;     - gradient color
 ;  MAYBE DELAY
+;  - sounds
+;     - some basic sounds
 ;  - basic quest mode (could be good for testing)
 ;  - shield weapon (would be good to test if possible)
 ;  DELAY
