@@ -95,7 +95,7 @@ PLAYER_HEIGHT = MTP_MKI_1 - MTP_MKI_0
 TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
-LOOKUP_STD_HMOVE_2 = STD_HMOVE_END_2 - 256
+LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
 PLAYER_STATE_FIRING  = $02
 
@@ -184,13 +184,17 @@ local_grid_gap = LOCAL_OVERLAY
 local_grid_inc = LOCAL_OVERLAY + 1
 
 ; -- player update kernel locals
-local_player_x_travel    = LOCAL_OVERLAY
-local_player_aim_x       = LOCAL_OVERLAY + 1 ; player aim point x
-local_player_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computation
-local_player_dx          = LOCAL_OVERLAY + 3
-local_player_D           = LOCAL_OVERLAY + 4
-local_player_hmove       = LOCAL_OVERLAY + 5
-local_player_draw_buffer = LOCAL_OVERLAY + 6 ; (ds 2)
+local_player_sprite_min_lobyte = LOCAL_OVERLAY ; (ds 1)
+local_player_sprite_max_lobyte = LOCAL_OVERLAY + 1 ; (ds 1)
+
+; -- player beam drawing kernel locals
+local_player_draw_x_travel    = LOCAL_OVERLAY
+local_player_draw_aim_x       = LOCAL_OVERLAY + 1 ; player aim point x
+local_player_draw_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computation
+local_player_draw_dx          = LOCAL_OVERLAY + 3
+local_player_draw_D           = LOCAL_OVERLAY + 4
+local_player_draw_hmove       = LOCAL_OVERLAY + 5
+local_player_draw_buffer      = LOCAL_OVERLAY + 6 ; (ds 2)
 
 
 ; -- playfield kernel locals
@@ -682,25 +686,30 @@ playfield_shim_loop
 ; equip sub
 
     DEF_LBL equip_kernel
-            ldy #PLAYER_HEIGHT - 1
+            ldx #PLAYER_HEIGHT - 1
+            ldy #1
 _equip_p1_draw_loop
             sta WSYNC
-            lda #P1_GRAPHICS_0,y
+            lda #P1_GRAPHICS_0,x
             sta GRP0
             lda (player_sprite),y
             sta GRP1
-            dey
+            iny
+            dex
             bpl _equip_p1_draw_loop 
-            ldy #PLAYER_HEIGHT - 1
+            ldx #PLAYER_HEIGHT - 1
+            ldy #1
 _equip_p2_draw_loop
             sta WSYNC
-            lda #P2_GRAPHICS_0,y
+            lda #P2_GRAPHICS_0,x
             sta GRP0
             lda (player_sprite + 2),y
             sta GRP1
-            dey
+            iny
+            dex
             bpl _equip_p2_draw_loop
-            sta GRP0 ; for vdelay
+            lda #0
+            sta GRP0 
             JMP_LBL equip_kernel_return
 
 P1_GRAPHICS_0
@@ -866,13 +875,13 @@ MTP_MKIV_2
 MTP_MKIV_3
     byte $0,$18,$7e,$bb,$aa,$aa,$bb,$7e,$3c; 9
 MTP_MX888_0
-    byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
+    byte $0,$81,$e7,$ff,$42,$e7,$3d,$80,$2a; 9
 MTP_MX888_1
-    byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
+    byte $0,$81,$e7,$ff,$42,$e7,$bc,$1,$54; 9
 MTP_MX888_2
-    byte $0,$2a,$80,$3d,$e7,$42,$ff,$e7,$81; 9
+    byte $0,$81,$e7,$ff,$42,$e7,$3d,$80,$2a; 9
 MTP_MX888_3
-    byte $0,$54,$1,$bc,$e7,$42,$ff,$e7,$81; 9
+    byte $0,$81,$e7,$ff,$42,$e7,$bc,$1,$54; 9
 TARGET_COLOR_0
     byte $0,$0a,$0c,$0e,$0e,$0f,$0e,$0e,$0c,$0a; 9
 TARGET_BG_0
@@ -896,12 +905,11 @@ COLUPF_0_ADDR
 ; Main Bank
 
 CleanStart
-    ; do the clean start macro
-            CLEAN_START
+    ; do the clean start superchip macro
+            CLEAN_START_SUPERCHIP
 
     ; game setup
-    jsr gs_splash_setup
-
+            jsr gs_splash_setup
 
 newFrame
 
@@ -1157,12 +1165,19 @@ _player_update_loop
             ;
             ; TODO: control player using jx_ callback
             ;
+            ; get player graphics bounds
+            ldy player_select,x
+            lda PLAYER_SPRITES,y
+            sta local_player_sprite_min_lobyte
+            clc
+            adc #(PLAYER_HEIGHT * 3)
+            sta local_player_sprite_max_lobyte
             ; manual player movement
-            ldy #$00
+            ldy #$00 ; y is player sprite pointer offset
             lda #$80
             cpx #$00
             beq _player_update_checkbits
-            ldy #$02
+            ldy #$02 ; y is player sprite pointer offset
             lda #$08
 _player_update_checkbits
             bit SWCHA                 
@@ -1177,28 +1192,26 @@ _player_update_right
             bcs _player_end_move
             adc #$01 
             sta player_x,x
-            lda player_sprite,y ; bugbug can do indirectly?
+            lda player_sprite,y ; y = x * 2
             clc 
             adc #PLAYER_HEIGHT
-            cmp #<MTP_MKI_3 ; TODO: swap
-            bcc _player_update_anim_right
-            lda #<MTP_MKI_0 ; TODO: swap
-_player_update_anim_right
-            sta player_sprite,y
-            jmp _player_end_move
+            cmp local_player_sprite_max_lobyte
+            bcc _player_update_anim
+            lda local_player_sprite_min_lobyte
+            jmp _player_update_anim
 _player_update_left
             lda player_x,x
             cmp #PLAYER_MIN_X
             bcc _player_end_move
             sbc #$01
             sta player_x,x
-            lda player_sprite,y ; BUGBUG: can do indirectly?
+            lda player_sprite,y ; y = x * 2
             sec 
             sbc #PLAYER_HEIGHT
-            cmp #<MTP_MKI_0 ; BUGBUG: need to make work correctly
-            bcs _player_update_anim_left
-            lda #<MTP_MKI_3 ; BUGBUG: need to make work correctly
-_player_update_anim_left
+            cmp local_player_sprite_min_lobyte
+            bcs _player_update_anim
+            lda local_player_sprite_max_lobyte
+_player_update_anim
             sta player_sprite,y
 _player_end_move
             ; power ; BUGBUG: debugging power
@@ -1233,7 +1246,7 @@ player_aim
             ; calc distance between player and aim point
             ; firing - auto-aim
             lda ball_x
-            sta local_player_aim_x
+            sta local_player_draw_aim_x
             lda ball_voffset ; get distance to ball
             cpx #$00
             beq _player_aim_beam_lo
@@ -1246,7 +1259,7 @@ _player_aim_beam_hi
             sta local_player_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
-            sbc local_player_aim_x    ; dx
+            sbc local_player_draw_aim_x    ; dx
             jmp _player_aim_beam_interp
 _player_aim_beam_lo
             clc           ; add view height to get dy
@@ -1254,70 +1267,70 @@ _player_aim_beam_lo
             tay           ; dy
             lda #laser_hmov_0
             sta local_player_draw_buffer ; point to top of beam hmov stack
-            lda local_player_aim_x
+            lda local_player_draw_aim_x
             sec
             sbc player_x,x ; dx
 _player_aim_beam_interp
             cpy #PLAYFIELD_BEAM_RES ; if dy < BEAM res, double everything
             bcs _player_aim_beam_end
             asl 
-            sta local_player_dx
+            sta local_player_draw_dx
             tya
             asl 
             tay
-            lda local_player_dx
+            lda local_player_draw_dx
 _player_aim_beam_end
 
             ; figure out beam path
 _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
-            sty local_player_dy
+            sty local_player_draw_dy
             cmp #00
             bpl _player_draw_beam_left
             eor #$ff
             clc
             adc #$01
-            cmp local_player_dy
+            cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_right
             tya
 _player_draw_skip_normalize_dx_right
-            sta local_player_dx 
+            sta local_player_draw_dx 
             lda #$f0
             jmp _player_draw_beam_set_hmov
 _player_draw_beam_left
-            cmp local_player_dy
+            cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_left
             tya
 _player_draw_skip_normalize_dx_left
-            sta local_player_dx
+            sta local_player_draw_dx
             lda #$10
 _player_draw_beam_set_hmov
-            sta local_player_hmove
-            asl local_player_dx  ; dx = 2 * dx
-            lda local_player_dx
+            sta local_player_draw_hmove
+            asl local_player_draw_dx  ; dx = 2 * dx
+            lda local_player_draw_dx
             sec
-            sbc local_player_dy  ; D = 2dx - dy
-            asl local_player_dy  ; dy = 2 * dy
-            sta local_player_D
+            sbc local_player_draw_dy  ; D = 2dx - dy
+            asl local_player_draw_dy  ; dy = 2 * dy
+            sta local_player_draw_D
             lda #$00
-            sta local_player_x_travel
+            sta local_player_draw_x_travel
             ldy #PLAYFIELD_BEAM_RES - 1 ; will stop at 16
 _player_draw_beam_loop
             lda #$01
-            cmp local_player_D
+            cmp local_player_draw_D
             bpl _player_draw_beam_skip_bump_hmov
             ; need an hmov
-            lda local_player_D
+            lda local_player_draw_D
             sec
-            sbc local_player_dy  ; D = D - 2 * dy
-            sta local_player_D
-            lda local_player_hmove
-            inc local_player_x_travel
+            sbc local_player_draw_dy  ; D = D - 2 * dy
+            sta local_player_draw_D
+            lda local_player_draw_hmove
+            inc local_player_draw_x_travel
 _player_draw_beam_skip_bump_hmov
             sta (local_player_draw_buffer),y ; cheating that #$01 is in a
-            lda local_player_D
+            lda local_player_draw_D
             clc
-            adc local_player_dx  ; D = D + 2 * dx
-            sta local_player_D
+            adc local_player_draw_dx  ; D = D + 2 * dx
+            sta local_player_draw_D
             dey
             bpl _player_draw_beam_loop
             lda player_state,x
@@ -1327,7 +1340,7 @@ _player_draw_beam_skip_bump_hmov
             ldy #$f0
             sec
             lda #PLAYFIELD_BEAM_RES * 2
-            sbc local_player_x_travel
+            sbc local_player_draw_x_travel
             cpx #$00
             bne _player_draw_beam_skip_invert_ay
             ldy #$10
@@ -1336,8 +1349,8 @@ _player_draw_beam_skip_bump_hmov
             adc #$01
 _player_draw_beam_skip_invert_ay
             sta laser_ay,x
-            lda local_player_x_travel
-            cpy local_player_hmove 
+            lda local_player_draw_x_travel
+            cpy local_player_draw_hmove 
             beq _player_draw_beam_skip_invert_ax
             eor #$ff
             clc
@@ -1356,12 +1369,12 @@ _player_aim_calc_lo
             ; find lo player beam starting point
             ; last local_player_x_travel will have the (signed) x distance covered  
             ; multiply by 5 to get 80 scanline x distance
-            lda local_player_x_travel
+            lda local_player_draw_x_travel
             asl 
             asl 
             clc
-            adc local_player_x_travel
-            ldy local_player_hmove 
+            adc local_player_draw_x_travel
+            ldy local_player_draw_hmove 
             bpl _player_aim_refract_no_invert
             eor #$ff
             clc
@@ -1456,15 +1469,6 @@ gs_menu_equip_setup
             and #$f0
             ora #GS_MENU_EQUIP
             sta game_state
-            ; position players
-            lda #120
-            sta player_x + 1
-            lda #0
-            sta player_x
-            ldx #1
-            jsr switch_player
-            ldx #0
-            jsr switch_player
             ; jmp tables
             SET_JX_CALLBACKS menu_equip_on_press_down, menu_equip_on_move
             ; done
@@ -1491,7 +1495,8 @@ gs_menu_stage_setup
             and #$f0
             ora #GS_MENU_STAGE
             sta game_state
-            jsr switch_formation
+            ldy formation_select
+            jsr select_formation
             ; jmp tables
             SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
             rts
@@ -1539,9 +1544,8 @@ _menu_track_on_move_end
 
 gs_menu_game_setup
             ; setup game mode 
-            lda #(GS_MENU_GAME + __MENU_GAME_TOURNAMENT)
+            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
             sta game_state
-            jsr switch_game_mode
             ; jmp tables
             SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
@@ -1568,9 +1572,7 @@ _menu_game_on_move_end
 
 gs_game_setup
             lda game_state
-            asl
-            asl
-            and #$30
+            and #$f0
             ora #(GS_GAME + __GAME_MODE_START)
             sta game_state
             ; move to game
@@ -1720,6 +1722,7 @@ switch_formation
             ldy #0
 _switch_stage_save
             sty formation_select
+select_formation
             beq formation_chute
             dey
             beq formation_diamonds
@@ -1989,6 +1992,12 @@ TRACK_PF2_GRID
 	.byte $ff
 	.byte $ff
 
+; BUGBUG; duplicate data
+PLAYER_SPRITES
+    byte #<MTP_MKI_0
+    byte #<MTP_MKIV_0
+    byte #<MTP_MX888_0
+
 ;------------------------
 ; vblank sub
 
@@ -2081,10 +2090,10 @@ kernel_menu_track
             sta player_sprite + 1
             sta player_sprite + 3
             ldx player_select
-            lda PLAYER_SPRITES,x
+            lda PLAYER_SPRITES_B2,x
             sta player_sprite
             ldx player_select + 1
-            lda PLAYER_SPRITES,x
+            lda PLAYER_SPRITES_B2,x
             sta player_sprite + 2
             ; load stage
             lda #12
@@ -2125,18 +2134,18 @@ _not_title
 _not_equip
             sty COLUP0
             sty COLUP1
-            sta WSYNC               ;3   0
-            lda #41                 ;3   3
-            sec                     ;2   5
+            sta WSYNC                ;3   0
+            lda #41                  ;3   3
+            sec                      ;2   5
 _equip_resp_loop
-            sbc #15                 ;2   7
-            sbcs _equip_resp_loop   ;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE_2,y;4  15+
-            sta HMP0                ;3  18+
-            sta HMP1                ;3  21+
-            sta RESP0               ;3  24+ 
-            sta RESP1               ;3  27+ 
+            sbc #15                  ;2   7
+            sbcs _equip_resp_loop    ;2   9
+            tay                      ;2  11+
+            lda LOOKUP_STD_HMOVE_B2,y;4  15+
+            sta HMP0                 ;3  18+
+            sta HMP1                 ;3  21+
+            sta RESP0                ;3  24+ 
+            sta RESP1                ;3  27+ 
             sta WSYNC
             sta HMOVE
             lda #0
@@ -2803,11 +2812,11 @@ _waitOnVBlank_loop_2
 ; TODO: move to another bank?
 
 ; TODO: need a better way to dup?
-STD_HMOVE_BEGIN_2
+STD_HMOVE_BEGIN_B2
     byte $80, $70, $60, $50, $40, $30, $20, $10, $00, $f0, $e0, $d0, $c0, $b0, $a0, $90
-STD_HMOVE_END_2
+STD_HMOVE_END_B2
 
-PLAYER_SPRITES
+PLAYER_SPRITES_B2
     byte #<MTP_MKI_0
     byte #<MTP_MKIV_0
     byte #<MTP_MX888_0
@@ -2843,9 +2852,9 @@ FONT_0
     byte $0,$e4,$a4,$aa,$aa,$aa,$2,$aa; 8
     byte $0,$aa,$ea,$ee,$4,$ae,$2,$aa; 8
     byte $0,$4e,$48,$48,$e4,$a2,$20,$ae; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
-    byte $0,$0,$0,$0,$0,$0,$0,$0; 8
+    byte $18,$3c,$ff,$55,$ff,$30,$3c,$18; 8
+    byte $3c,$7e,$f7,$55,$55,$f7,$7e,$18; 8
+    byte $2a,$80,$3d,$e7,$42,$ff,$e7,$81; 8
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8
     byte $0,$0,$0,$0,$0,$0,$0,$0; 8

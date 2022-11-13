@@ -72,3 +72,13 @@ SWITCH_BANKS = (. & $fff) | $1000
     jmp     {1}
    ENDIF
   ENDM 
+
+  MAC CLEAN_START_SUPERCHIP
+    CLEAN_START
+    lda #$00
+    ldx #$80
+.CLEAN_SUPERCHIP
+    dex
+    sta SUPERCHIP_WRITE,x
+    bne .CLEAN_SUPERCHIP
+  ENDM
