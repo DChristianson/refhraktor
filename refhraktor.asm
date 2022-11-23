@@ -97,7 +97,13 @@ TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
-PLAYER_STATE_FIRING  = $02
+PLAYER_STATE_HAS_POWER = $01 ; BUGBUG: TODO
+PLAYER_STATE_FIRING    = $02
+PLAYER_STATE_RANGE     = $03 ;  
+PLAYER_STATE_LINE      = $08 ; 
+PLAYER_STATE_BEAM_MASK = $03 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
+PLAYER_STATE_AUTO_FIRE = $70 ; BUGBUG: TODO
+PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
 
 ; ----------------------------------
 ; variables
@@ -338,19 +344,21 @@ _lt_hi_draw_loop_2
             sta PF2                 ;3  24
 
             ; power collision test
-            lda CXP0FB              ;3  27
-            and #$80                ;3  30
-            beq _hi_skip_power      ;2  32
-            inc player_power + 1    ;5  37
+            lda player_state + 1    ;3  27
+            and #$fe                ;2  29
+            bit CXP0FB              ;3  32
+            bpl _hi_skip_power      ;2  34
+            ora #$01                ;2  36
 _hi_skip_power
+            sta player_state + 1    ;3  38/39
 
-            lda power_grid_pf3 + 1  ;3  36/40
-            sta PF0                 ;3  39/43
-            lda power_grid_pf4 + 1  ;3  42/46
-            sta PF1                 ;3  45/49
-            lda power_grid_pf5 + 1  ;3  48/52
-            sta PF2                 ;3  51/55
-            dey                     ;2  53/57
+            lda power_grid_pf3 + 1  ;3  41/42
+            sta PF0                 ;3  44/45
+            lda power_grid_pf4 + 1  ;3  47/48
+            sta PF1                 ;3  50/51
+            lda power_grid_pf5 + 1  ;3  53/54
+            sta PF2                 ;3  56/57
+            dey                     ;2  58/59
 
             lda (player_sprite+2),y ;5  --
             ldx TARGET_COLOR_0,y    ;4  --
@@ -379,12 +387,13 @@ _lt_hi_draw_loop_0
             dey                          ;2  16
             bpl _lt_hi_draw_loop_0       ;2  20
 
-            ; activate laser
+            ; activate laser beam width
             lda frame
             and #$01
             tax
             lda player_state,x           ;3   6
-            sta ENAM0                    ;3   9
+            and #$30                     ;2   8
+            sta NUSIZ0                   ;3   9
 
 ;---------------------
 ; arena
@@ -408,9 +417,7 @@ _ball_resp_loop
             sta WSYNC                    ;3   0
             sta HMOVE                    ;3   3
             lda ball_color               ;3   6
-            bne _ball_resp_color
-            sta ball_voffset
-_ball_resp_color
+            ; BUGBUG: disable ball?
             sta COLUP0                   ;3   9
             ; point SP at collision register
             tsx                          ;2  11
@@ -593,18 +600,20 @@ _lt_lo_draw_loop_0
             iny                     ;2  26
 
             ; power collision test
-            lda #$80                ;2  28 ; extra cycle to make sure we get a whole line
-            and CXP0FB              ;3  31
-            beq _lo_skip_power      ;2  33
-            inc player_power        ;5  38
+            lda player_state        ;3  29
+            and #$fe                ;2  31
+            bit CXP0FB              ;3  34
+            bpl _lo_skip_power      ;2  36
+            ora #$01                ;2  38
 _lo_skip_power
+            sta player_state        ;3  40/41
 
-            lda power_grid_pf3      ;3  37/41
-            sta PF0                 ;3  40/44
-            lda power_grid_pf4      ;3  43/47
-            sta PF1                 ;3  46/50
-            lda power_grid_pf5      ;3  49/53
-            sta PF2                 ;3  52/56
+            lda power_grid_pf3      ;3  43/44
+            sta PF0                 ;3  46/47
+            lda power_grid_pf4      ;3  49/50
+            sta PF1                 ;3  52/53
+            lda power_grid_pf5      ;3  55/56
+            sta PF2                 ;3  58/59
 
             lda (player_sprite),y   ;5  --
             ldx TARGET_COLOR_0,y    ;4  --
@@ -834,6 +843,82 @@ P2_WALLS_CUBES_BOTTOM
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     
     ALIGN 256
+    
+P1_WALLS_WINGS_TOP
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %00100000
+	.byte %01000000
+	.byte %00100000
+	.byte %01000000
+	.byte %00100000
+	.byte %00010000
+	.byte %00100000
+	.byte %00010000
+	.byte %00001000
+    .byte %00010000
+
+P1_WALLS_WINGS_BOTTOM
+	.byte %00001000
+	.byte %00000100
+	.byte %00001000
+	.byte %00000100
+	.byte %00001000
+	.byte %00000100
+	.byte %00001000
+	.byte %00010000
+	.byte %00001000
+	.byte %00010000
+	.byte %00100000
+	.byte %00010000
+	.byte %00100000
+	.byte %01000000
+	.byte %00000000
+	.byte %00000000
+
+
+P2_WALLS_WINGS_TOP
+	.byte %00000010
+	.byte %00000100
+	.byte %00001010
+	.byte %00000100
+	.byte %00001010
+	.byte %00010100
+	.byte %00001010
+	.byte %00010100
+	.byte %00001000
+	.byte %00010100
+	.byte %00101000
+	.byte %00010000
+	.byte %00101000
+	.byte %01010000
+	.byte %10100000
+	.byte %01010000
+
+P2_WALLS_WINGS_BOTTOM
+	.byte %10100000
+	.byte %01000000
+	.byte %10100000
+	.byte %01000000
+	.byte %10000000
+	.byte %01000000
+	.byte %10000000
+	.byte %01000000
+	.byte %10100000
+	.byte %01000000
+	.byte %10100000
+	.byte %01010000
+	.byte %00100000
+	.byte %00010000
+	.byte %00001000
+	.byte %00000000
+
+
+    ALIGN 256
 
 COLUBK_COLORS_0
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
@@ -986,13 +1071,8 @@ kernel_dropBall
             ; ball state
             lda #64 - BALL_HEIGHT / 2
             sta ball_y
-            ; lda #PLAYER_HEIGHT / 2 - BALL_HEIGHT / 2
-            ; sta player_aim_y
-            ; sta player_aim_y + 1
             lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
             sta ball_x
-            ; sta player_aim_x
-            ; sta player_aim_x + 1
             lda #$00
             sta ball_ax
             sta ball_ax + 1
@@ -1068,36 +1148,50 @@ _ball_score_end
 
 ball_update
             ; collision
-            lda #$00
-            ldx #BALL_HEIGHT - 1
-            ora ball_cx,x
-            dex
-            ora ball_cx,x
-            bmi _ball_update_cx_top
-            dex
+            ldy #0
+_ball_update_cx_bottom
+            lda ball_cx + BALL_HEIGHT - 1)
+            ora ball_cx + BALL_HEIGHT - 2
+            bpl _ball_update_cx_top
+            ABS16 ball_dy
+            iny
+            jmp _ball_update_cx_horiz
+_ball_update_cx_top
+            ora ball_cx + 1
+            ora ball_cx
+            bpl _ball_update_cx_horiz
+            NEG16 ball_dy
+            iny
+_ball_update_cx_horiz
+            ldx #BALL_HEIGHT - 3
 _ball_update_cx_loop
-            ora ball_cx,x
-            bmi _ball_update_cx_horiz
+            lda ball_cx,x
+            bmi _ball_update_cx_horiz_update
             dex
             cpx #2
             bcs _ball_update_cx_loop
-            ora ball_cx,x
-            dex
-            ora ball_cx,x
-            bmi _ball_update_cx_bottom
             jmp _ball_update_cx_end_acc
-_ball_update_cx_top
-            ABS16 ball_dy
-            jmp _ball_update_cx_end
-_ball_update_cx_horiz
+_ball_update_cx_horiz_update
+            ; BUGBUG 005f to ffa1 (min needs to be dx/1)
+            lda ball_dx
+            bne _ball_update_cx_horiz_ltz
+            dec ball_x
+_ball_update_cx_horiz_ltz
+            cmp #$ff
+            bne _ball_update_cx_horiz_inv
+            inc ball_x
+_ball_update_cx_horiz_inv
             INV16 ball_dx
+            iny
             jmp _ball_update_cx_end
-_ball_update_cx_bottom
-            NEG16 ball_dy
 _ball_update_cx_end_acc
+            dey
+            bpl _ball_update_cx_end
             ; apply acceleration if no collision
             ADD16 ball_dx, ball_ax
+            CLAMP16 ball_dx, -4, 4
             ADD16 ball_dy, ball_ay
+            CLAMP16 ball_dy, -4, 4
 _ball_update_cx_end
 
 ball_update_hpos
@@ -1172,6 +1266,19 @@ _player_update_loop
             clc
             adc #(PLAYER_HEIGHT * 3)
             sta local_player_sprite_max_lobyte
+            ; auto player movement
+            cpx #1
+            bcc _player_update_skip_auto_track
+            lda ball_x
+            sec
+            sbc #(PLAYFIELD_WIDTH / 2)
+            asl
+            adc #(PLAYFIELD_WIDTH / 2)
+            sbc player_x,x
+            bmi _player_update_left
+            bne _player_update_right
+            jmp _player_end_move
+_player_update_skip_auto_track
             ; manual player movement
             ldy #$00 ; y is player sprite pointer offset
             lda #$80
@@ -1214,27 +1321,34 @@ _player_update_left
 _player_update_anim
             sta player_sprite,y
 _player_end_move
+            cpx #1
+            bcc _player_update_skip_auto_fire
+            lda player_state,x
+            and #$01
+            beq _player_no_fire 
+            jmp _player_fire
             ; power ; BUGBUG: debugging power
-            lda player_power,x
+_player_update_skip_auto_fire
+            lda player_state,x
+            and #$01
             beq _player_no_fire 
             inc ball_color ; BUGBUG: just for debug
-            lda #$00
-            sta player_power,x
             lda INPT4,x
             bmi _player_no_fire
-            lda #$08
-            jmp _player_end_fire
+_player_fire
+            lda player_state,x
+            ora #PLAYER_STATE_FIRING
+            jmp _player_save_fire
 _player_no_fire            
             lda player_state,x
-            beq _player_end_fire
-            sec
-            sbc #$01
-_player_end_fire
+            and #$fd
+_player_save_fire
             sta player_state,x
 _player_update_next_player
             ;; next player
             dex
-            bpl _player_update_loop
+            bmi _player_update_end
+            jmp _player_update_loop
 _player_update_end
 
 player_aim
@@ -1326,7 +1440,7 @@ _player_draw_beam_loop
             lda local_player_draw_hmove
             inc local_player_draw_x_travel
 _player_draw_beam_skip_bump_hmov
-            sta (local_player_draw_buffer),y ; cheating that #$01 is in a
+            sta (local_player_draw_buffer),y ; cheating that #$01 is in a            
             lda local_player_draw_D
             clc
             adc local_player_draw_dx  ; D = D + 2 * dx
@@ -1335,7 +1449,16 @@ _player_draw_beam_skip_bump_hmov
             bpl _player_draw_beam_loop
             lda player_state,x
             and #PLAYER_STATE_FIRING
-            bne _player_draw_beam_end
+            beq _player_draw_beam_skip_firing
+            ; we are firing - calc force values
+_player_draw_beam_pattern_loop
+            iny
+            tya
+            and #PLAYER_STATE_FIRING
+            ora (local_player_draw_buffer),y
+            sta (local_player_draw_buffer),y
+            cpy #PLAYFIELD_BEAM_RES - 1
+            bmi _player_draw_beam_pattern_loop
             ; calc ax/ay coefficient
             ldy #$f0
             sec
@@ -1357,7 +1480,7 @@ _player_draw_beam_skip_invert_ay
             adc #$01
 _player_draw_beam_skip_invert_ax
             sta laser_ax,x
-_player_draw_beam_end
+_player_draw_beam_skip_firing
             cpx #0
             beq _player_aim_calc_lo
             lda player_x + 1
@@ -1722,7 +1845,7 @@ switch_formation
             ldy #0
 _switch_stage_save
             sty formation_select
-select_formation
+select_formation ; BUGBUG: use lookup table
             beq formation_chute
             dey
             beq formation_diamonds
@@ -1772,7 +1895,7 @@ _formation_void_dl_loop
             inx
             iny
             cpy #12
-            bcc _formation_chute_dl_loop
+            bcc _formation_void_dl_loop
             jmp formation_update_return
 
 FORMATION_CHUTE_UP
@@ -1994,8 +2117,8 @@ TRACK_PF2_GRID
 
 ; BUGBUG; duplicate data
 PLAYER_SPRITES
-    byte #<MTP_MKI_0
     byte #<MTP_MKIV_0
+    byte #<MTP_MKI_0
     byte #<MTP_MX888_0
 
 ;------------------------
@@ -2276,7 +2399,7 @@ text_kernel_4
             lda #$01
             sta VDELP0
             sta VDELP1
-            SLEEP 24
+            SLEEP 24 ; just sleep instead of loop
 ;             lda #30
 ;             sec
 ; _text_resp_loop
@@ -2770,24 +2893,22 @@ title_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
 kernel_showSplash
             jsr waitOnVBlank_2 ; SL 34
             sta WSYNC ; SL 35
-            lda #0
+            lda frame
             sta COLUBK
 
             ldx #(SCANLINES - 69)
-            ldy #8
 drawSplashGrid
             sta WSYNC
-            lda #0
-            dey
-            bne skipDrawGridLine 
-            ldy game_state
-            lda SPLASH_GRAPHICS,y
-            ldy #8
-skipDrawGridLine
-            sta COLUBK
-            dex
-            bne drawSplashGrid
-
+            ldy #5                  ;3
+_loop_splash_grid
+            adc #7                  ;2   55  (2)
+            sta COLUBK              ;3   58  (5)
+            dey                     ;2   60  (7)
+            bpl _loop_splash_grid   ;2/3 63 (10)
+            adc #7                  ;2   65  
+            dex                     ;2   67
+            sta COLUBK              ;3   70  
+            bne drawSplashGrid      ;2/3 72
             sta WSYNC
             lda #0
             sta COLUBK
@@ -2817,8 +2938,8 @@ STD_HMOVE_BEGIN_B2
 STD_HMOVE_END_B2
 
 PLAYER_SPRITES_B2
-    byte #<MTP_MKI_0
     byte #<MTP_MKIV_0
+    byte #<MTP_MKI_0
     byte #<MTP_MX888_0
     
 ;-----------------------------
@@ -3127,14 +3248,6 @@ TITLE_96x2_11
     byte %11111000
     byte %11110000
 
-SPLASH_GRAPHICS
-SPLASH_0_GRAPHICS
-    byte $ff ; 
-SPLASH_1_GRAPHICS
-    byte $ef ; 
-SPLASH_2_GRAPHICS
-    byte $df ;  
-
     END_BANK
 
 ;
@@ -3229,44 +3342,53 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;  - remove extra scanline glitch due to player
 ;  - add power track
 ;  - power grid controls firing
+;  - adjust players to change sprite
+;  - remove player cutoff glitch
+;  - no changing of values on startup  for menu
 ; MVP TODO
+;  - shield weapon (would be good to test if possible)
+;     - need way to organize player options
+;     - need way to turn beam on/off per line
+;     - need way to turn beam on/off based on zone
+;     - need alternate aiming systems to get shield effect
+;  - basic opposing ai
+;    - auto move ability
+;    - auto fire ability
 ;  - playfields
 ;     - more vertical space
 ;  - power grid mechanics
 ;     - boost player shots
 ;     - drain player power
 ;     - add special powerup indicator
+;  - game over criteria
+;     - some way to end game
+;  - clean up menus 
+;     - disable unused game modes
+;     - forward/back/left/right value tranitions
+;     - gradient color
+;  - physics glitches
+;     - ball score not in goal
+;       - one factor is when ball_voffset starts at 1
+;       - 
+;     - collision bugs (stuck)
 ;  - graphical glitches
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
 ;     - lasers off at certain positions
 ;  - clean up play screen 
-;     - adjust players
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball
 ;     - add score
-;     - remove player cutoff
-;  - game over criteria
-;     - some way to end game
-;  - physics glitches
-;     - ball score not in goal
-;     - collision bugs (stuck)
-;  - clean up menus 
-;     - disable unused game modes
-;     - better startup behavior
-;     - forward/back/left/right transitions
-;     - gradient color
-;  MAYBE DELAY
+;  MAYBE SOON
 ;  - sounds
 ;     - some basic sounds
 ;  - basic quest mode (could be good for testing)
-;  - shield weapon (would be good to test if possible)
 ;  DELAY
 ;  - make lasers refract off ball (maybe showing the power of the shot?)
 ;  - basic special attacks
-;    - gravity blast
-;    - emp
-;  THINK ABOUT 
+;    - gravity wave (affect background)
+;    - emp (affect foreground)
+;  THINK ABOUT
 ;  - menu system
 ;    - choose game mode
 ;         - tournament
@@ -3291,14 +3413,12 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;    - boost zones
 ;    - speed limit
 ;  - dynamic playfield
+;    - can we do breakout 
 ;    - animated levels
 ;    - gradient fields 
 ;    - cellular automata
 ;    - dark levels
 ;  - play with grid design
-;  - initial, weak, opposing ai
-;    - auto move ability
-;    - auto fire ability
 ;  - start / end game logic
 ;  - intro screen
 ;  - game timer

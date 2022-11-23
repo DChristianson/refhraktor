@@ -2,12 +2,35 @@
 ;; math macros
 ;;
 
+    MAC CLAMP16 ; given A, MIN, MAX
+            ; check bounds, set to MIN or MAX if out of bounds
+            ; BUGBUG: doesn't handle fractions
+            lda {1}
+            bmi .clamp16_check_min
+.clamp16_check_max
+            lda #({3} - 1) ; BUGBUG: faking the fraction
+            cmp {1}
+            bcs .clamp16_end
+            sta {1}
+            lda #$00
+            sta {1} + 1
+            jmp .clamp16_end
+.clamp16_check_min
+            lda #{2}
+            cmp {1}
+            bcc .clamp16_end
+            sta {1}
+            lda #$00
+            sta {1} + 1
+.clamp16_end
+    ENDM
+
     MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
             ; check bounds, reflect B if we hit
 .clamp16_check_max
             lda #{4}
             cmp {1}
-            bcs .clamp16_end
+            bcs .clamp16_check_min
             sta {1}
             lda #$00
             sta {1} + 1

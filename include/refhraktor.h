@@ -26,28 +26,28 @@
             sta PF1                      ;3  16 
             ;; adjust playfield color
             lda ({4}),y                  ;5  21
-            SLEEP 4                      ;4  25
+            ldx laser_hmov_0,y           ;4  25
             sta COLUBK                   ;3  28
             lda ({3}),y                  ;5  33
             sta PF2                      ;3  36
             ;; set beam hmov          
-            lda laser_hmov_0,y           ;4  40
-            sta HMM0                     ;3  43
+            stx HMM0                     ;3  39
+            stx ENAM0                    ;3  42
             ;; ball graphics
-            ldx ball_voffset             ;3  46
-            bpl ._pl0_draw_grp_0         ;2  48  ; sbpl
-            lda #$00                     ;2  50
-            jmp ._pl0_end_grp_0          ;3  53
+            ldx ball_voffset             ;3  45
+            bpl ._pl0_draw_grp_0         ;2  47  ; sbpl
+            lda #$00                     ;2  49
+            jmp ._pl0_end_grp_0          ;3  52
 ._pl0_draw_grp_0
-            lda BALL_GRAPHICS,x          ;4  53
+            lda BALL_GRAPHICS,x          ;4  52
 ._pl0_end_grp_0
-            sta GRP0                     ;3  56
-            sta GRP1                     ;3  59 
-            lda ({5}),y                  ;5  64 ; load pf color 
-            tax                          ;2  66
+            sta GRP0                     ;3  55
+            sta GRP1                     ;3  58 
+            lda ({5}),y                  ;5  63 ; load pf color 
+            tax                          ;2  65
             ;; EOL
-            lda #$00                     ;2  68
-            sta COLUBK                   ;3  71
+            lda #$00                     ;2  67
+            sta.w COLUBK                 ;4  71
             SLEEP 2                      ;2  73 
             stx COLUPF                   ;3  76
             ;; 2nd line
@@ -69,8 +69,8 @@
             pha                          ;3  39
             dex                          ;2  41
             bmi ._pl0_ball_end           ;2  43 ; sbmi
-            SLEEP 3                      ;3  46
-            jmp ._pl0_save_ball_offset   ;3  49
+            sta CXCLR                    ;3  46 ; clear collision for next line
+            jmp ._pl0_save_ball_offset   ;3  49 
 ._pl0_ball_end
             ldx #128                     ;2  46
             jmp ._pl0_save_ball_offset   ;3  49
