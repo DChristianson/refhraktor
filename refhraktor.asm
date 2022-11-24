@@ -1845,28 +1845,19 @@ switch_formation
             ldy #0
 _switch_stage_save
             sty formation_select
-select_formation ; BUGBUG: use lookup table
-            beq formation_chute
-            dey
-            beq formation_diamonds
-formation_void
-            lda #<FORMATION_VOID_UP
+select_formation 
+            tya 
+            asl
+            lda FORMATION_UP_TABLE,x
             sta formation_up
-            lda #>FORMATION_VOID_UP
+            lda FORMATION_UP_TABLE + 1,x
             sta formation_up + 1
             rts
-formation_chute
-            lda #<FORMATION_CHUTE_UP
-            sta formation_up
-            lda #>FORMATION_CHUTE_UP
-            sta formation_up + 1
-            rts
-formation_diamonds
-            lda #<FORMATION_DIAMONDS_UP
-            sta formation_up
-            lda #>FORMATION_DIAMONDS_UP
-            sta formation_up + 1
-            rts
+
+FORMATION_UP_TABLE
+    word #FORMATION_VOID_UP
+    word #FORMATION_CHUTE_UP
+    word #FORMATION_DIAMONDS_UP
 
     ALIGN 256
 
