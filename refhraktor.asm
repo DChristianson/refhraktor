@@ -178,6 +178,10 @@ local_jx_player_count = LOCAL_OVERLAY + 1
 ; -- jmp table
 local_jmp_addr = LOCAL_OVERLAY ; (ds 2)
 
+; -- formation load args
+local_formation_load_p1 = LOCAL_OVERLAY ; (ds 2)
+local_formation_load_p2 = LOCAL_OVERLAY + 2 ; (ds 2)
+
 ; -- strfmt locals
 local_strfmt_stack    = LOCAL_OVERLAY 
 local_strfmt_index_hi = LOCAL_OVERLAY + 1
@@ -1840,7 +1844,7 @@ TRACKS
 switch_formation
             ldy formation_select
             iny
-            cpy #3
+            cpy #4
             bcc _switch_stage_save
             ldy #0
 _switch_stage_save
@@ -1848,9 +1852,10 @@ _switch_stage_save
 select_formation 
             tya 
             asl
-            lda FORMATION_UP_TABLE,x
+            tay
+            lda FORMATION_UP_TABLE,y
             sta formation_up
-            lda FORMATION_UP_TABLE + 1,x
+            lda FORMATION_UP_TABLE + 1,y
             sta formation_up + 1
             rts
 
@@ -1858,92 +1863,80 @@ FORMATION_UP_TABLE
     word #FORMATION_VOID_UP
     word #FORMATION_CHUTE_UP
     word #FORMATION_DIAMONDS_UP
+    word #FORMATION_WINGS_UP
 
     ALIGN 256
 
 FORMATION_VOID_UP
-            ; figure out which formation block is first
-            ; and where it starts
-            lda scroll
-            lsr
-            lsr
-            lsr
-            lsr
-            asl
-            tax
-            ldy #0
-_formation_void_dl_loop
-            lda FORMATION_VOID_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_VOID_P2,x
-            sta formation_p2_dl,y
-            inx
-            iny
-            lda FORMATION_VOID_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_VOID_P2,x
-            sta formation_p2_dl,y
-            inx
-            iny
-            cpy #12
-            bcc _formation_void_dl_loop
+            lda #<FORMATION_VOID_P1
+            sta local_formation_load_p1
+            lda #>FORMATION_VOID_P1
+            sta local_formation_load_p1 + 1
+            lda #<FORMATION_VOID_P2
+            sta local_formation_load_p2
+            lda #>FORMATION_VOID_P2
+            sta local_formation_load_p2 + 1
+            jsr formation_load
             jmp formation_update_return
 
 FORMATION_CHUTE_UP
-            ; figure out which formation block is first
-            ; and where it starts
-            lda scroll
-            lsr
-            lsr
-            lsr
-            lsr
-            asl
-            tax
-            ldy #0
-_formation_chute_dl_loop
-            lda FORMATION_CHUTE_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_CHUTE_P2,x
-            sta formation_p2_dl,y
-            inx
-            iny
-            lda FORMATION_CHUTE_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_CHUTE_P2,x
-            sta formation_p2_dl,y
-            inx
-            iny
-            cpy #12
-            bcc _formation_chute_dl_loop
+            lda #<FORMATION_CHUTE_P1
+            sta local_formation_load_p1
+            lda #>FORMATION_CHUTE_P1
+            sta local_formation_load_p1 + 1
+            lda #<FORMATION_CHUTE_P2
+            sta local_formation_load_p2
+            lda #>FORMATION_CHUTE_P2
+            sta local_formation_load_p2 + 1
+            jsr formation_load
             jmp formation_update_return
 
 FORMATION_DIAMONDS_UP
+            lda #<FORMATION_DIAMONDS_P1
+            sta local_formation_load_p1
+            lda #>FORMATION_DIAMONDS_P1
+            sta local_formation_load_p1 + 1
+            lda #<FORMATION_DIAMONDS_P2
+            sta local_formation_load_p2
+            lda #>FORMATION_DIAMONDS_P2
+            sta local_formation_load_p2 + 1
+            jsr formation_load
+            jmp formation_update_return
+
+FORMATION_WINGS_UP
+            lda #<FORMATION_WINGS_P1
+            sta local_formation_load_p1
+            lda #>FORMATION_WINGS_P1
+            sta local_formation_load_p1 + 1
+            lda #<FORMATION_WINGS_P2
+            sta local_formation_load_p2
+            lda #>FORMATION_WINGS_P2
+            sta local_formation_load_p2 + 1
+            jsr formation_load
+            jmp formation_update_return
+
+            ; routing to load a static formation into the dl
+formation_load
             ; figure out which formation block is first
             ; and where it starts
             lda scroll
             lsr
             lsr
             lsr
-            lsr
-            asl
-            tax
-            ldy #0
-_formation_diamonds_dl_loop
-            lda FORMATION_DIAMONDS_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_DIAMONDS_P2,x
-            sta formation_p2_dl,y
-            inx
+            and #$fe
+            tay
+            ; copy the list
+            ldx #0
+_formation_load_loop
+            lda (local_formation_load_p1),y
+            sta formation_p1_dl,x
+            lda (local_formation_load_p2),y
+            sta formation_p2_dl,x
             iny
-            lda FORMATION_DIAMONDS_P1,x
-            sta formation_p1_dl,y
-            lda FORMATION_DIAMONDS_P2,x
-            sta formation_p2_dl,y
             inx
-            iny
-            cpy #12
-            bcc _formation_diamonds_dl_loop
-            jmp formation_update_return
+            cpx #12
+            bcc _formation_load_loop
+            rts
 
 FORMATION_VOID_P1
     word #P1_GOAL_TOP
@@ -1995,6 +1988,26 @@ FORMATION_DIAMONDS_P2
     word #PX_WALLS_BLANK
     word #P2_WALLS_CUBES_BOTTOM
     word #P2_GOAL_BOTTOM
+
+FORMATION_WINGS_P1
+    word #P1_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P1_WALLS_WINGS_TOP
+    word #P1_WALLS_WINGS_BOTTOM
+    word #P1_GOAL_BOTTOM
+
+FORMATION_WINGS_P2
+    word #P2_GOAL_TOP
+    word #PX_WALLS_BLANK
+    word #P2_WALLS_WINGS_TOP
+    word #P2_WALLS_WINGS_BOTTOM
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #PX_WALLS_BLANK
+    word #P2_GOAL_BOTTOM    
 
 ;------------------------
 ; power grid patterns
@@ -2980,26 +2993,50 @@ FONT_0
 ;   y is whether we want the lo/hi nibble
 
 STRING_CONSTANTS
+STRING_CHOOSE = . - STRING_CONSTANTS
+    byte 96, 113, 144, 144, 160, 104, 0
 STRING_GAME = . - STRING_CONSTANTS
     byte 112, 88, 136, 104, 0
-STRING_EQUIP = . - STRING_CONSTANTS
-    byte 104, 152, 168, 120, 145, 0
+STRING_P1 = . - STRING_CONSTANTS
+    byte 145, 9, 0
+STRING_P2 = . - STRING_CONSTANTS
+    byte 145, 16, 0
 STRING_STAGE = . - STRING_CONSTANTS
     byte 160, 161, 88, 112, 104, 0
 STRING_TRACK = . - STRING_CONSTANTS
     byte 161, 153, 88, 96, 128, 0
-STRING_LC008 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 8, 40, 0
-STRING_LC0X1 = . - STRING_CONSTANTS
-    byte 129, 96, 8, 177, 9, 0
-STRING_MX888 = . - STRING_CONSTANTS
-    byte 136, 177, 40, 40, 40, 0
 STRING_VERSUS = . - STRING_CONSTANTS
     byte 169, 104, 153, 160, 168, 160, 0
 STRING_QUEST = . - STRING_CONSTANTS
     byte 152, 168, 104, 160, 161, 0
 STRING_TOURNAMENT = . - STRING_CONSTANTS
     byte 161, 144, 168, 153, 137, 88, 136, 104, 137, 161, 0
+STRING_LC008 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 8, 40, 0
+STRING_LC0X1 = . - STRING_CONSTANTS
+    byte 129, 96, 8, 177, 9, 0
+STRING_MX888 = . - STRING_CONSTANTS
+    byte 136, 177, 40, 40, 40, 0
+STRING_AIM = . - STRING_CONSTANTS
+    byte 88, 120, 136, 0
+STRING_FIRE = . - STRING_CONSTANTS
+    byte 105, 120, 153, 104, 0
+STRING_CPU = . - STRING_CONSTANTS
+    byte 96, 145, 168, 0
+STRING_VOID = . - STRING_CONSTANTS
+    byte 169, 144, 120, 97, 0
+STRING_CHUTE = . - STRING_CONSTANTS
+    byte 96, 113, 168, 161, 104, 0
+STRING_DIAMONDS = . - STRING_CONSTANTS
+    byte 97, 120, 88, 136, 144, 137, 97, 160, 0
+STRING_WINGS = . - STRING_CONSTANTS
+    byte 176, 120, 137, 112, 160, 0
+STRING_CLICK = . - STRING_CONSTANTS
+    byte 96, 129, 120, 96, 128, 0
+STRING_TABLA = . - STRING_CONSTANTS
+    byte 161, 88, 89, 129, 88, 0
+STRING_GLITCH = . - STRING_CONSTANTS
+    byte 112, 129, 120, 161, 96, 113, 0
 STRING_GET_READY = . - STRING_CONSTANTS
     byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
 STRING_GATE = . - STRING_CONSTANTS
@@ -3012,18 +3049,6 @@ STRING_PLAYER_1 = . - STRING_CONSTANTS
     byte 145, 129, 88, 184, 104, 153, 1, 9, 0
 STRING_PLAYER_2 = . - STRING_CONSTANTS
     byte 145, 129, 88, 184, 104, 153, 1, 16, 0
-STRING_CLICK = . - STRING_CONSTANTS
-    byte 96, 129, 120, 96, 128, 0
-STRING_TABLA = . - STRING_CONSTANTS
-    byte 161, 88, 89, 129, 88, 0
-STRING_GLITCH = . - STRING_CONSTANTS
-    byte 112, 129, 120, 161, 96, 113, 0
-STRING_VOID = . - STRING_CONSTANTS
-    byte 169, 144, 120, 97, 0
-STRING_CHUTE = . - STRING_CONSTANTS
-    byte 96, 113, 168, 161, 104, 0
-STRING_DIAMONDS = . - STRING_CONSTANTS
-    byte 97, 120, 88, 136, 144, 137, 97, 160, 0
 STRING_BATTLE = . - STRING_CONSTANTS
     byte 89, 88, 161, 161, 129, 104, 0
 STRING_FRACAS = . - STRING_CONSTANTS
@@ -3044,7 +3069,6 @@ STRING_AGAINST = . - STRING_CONSTANTS
     byte 88, 112, 88, 120, 137, 160, 161, 0
 STRING_ABSCONDER = . - STRING_CONSTANTS
     byte 88, 89, 160, 96, 144, 137, 97, 104, 153, 0
-
     
 PLAYER_SPRITE_NAMES
     byte STRING_LC008
@@ -3060,6 +3084,7 @@ STAGE_NAMES
     byte STRING_VOID
     byte STRING_CHUTE
     byte STRING_DIAMONDS
+    byte STRING_WINGS
 
 TRACK_NAMES
     byte STRING_CLICK
@@ -3336,36 +3361,61 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;  - adjust players to change sprite
 ;  - remove player cutoff glitch
 ;  - no changing of values on startup  for menu
+;  - basic opposing ai
+;    - auto move ability
+;    - auto fire ability
+;  - physics bugs
+;     - ball score not in goal
+;       - one factor is when ball_voffset starts at 1
+;     - collision bugs (stuck)
 ; MVP TODO
+;  - controls
+;     - switch to shared code
+;     - some way to cancel back to options
+;  - physics glitches
+;     - uncontrollable bouncing
+;     - ununtuitive reaction to shots
+;  - MVP levels
+;     - void (empty)
+;     - chute (tracks)
+;     - ladder (maze)
+;     - diamonds (obstacles)
+;     - wings (dynamic)
+;     - rings (dynamic)
+;     - breakfall (dynamic, destructable)
+;  - code
+;     - split up by bank
+;     - organize superchip ram
+;  - power grid mechanics MVP
+;    - variables
+;      - hi/lo power
+;      - waveform (flow pattern)
+;      - absorb (remove from under player)
+;      - pull rate (flow in from next to player)
+;      - width (area drained)
+;      - capacitance (withhold before firing)
+;      - relation to sound
+;  - power bank mechanics
+;     - boost / penalty 
+;     - add special powerup indicator
 ;  - shield weapon (would be good to test if possible)
 ;     - need way to organize player options
 ;     - need way to turn beam on/off per line
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
-;  - basic opposing ai
-;    - auto move ability
-;    - auto fire ability
 ;  - playfields
 ;     - more vertical space
-;  - power grid mechanics
-;     - boost player shots
-;     - drain player power
-;     - add special powerup indicator
 ;  - game over criteria
 ;     - some way to end game
 ;  - clean up menus 
 ;     - disable unused game modes
 ;     - forward/back/left/right value tranitions
 ;     - gradient color
-;  - physics glitches
-;     - ball score not in goal
-;       - one factor is when ball_voffset starts at 1
-;       - 
-;     - collision bugs (stuck)
+;     - switch ai on/off
 ;  - graphical glitches
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
-;     - lasers off at certain positions
+;     - lasers weird at certain positions
 ;  - clean up play screen 
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball
@@ -3390,9 +3440,11 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;         - double press - on both press go to stage
 ;    - choose stage
 ;         - double press - on both press go to track
+;         - show stage
 ;    - choose defenses
 ;         - each player configures their defence
 ;    - choose track
+;         - play track
 ;         - double press - on both press go to game
 ;    - join fhaktion 
 ;         - build pod / more combinations
@@ -3409,6 +3461,7 @@ GLITCH_0 = . - AUDIO_TRACKS
 ;    - gradient fields 
 ;    - cellular automata
 ;    - dark levels
+;    - different goal setups
 ;  - play with grid design
 ;  - start / end game logic
 ;  - intro screen
