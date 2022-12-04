@@ -194,8 +194,7 @@ local_grid_gap = LOCAL_OVERLAY
 local_grid_inc = LOCAL_OVERLAY + 1
 
 ; -- player update kernel locals
-local_player_sprite_min_lobyte = LOCAL_OVERLAY ; (ds 1)
-local_player_sprite_max_lobyte = LOCAL_OVERLAY + 1 ; (ds 1)
+local_player_sprite_lobyte = LOCAL_OVERLAY ; (ds 1)
 
 ; -- player beam drawing kernel locals
 local_player_draw_x_travel    = LOCAL_OVERLAY
@@ -1260,16 +1259,6 @@ _power_grid_update_loop
 player_update
             ldx #NUM_PLAYERS - 1
 _player_update_loop
-            ;
-            ; TODO: control player using jx_ callback
-            ;
-            ; get player graphics bounds
-            ldy player_select,x
-            lda PLAYER_SPRITES,y
-            sta local_player_sprite_min_lobyte
-            clc
-            adc #(PLAYER_HEIGHT * 3)
-            sta local_player_sprite_max_lobyte
             ; auto player movement
             cpx #1
             bcc _player_update_skip_auto_track
@@ -1283,47 +1272,40 @@ _player_update_loop
             bne _player_update_right
             jmp _player_end_move
 _player_update_skip_auto_track
-            ; manual player movement
-            ldy #$00 ; y is player sprite pointer offset
-            lda #$80
-            cpx #$00
-            beq _player_update_checkbits
-            ldy #$02 ; y is player sprite pointer offset
-            lda #$08
-_player_update_checkbits
-            bit SWCHA                 
-            beq _player_update_right          
-            lsr                      
-            bit SWCHA                 
-            beq _player_update_left       
+            lda player_input,x
+            lsr
+            lsr
+            lsr
+            bcc _player_update_left   
+            lsr    
+            bcc _player_update_right 
             jmp _player_end_move
 _player_update_right
             lda player_x,x
             cmp #PLAYER_MAX_X
             bcs _player_end_move
             adc #$01 
-            sta player_x,x
-            lda player_sprite,y ; y = x * 2
-            clc 
-            adc #PLAYER_HEIGHT
-            cmp local_player_sprite_max_lobyte
-            bcc _player_update_anim
-            lda local_player_sprite_min_lobyte
-            jmp _player_update_anim
+            jmp _player_save_x
 _player_update_left
             lda player_x,x
             cmp #PLAYER_MIN_X
             bcc _player_end_move
             sbc #$01
+_player_save_x
             sta player_x,x
-            lda player_sprite,y ; y = x * 2
-            sec 
-            sbc #PLAYER_HEIGHT
-            cmp local_player_sprite_min_lobyte
-            bcs _player_update_anim
-            lda local_player_sprite_max_lobyte
 _player_update_anim
-            sta player_sprite,y
+            and #$03
+            tay
+            lda PLAYER_HEIGHTS,y
+            ldy player_select,x
+            clc
+            adc PLAYER_SPRITES,y
+            sta local_player_sprite_lobyte
+            txa
+            asl
+            tay
+            lda local_player_sprite_lobyte
+            sta player_sprite,y ; y = x * 2
 _player_end_move
             cpx #1
             bcc _player_update_skip_auto_fire
@@ -1337,7 +1319,7 @@ _player_update_skip_auto_fire
             and #$01
             beq _player_no_fire 
             inc ball_color ; BUGBUG: just for debug
-            lda INPT4,x
+            lda player_input,x
             bmi _player_no_fire
 _player_fire
             lda player_state,x
@@ -2124,6 +2106,12 @@ PLAYER_SPRITES
     byte #<MTP_MKIV_0
     byte #<MTP_MKI_0
     byte #<MTP_MX888_0
+
+PLAYER_HEIGHTS
+    byte #0
+    byte #(PLAYER_HEIGHT)
+    byte #(PLAYER_HEIGHT * 2)
+    byte #(PLAYER_HEIGHT * 3)
 
 ;------------------------
 ; vblank sub
