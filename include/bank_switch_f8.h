@@ -49,7 +49,6 @@ SWITCH_BANKS = (. & $fff) | $1000
     .word   0                             ; BRK (unused)
   ENDM
 
-
 ; Define a label which can be used by JMP_LBL macro
 ; Example:
 ;    DEF_LBL Foo
