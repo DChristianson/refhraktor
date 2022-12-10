@@ -93,3 +93,85 @@ _power_grid_bridge_power_right
 _power_grid_next
 
     ENDM
+
+
+    MAC GRID_TREATMENT_1
+           ; roll in from sides
+            ;         5 <B   23> 27<2B  43> 47<4B 53>57<5B 73 77<7B
+            ;  | 4..7 | 7......0 | 0......7 | 4..7 | 7......0 | 0......7 |
+            lda #$ff
+            sta power_grid_pf0,x
+            sta power_grid_pf1,x
+            sta power_grid_pf2,x
+            sta power_grid_pf3,x
+            sta power_grid_pf4,x
+            sta power_grid_pf5,x
+            lda player_x,x
+            clc
+            adc #$0a
+            lsr
+            lsr
+            lsr
+            lsr
+            tay ; y is approx player location
+            bne _power_grid_pf1_lo
+            lda #$00
+            sta power_grid_pf0,x
+            jmp _power_grid_next
+_power_grid_pf1_lo
+            dey
+            bne _power_grid_pf1_hi
+            lda #$0f
+            sta power_grid_pf1,x
+            jmp _power_grid_next
+_power_grid_pf1_hi            
+            dey 
+            bne _power_grid_pf2_lo
+            lda #$f0
+            sta power_grid_pf1,x
+            jmp _power_grid_next
+_power_grid_pf2_lo
+            dey 
+            bne _power_grid_pf2_hi
+            lda #$f0
+            sta power_grid_pf2,x
+            jmp _power_grid_next
+_power_grid_pf2_hi
+            dey 
+            bne _power_grid_pf3_hi
+            lda #$0f
+            sta power_grid_pf2,x
+            jmp _power_grid_next
+_power_grid_pf3_hi
+            dey 
+            bne _power_grid_pf4_lo
+            lda #$00
+            sta power_grid_pf3,x
+            jmp _power_grid_next
+_power_grid_pf4_lo
+            dey 
+            bne _power_grid_pf4_hi
+            lda #$0f
+            sta power_grid_pf4,x
+            jmp _power_grid_next
+_power_grid_pf4_hi
+            dey 
+            bne _power_grid_pf5_lo
+            lda #$f0
+            sta power_grid_pf4,x
+            jmp _power_grid_next
+_power_grid_pf5_lo
+            dey 
+            bne _power_grid_pf5_hi
+            lda #$f0
+            sta power_grid_pf5,x
+            jmp _power_grid_next
+_power_grid_pf5_hi
+            lda #$0f
+            sta power_grid_pf5,x
+_power_grid_next
+
+    ENDM
+
+
+            
