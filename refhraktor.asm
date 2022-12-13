@@ -97,12 +97,13 @@ TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
-PLAYER_STATE_HAS_POWER = $01 ; BUGBUG: TODO
-PLAYER_STATE_FIRING    = $02
-PLAYER_STATE_RANGE     = $03 ;  
+PLAYER_STATE_HAS_POWER = $01 ; power grid has power
+PLAYER_STATE_FIRING    = $02 ; player is firing
+; BUGBUG: TODO
+PLAYER_STATE_RANGE     = $03 ; beam range
 PLAYER_STATE_LINE      = $08 ; 
-PLAYER_STATE_BEAM_MASK = $03 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
-PLAYER_STATE_AUTO_FIRE = $70 ; BUGBUG: TODO
+PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
+PLAYER_STATE_AUTO_FIRE = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
 
 ; ----------------------------------
@@ -127,9 +128,6 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-player_input     ds NUM_PLAYERS      ; player input buffer
-player_sprite    ds 2 * NUM_PLAYERS  ; pointer
-
 formation_up     ds 2   ; formation update ptr
 formation_p0     ds 2   ; formation p0 ptr
 formation_p1_dl  ds 12  ; playfield ptr pf1
@@ -137,22 +135,23 @@ formation_p2_dl  ds 12  ; playfield ptr pf2
 formation_colupf ds 2
 formation_colubk ds 2
 
-player_state      ds NUM_PLAYERS
-player_x          ds NUM_PLAYERS  ; player x position
-player_power      ds NUM_PLAYERS  ; player power reserve
-player_score      ds NUM_PLAYERS  ; score
+player_input      ds NUM_PLAYERS      ; player input buffer
+player_state      ds NUM_PLAYERS      ; 
+player_sprite     ds 2 * NUM_PLAYERS  ; pointer
+player_x          ds NUM_PLAYERS      ; player x position
+player_score      ds NUM_PLAYERS      ; score
 
-power_grid_pf0    ds NUM_PLAYERS
-power_grid_pf1    ds NUM_PLAYERS
-power_grid_pf2    ds NUM_PLAYERS
-power_grid_pf3    ds NUM_PLAYERS
-power_grid_pf4    ds NUM_PLAYERS
-power_grid_pf5    ds NUM_PLAYERS
+power_grid_reserve ds NUM_PLAYERS ; power in grid (can be negative)
+power_grid_pf0     ds NUM_PLAYERS
+power_grid_pf1     ds NUM_PLAYERS
+power_grid_pf2     ds NUM_PLAYERS
+power_grid_pf3     ds NUM_PLAYERS
+power_grid_pf4     ds NUM_PLAYERS
+power_grid_pf5     ds NUM_PLAYERS
 
 laser_ax          ds 2  ;
 laser_ay          ds 2  ;
 laser_lo_x        ds 1  ; start x for the low laser
-laser_hmov_0      ds PLAYFIELD_BEAM_RES
 
 ball_y            ds 2 
 ball_x            ds 2
@@ -164,7 +163,7 @@ ball_color        ds 1
 ball_voffset      ds 1 ; ball position countdown
 ball_cx           ds BALL_HEIGHT ; collision registers
 
-display_scroll    ; scroll adjusted to modulo block
+display_scroll      ; scroll adjusted to modulo block
 scroll         ds 1 ; y value to start showing playfield
 
 display_playfield_limit ds 1
@@ -203,8 +202,6 @@ local_player_draw_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computa
 local_player_draw_dx          = LOCAL_OVERLAY + 3
 local_player_draw_D           = LOCAL_OVERLAY + 4
 local_player_draw_hmove       = LOCAL_OVERLAY + 5
-local_player_draw_buffer      = LOCAL_OVERLAY + 6 ; (ds 2)
-
 
 ; -- playfield kernel locals
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
@@ -217,6 +214,8 @@ local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min
 ; menu RAM
 
   SEG.U SCRAM
+
+; BUGBUG: TODO: figure out how to do this right
 
 STRING_BUFFER_0 = 0
 STRING_BUFFER_1 = STRING_BUFFER_0 + 8
@@ -238,6 +237,10 @@ STRING_BUFFER_F = STRING_BUFFER_E + 8 ; 128
 
 STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
 STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
+
+LASER_HMOV_0 = 0     ; ds PLAYFIELD_BEAM_RES
+LASER_HMOV_WRITE = SUPERCHIP_WRITE + LASER_HMOV_0
+LASER_HMOV_READ = SUPERCHIP_READ + LASER_HMOV_0
 
   SEG Code
 
@@ -600,8 +603,6 @@ _player_update_next_player
 _player_update_end
 
 player_aim
-            lda #$00
-            sta local_player_draw_buffer + 1
             lda frame
             and #$01
             tax
@@ -617,8 +618,6 @@ _player_aim_beam_hi
             clc
             adc #$01
             tay            ; dy
-            lda #laser_hmov_0
-            sta local_player_draw_buffer ; point at top of beam hmov stack
             lda player_x,x
             sec
             sbc local_player_draw_aim_x    ; dx
@@ -627,8 +626,6 @@ _player_aim_beam_lo
             clc           ; add view height to get dy
             adc #PLAYFIELD_VIEWPORT_HEIGHT
             tay           ; dy
-            lda #laser_hmov_0
-            sta local_player_draw_buffer ; point to top of beam hmov stack
             lda local_player_draw_aim_x
             sec
             sbc player_x,x ; dx
@@ -688,7 +685,7 @@ _player_draw_beam_loop
             lda local_player_draw_hmove
             inc local_player_draw_x_travel
 _player_draw_beam_skip_bump_hmov
-            sta (local_player_draw_buffer),y ; cheating that #$01 is in a            
+            sta LASER_HMOV_WRITE,y ; cheating that #$01 is in a            
             lda local_player_draw_D
             clc
             adc local_player_draw_dx  ; D = D + 2 * dx
@@ -703,8 +700,8 @@ _player_draw_beam_pattern_loop
             iny
             tya
             and #PLAYER_STATE_FIRING
-            ora (local_player_draw_buffer),y
-            sta (local_player_draw_buffer),y
+            ora LASER_HMOV_READ,y
+            sta LASER_HMOV_WRITE,y
             cpy #PLAYFIELD_BEAM_RES - 1
             bmi _player_draw_beam_pattern_loop
             ; calc ax/ay coefficient
@@ -1340,12 +1337,15 @@ waitOnVBlank_loop
 ;  - switch controls to shared code
 ; MVP TODO
 ;  - physics glitches
-;     - shot variable hi/lo power
-;     - shot range changes power
+;     - no power at certain angles
 ;     - uncontrollable bouncing
 ;     - ununtuitive reaction to shots
+;  - input glitches
+;     - accidental firing when game starts
 ;  - power grid mechanics MVP
 ;    - variables
+;      - shot variable hi/lo power
+;      - shot range changes power
 ;      - power reserve level
 ;      - waveform (flow pattern)
 ;      - pull rate (flow in from next to player)
@@ -1385,10 +1385,12 @@ waitOnVBlank_loop
 ;     - gradient color
 ;     - switch ai on/off
 ;  - graphical glitches
+;     - get lasers starting from players
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
 ;     - lasers weird at certain positions
 ;  - clean up play screen 
+;     - free up scanlines around power tracks
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball
 ;     - add score

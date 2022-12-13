@@ -7,7 +7,7 @@
             sta PF1                      ;3  16 
             ;; adjust playfield color
             lda ({4}),y                  ;5  21
-            ldx laser_hmov_0,y           ;4  25
+            ldx LASER_HMOV_READ,y           ;4  25
             sta COLUBK                   ;3  28
             lda ({3}),y                  ;5  33
             sta PF2                      ;3  36

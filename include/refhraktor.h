@@ -143,12 +143,15 @@ _power_grid_drain
             adc #$08 ; BUGBUG: using a lot of cycles
             jsr sub_x2pf
 _power_grid_next
-    ENDM         
+    ENDM 
          
         ; TREATMENT 4: (reconnect) draw from adjacent flow as power drains, rebuild in 2d
         
         ; TREATMENT 5: (plaid) no drain, alternating spots of flow
         ; TREATMENT 8: (river) no drain, alternating flow left/right/center/away
+    MAC GRID_TREATMENT_8
+        ; need state + timer + flow
+    ENDM 
 
         ; TREATMENT 6: adjust colors
         ; TREATMENT 7: flicker as power drains
