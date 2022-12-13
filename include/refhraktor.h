@@ -17,7 +17,7 @@
             lda #<{1}
             sta tx_on_timer
     ENDM
-
+          ; TREATMENT 0: symmetric flow towards player
     MAC GRID_TREATMENT_0
            ; roll in from sides
             ;         5 <B   23> 27<2B  43> 47<4B 53>57<5B 73 77<7B
@@ -94,84 +94,63 @@ _power_grid_next
 
     ENDM
 
-
+            ; TREATMENT 1: just track under player to figure out where player is
     MAC GRID_TREATMENT_1
-           ; roll in from sides
-            ;         5 <B   23> 27<2B  43> 47<4B 53>57<5B 73 77<7B
-            ;  | 4..7 | 7......0 | 0......7 | 4..7 | 7......0 | 0......7 |
             lda #$ff
-            sta power_grid_pf0,x
-            sta power_grid_pf1,x
-            sta power_grid_pf2,x
-            sta power_grid_pf3,x
-            sta power_grid_pf4,x
-            sta power_grid_pf5,x
+            jsr sub_fill_grid
+            lda player_x,x
+            jsr sub_x2pf
             lda player_x,x
             clc
-            adc #$0a
-            lsr
-            lsr
-            lsr
-            lsr
-            tay ; y is approx player location
-            bne _power_grid_pf1_lo
-            lda #$00
-            sta power_grid_pf0,x
-            jmp _power_grid_next
-_power_grid_pf1_lo
-            dey
-            bne _power_grid_pf1_hi
-            lda #$0f
-            sta power_grid_pf1,x
-            jmp _power_grid_next
-_power_grid_pf1_hi            
-            dey 
-            bne _power_grid_pf2_lo
-            lda #$f0
-            sta power_grid_pf1,x
-            jmp _power_grid_next
-_power_grid_pf2_lo
-            dey 
-            bne _power_grid_pf2_hi
-            lda #$f0
-            sta power_grid_pf2,x
-            jmp _power_grid_next
-_power_grid_pf2_hi
-            dey 
-            bne _power_grid_pf3_hi
-            lda #$0f
-            sta power_grid_pf2,x
-            jmp _power_grid_next
-_power_grid_pf3_hi
-            dey 
-            bne _power_grid_pf4_lo
-            lda #$00
-            sta power_grid_pf3,x
-            jmp _power_grid_next
-_power_grid_pf4_lo
-            dey 
-            bne _power_grid_pf4_hi
-            lda #$0f
-            sta power_grid_pf4,x
-            jmp _power_grid_next
-_power_grid_pf4_hi
-            dey 
-            bne _power_grid_pf5_lo
-            lda #$f0
-            sta power_grid_pf4,x
-            jmp _power_grid_next
-_power_grid_pf5_lo
-            dey 
-            bne _power_grid_pf5_hi
-            lda #$f0
-            sta power_grid_pf5,x
-            jmp _power_grid_next
-_power_grid_pf5_hi
-            lda #$0f
-            sta power_grid_pf5,x
+            adc #$04 ; BUGBUG: using a lot of cycles
+            jsr sub_x2pf
+            lda player_x,x
+            clc
+            adc #$08 ; BUGBUG: using a lot of cycles
+            jsr sub_x2pf
 _power_grid_next
 
     ENDM
-
-
             
+        ; TREATMENT 2: (flow) flow in asymmetrically from sides based on power var, converge on player
+        
+        ; TREATMENT 3: (clean) put in static gaps as power drains, rebuild when empty
+   MAC GRID_TREATMENT_3
+            lda power_grid_pf5,x
+            and #$0f
+            bne _power_grip_skip_replenish 
+            lda power_grid_pf3,x
+            and #$f0
+            ora power_grid_pf1,x
+            ora power_grid_pf2,x
+            ora power_grid_pf4,x
+            bne _power_grip_skip_replenish 
+            lda #$ff
+            jsr sub_fill_grid
+_power_grip_skip_replenish
+            lda player_state,x
+            and #PLAYER_STATE_FIRING
+            beq _power_grid_next
+_power_grid_drain
+            lda player_x,x
+            jsr sub_x2pf
+            lda player_x,x
+            clc
+            adc #$04 ; BUGBUG: using a lot of cycles
+            jsr sub_x2pf
+            lda player_x,x
+            clc
+            adc #$08 ; BUGBUG: using a lot of cycles
+            jsr sub_x2pf
+_power_grid_next
+    ENDM         
+         
+        ; TREATMENT 4: (reconnect) draw from adjacent flow as power drains, rebuild in 2d
+        
+        ; TREATMENT 5: (plaid) no drain, alternating spots of flow
+        ; TREATMENT 8: (river) no drain, alternating flow left/right/center/away
+
+        ; TREATMENT 6: adjust colors
+        ; TREATMENT 7: flicker as power drains
+        ; TREATMENT 9: sound designs
+

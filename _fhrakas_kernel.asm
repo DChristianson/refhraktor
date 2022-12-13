@@ -113,7 +113,7 @@ _lt_hi_resp_loop
             tay                     ;2  11+
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMP0                ;3  18+
-            SLEEP 3                 ;3  21+ ; BUGBUG: leftover
+            SLEEP 3                 ;2  21+ ; BUGBUG: shim
             sta RESP0               ;3  24+ 
 
             ; top line

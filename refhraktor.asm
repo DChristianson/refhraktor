@@ -503,22 +503,17 @@ power_grid_update
             ; BUGBUG: TODO: update rate
             lda frame
             and #$01
-            beq _power_grid_update_end
-            ldx #NUM_PLAYERS - 1
-            
+            bne _power_grid_update
+            jmp _power_grid_update_end
+_power_grid_update
+            ldx #NUM_PLAYERS - 1            
 _power_grid_update_loop
             ; TODO: other methods
-            ; TREATMENT 1: just track under player to figure out where player is
-            ; TREATMENT 2: flow in asymmetrically from sides based on power var, converge on player
-            ; TREATMENT 3: put in regular gaps as power drains 
-            ; TREATMENT 4: put in flow based gaps as power drains 
-            ; TREATMENT 5: adjust colors
-            ; TREATMENT 6: flicker as power drains
-            ; TREATMENT 7: flow left/right/center
-            ; TREATMENT 8: sound designs
-            GRID_TREATMENT_0
+            ; TODO: jump this
+            GRID_TREATMENT_3
             dex
-            bpl _power_grid_update_loop
+            bmi _power_grid_update_end
+            jmp _power_grid_update_loop
 _power_grid_update_end
 
 player_update
@@ -789,6 +784,8 @@ waitOnOverscan_loop
             dex
             bne waitOnOverscan_loop
             jmp newFrame
+
+    include "_power_kernel.asm"
 
 ;------------------------
 ; splash kernel state transition
