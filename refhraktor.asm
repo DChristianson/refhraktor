@@ -513,7 +513,7 @@ _power_grid_update
 _power_grid_update_loop
             ; TODO: other methods
             ; TODO: jump this
-            GRID_TREATMENT_3
+            GRID_TREATMENT_5
             dex
             bmi _power_grid_update_end
             jmp _power_grid_update_loop

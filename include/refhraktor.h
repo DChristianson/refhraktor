@@ -148,6 +148,31 @@ _power_grid_next
         ; TREATMENT 4: (reconnect) draw from adjacent flow as power drains, rebuild in 2d
         
         ; TREATMENT 5: (plaid) no drain, alternating spots of flow
+    MAC GRID_TREATMENT_5
+        lda frame
+        and #$70
+        lsr
+        tay
+        lda PF0_GRID,y
+        sta power_grid_pf0,x
+        iny
+        lda PF0_GRID,y
+        sta power_grid_pf1,x
+        iny
+        lda PF0_GRID,y
+        sta power_grid_pf2,x
+        iny
+        lda PF0_GRID,y
+        sta power_grid_pf3,x
+        iny
+        lda PF0_GRID,y
+        sta power_grid_pf4,x
+        iny
+        lda PF0_GRID,y
+        sta power_grid_pf5,x
+_power_grid_next
+
+    ENDM 
         ; TREATMENT 8: (river) no drain, alternating flow left/right/center/away
     MAC GRID_TREATMENT_8
         ; need state + timer + flow
