@@ -141,13 +141,8 @@ player_sprite     ds 2 * NUM_PLAYERS  ; pointer
 player_x          ds NUM_PLAYERS      ; player x position
 player_score      ds NUM_PLAYERS      ; score
 
-power_grid_reserve ds NUM_PLAYERS ; power in grid (can be negative)
-power_grid_pf0     ds NUM_PLAYERS
-power_grid_pf1     ds NUM_PLAYERS
-power_grid_pf2     ds NUM_PLAYERS
-power_grid_pf3     ds NUM_PLAYERS
-power_grid_pf4     ds NUM_PLAYERS
-power_grid_pf5     ds NUM_PLAYERS
+power_grid_reserve ds NUM_PLAYERS
+power_grid_timer   ds NUM_PLAYERS
 
 laser_ax          ds 2  ;
 laser_ay          ds 2  ;
@@ -160,7 +155,7 @@ ball_dx           ds 2
 ball_ay           ds 2
 ball_ax           ds 2
 ball_color        ds 1
-ball_voffset      ds 1 ; ball position countdown
+ball_voffset      ds 1 ; ball position countdown BUGBUG: TODO can make display local?
 ball_cx           ds BALL_HEIGHT ; collision registers
 
 display_scroll      ; scroll adjusted to modulo block
@@ -215,32 +210,39 @@ local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min
 
   SEG.U SCRAM
 
-; BUGBUG: TODO: figure out how to do this right
+; BUGBUG: TODO: figure out how to do this with ds
+  
+  SC_START
 
-STRING_BUFFER_0 = 0
-STRING_BUFFER_1 = STRING_BUFFER_0 + 8
-STRING_BUFFER_2 = STRING_BUFFER_1 + 8
-STRING_BUFFER_3 = STRING_BUFFER_2 + 8
-STRING_BUFFER_4 = STRING_BUFFER_3 + 8
-STRING_BUFFER_5 = STRING_BUFFER_4 + 8 ; 48
-STRING_BUFFER_6 = STRING_BUFFER_5 + 8
-STRING_BUFFER_7 = STRING_BUFFER_6 + 8
-STRING_BUFFER_8 = STRING_BUFFER_7 + 8
-STRING_BUFFER_9 = STRING_BUFFER_8 + 8
-STRING_BUFFER_A = STRING_BUFFER_9 + 8
-STRING_BUFFER_B = STRING_BUFFER_A + 8 ; 96
-STRING_BUFFER_C = STRING_BUFFER_B + 8
-STRING_BUFFER_D = STRING_BUFFER_C + 8
-STRING_BUFFER_E = STRING_BUFFER_D + 8
-STRING_BUFFER_F = STRING_BUFFER_E + 8 ; 128
+  SC_DS STRING_BUFFER_0, 8
+  SC_DS STRING_BUFFER_1, 8
+  SC_DS STRING_BUFFER_2, 8
+  SC_DS STRING_BUFFER_3, 8
+  SC_DS STRING_BUFFER_4, 8
+  SC_DS STRING_BUFFER_5, 8
+  SC_DS STRING_BUFFER_6, 8
+  SC_DS STRING_BUFFER_7, 8
+  SC_DS STRING_BUFFER_8, 8
+  SC_DS STRING_BUFFER_A, 8
+  SC_DS STRING_BUFFER_B, 8
+  SC_DS STRING_BUFFER_C, 8
+  SC_DS STRING_BUFFER_D, 8
+  SC_DS STRING_BUFFER_E, 8
+  SC_DS STRING_BUFFER_F, 8
 
+STRING_READ = SC_READ_STRING_BUFFER_0
+STRING_WRITE = SC_WRITE_STRING_BUFFER_0
 
-STRING_WRITE = SUPERCHIP_WRITE + STRING_BUFFER_0
-STRING_READ = SUPERCHIP_READ + STRING_BUFFER_0
+  SC_START
+ 
+  SC_DS LASER_HMOV_0, PLAYFIELD_BEAM_RES
 
-LASER_HMOV_0 = 0     ; ds PLAYFIELD_BEAM_RES
-LASER_HMOV_WRITE = SUPERCHIP_WRITE + LASER_HMOV_0
-LASER_HMOV_READ = SUPERCHIP_READ + LASER_HMOV_0
+  SC_DS POWER_GRID_PF0, NUM_PLAYERS
+  SC_DS POWER_GRID_PF1, NUM_PLAYERS
+  SC_DS POWER_GRID_PF2, NUM_PLAYERS
+  SC_DS POWER_GRID_PF3, NUM_PLAYERS
+  SC_DS POWER_GRID_PF4, NUM_PLAYERS
+  SC_DS POWER_GRID_PF5, NUM_PLAYERS
 
   SEG Code
 
@@ -685,7 +687,7 @@ _player_draw_beam_loop
             lda local_player_draw_hmove
             inc local_player_draw_x_travel
 _player_draw_beam_skip_bump_hmov
-            sta LASER_HMOV_WRITE,y ; cheating that #$01 is in a            
+            sta SC_WRITE_LASER_HMOV_0,y ; cheating that #$01 is in a            
             lda local_player_draw_D
             clc
             adc local_player_draw_dx  ; D = D + 2 * dx
@@ -700,8 +702,8 @@ _player_draw_beam_pattern_loop
             iny
             tya
             and #PLAYER_STATE_FIRING
-            ora LASER_HMOV_READ,y
-            sta LASER_HMOV_WRITE,y
+            ora SC_READ_LASER_HMOV_0,y
+            sta SC_WRITE_LASER_HMOV_0,y
             cpy #PLAYFIELD_BEAM_RES - 1
             bmi _player_draw_beam_pattern_loop
             ; calc ax/ay coefficient

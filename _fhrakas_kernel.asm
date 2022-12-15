@@ -7,7 +7,7 @@
             sta PF1                      ;3  16 
             ;; adjust playfield color
             lda ({4}),y                  ;5  21
-            ldx LASER_HMOV_READ,y           ;4  25
+            ldx SC_READ_LASER_HMOV_0,y           ;4  25
             sta COLUBK                   ;3  28
             lda ({3}),y                  ;5  33
             sta PF2                      ;3  36
@@ -138,7 +138,7 @@ _lt_hi_draw_loop_2
             sta WSYNC
             sta GRP0                     ;3   3
             stx COLUP0                   ;3   6
-            lda TARGET_BG_0,y          ;5  11
+            lda TARGET_BG_0,y            ;5  11
             sta COLUBK                   ;3  14
             dey                          ;2  16
             cpy #PLAYER_HEIGHT - 3       ;2  18
@@ -150,73 +150,73 @@ _lt_hi_draw_loop_2
             sta CTRLPF                   ;3  34
             lda TARGET_BG_0,y            ;5  39
             sta COLUPF                   ;3  42
+            lda (player_sprite+2),y      ;5  44
+            ldx TARGET_COLOR_0,y         ;4  48
+            sta CXCLR                    ;3  51 ; start collision
 
-            lda (player_sprite+2),y ;5  44
-            ldx TARGET_COLOR_0,y    ;4  48
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda #$00                ;2   8
-            sta COLUBK              ;3  11
-            lda power_grid_pf0 + 1  ;3  14
-            sta PF0                 ;3  17
-            lda power_grid_pf1 + 1  ;3  20
-            sta CXCLR               ;3  23 ; start collision
-            sta PF1                 ;3  26
-            lda power_grid_pf2 + 1  ;3  29
-            sta PF2                 ;3  32
-            dey                     ;2  34
-            lda power_grid_pf3 + 1  ;3  37
-            sta PF0                 ;3  40
-            lda power_grid_pf4 + 1  ;3  43
-            sta PF1                 ;3  46
-            lda power_grid_pf5 + 1  ;3  49
-            sta PF2                 ;3  52
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda #$00                        ;2   8
+            sta COLUBK                      ;3  11
+            lda SC_READ_POWER_GRID_PF0 + 1  ;4  15
+            sta PF0                         ;3  18
+            lda SC_READ_POWER_GRID_PF1 + 1  ;4  22
+            sta PF1                         ;3  25
+            lda SC_READ_POWER_GRID_PF2 + 1  ;4  29
+            sta PF2                         ;3  32
+            dey                             ;2  34
+            lda SC_READ_POWER_GRID_PF3 + 1  ;4  38
+            sta PF0                         ;3  41
+            lda SC_READ_POWER_GRID_PF4 + 1  ;4  45
+            sta PF1                         ;3  48 
+            lda SC_READ_POWER_GRID_PF5 + 1  ;4  52
+            sta PF2                         ;3  55
     
-            lda (player_sprite+2),y ;5  57
-            ldx TARGET_COLOR_0,y    ;4  61
+            lda (player_sprite+2),y         ;5  60
+            ldx TARGET_COLOR_0,y            ;4  64
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda power_grid_pf0 + 1  ;3   9
-            sta PF0                 ;3  12
-            lda power_grid_pf1 + 1  ;3  15
-            sta PF1                 ;3  18
-            lda power_grid_pf2 + 1  ;3  21
-            sta PF2                 ;3  24
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda SC_READ_POWER_GRID_PF0 + 1  ;4  10
+            sta PF0                         ;3  13
+            lda SC_READ_POWER_GRID_PF1 + 1  ;4  17
+            sta PF1                         ;3  20
+            lda SC_READ_POWER_GRID_PF2 + 1  ;4  24
+            sta PF2                         ;3  27
+
+            lda SC_READ_POWER_GRID_PF3 + 1  ;4  31
+            sta PF0                         ;3  34
+            lda SC_READ_POWER_GRID_PF4 + 1  ;4  38
+            sta PF1                         ;3  41
+            ldx SC_READ_POWER_GRID_PF5 + 1  ;4  45
 
             ; power collision test
-            lda player_state + 1    ;3  27
-            and #$fe                ;2  29
-            bit CXP0FB              ;3  32
-            bpl _hi_skip_power      ;2  34
-            ora #PLAYER_STATE_HAS_POWER ;2  36
+            lda player_state + 1            ;3  48
+            stx PF2                         ;3  51
+            and #$fe                        ;2  53
+            bit CXP0FB                      ;3  56
+            bpl _hi_skip_power              ;2  58
+            ora #PLAYER_STATE_HAS_POWER     ;2  60
 _hi_skip_power
-            sta player_state + 1    ;3  38/39
+            sta player_state + 1            ;3  62/63
 
-            lda power_grid_pf3 + 1  ;3  41/42
-            sta PF0                 ;3  44/45
-            lda power_grid_pf4 + 1  ;3  47/48
-            sta PF1                 ;3  50/51
-            lda power_grid_pf5 + 1  ;3  53/54
-            sta PF2                 ;3  56/57
-            dey                     ;2  58/59
-
-            lda (player_sprite+2),y ;5  --
-            ldx TARGET_COLOR_0,y    ;4  --
+            dey                             ;2  64/65
+            lda TARGET_BG_0,y               ;5  69/70
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda TARGET_BG_0,y       ;5  14
-            sta COLUBK              ;3  17
-            sta COLUPF              ;3  20
-            lda #$00                ;2  22
-            sta PF0                 ;3  25
-            sta PF1                 ;3  28
-            sta PF2                 ;3  31
-            dey                     ;2  33
-            lda #$01                ;2  35
-            sta CTRLPF              ;3  38
+            sta COLUBK              ;3   3
+            sta COLUPF              ;3   6
+            lda (player_sprite+2),y ;5  11
+            ldx TARGET_COLOR_0,y    ;4  17
+            sta GRP0                ;3  20
+            stx COLUP0              ;3  23
+            lda #$00                ;2  25
+            sta PF0                 ;3  28
+            sta PF1                 ;3  31
+            sta PF2                 ;3  34
+            dey                     ;2  36
+            lda #$01                ;2  37
+            sta CTRLPF              ;3  40
 
 _lt_hi_draw_loop_0
             lda (player_sprite+2),y      ;5  --
@@ -381,7 +381,8 @@ _lt_lo_resp_loop
             sta PF0                 ;3  35
             sta PF1                 ;3  38
             sta PF2                 ;3  41
-            iny                     ;2  43
+            sta CTRLPF              ;3  44
+            iny                     ;2  46
 
 _lt_lo_draw_loop_0
             lda (player_sprite),y   ;5  51
@@ -407,75 +408,76 @@ _lt_lo_draw_loop_0
             sta COLUPF              ;3  21
             lda (player_sprite),y   ;5  26
             ldx TARGET_COLOR_0,y    ;4  30
+            sta CXCLR               ;3  33 ; start power collision check
+
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda #$00                ;2   8
-            sta COLUBK              ;3  11
-            sta CTRLPF              ;3  13
-            lda power_grid_pf0      ;3  17
-            sta PF0                 ;3  20
-            lda power_grid_pf1      ;3  23
-            sta PF1                 ;3  26
-            sta CXCLR               ;3  29 ; start power collision check
-            lda power_grid_pf2      ;3  32
-            sta PF2                 ;3  35
-            iny                     ;2  38
-            lda power_grid_pf3      ;3  41
-            sta PF0                 ;3  44
-            lda power_grid_pf4      ;3  47
-            sta PF1                 ;3  50
-            lda power_grid_pf5      ;3  53
-            sta PF2                 ;3  56
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda #$00                        ;2   8
+            sta COLUBK                      ;3  11
+            lda SC_READ_POWER_GRID_PF0      ;4  15
+            sta PF0                         ;3  18
+            lda SC_READ_POWER_GRID_PF1      ;4  22
+            sta PF1                         ;3  25
+            lda SC_READ_POWER_GRID_PF2      ;4  29
+            sta PF2                         ;3  32
+            iny                             ;2  34
+            lda SC_READ_POWER_GRID_PF3      ;4  38
+            sta PF0                         ;3  41
+            lda SC_READ_POWER_GRID_PF4      ;4  45
+            sta PF1                         ;3  48
+            lda SC_READ_POWER_GRID_PF5      ;4  52
+            sta PF2                         ;3  55
         
-            lda (player_sprite),y   ;5  -- 
-            ldx TARGET_COLOR_0,y    ;4  --
+            lda (player_sprite),y           ;5  -- 
+            ldx TARGET_COLOR_0,y            ;4  --
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda power_grid_pf0      ;3   9
-            sta PF0                 ;3  12
-            lda power_grid_pf1      ;3  15
-            sta PF1                 ;3  18
-            lda power_grid_pf2      ;3  21
-            sta PF2                 ;3  24
-            iny                     ;2  26
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda SC_READ_POWER_GRID_PF0      ;4  10
+            sta PF0                         ;3  13
+            lda SC_READ_POWER_GRID_PF1      ;4  17
+            sta PF1                         ;3  20
+            lda SC_READ_POWER_GRID_PF2      ;4  24
+            sta PF2                         ;3  27
+            iny                             ;2  29
+
+            lda SC_READ_POWER_GRID_PF3      ;4  33
+            sta PF0                         ;3  36
+            lda SC_READ_POWER_GRID_PF4      ;4  40
+            sta PF1                         ;3  43
+            ldx SC_READ_POWER_GRID_PF5      ;4  47
 
             ; power collision test
-            lda player_state        ;3  29
-            and #$fe                ;2  31
-            bit CXP0FB              ;3  34
-            bpl _lo_skip_power      ;2  36
-            ora #PLAYER_STATE_HAS_POWER ;2  38
+            lda player_state                ;3  50
+            and #$fe                        ;2  52
+            stx PF2                         ;3  55
+            bit CXP0FB                      ;3  58
+            bpl _lo_skip_power              ;2  60
+            ora #PLAYER_STATE_HAS_POWER     ;2  62
 _lo_skip_power
-            sta player_state        ;3  40/41
+            sta player_state                ;3  64/65
 
-            lda power_grid_pf3      ;3  43/44
-            sta PF0                 ;3  46/47
-            lda power_grid_pf4      ;3  49/50
-            sta PF1                 ;3  52/53
-            lda power_grid_pf5      ;3  55/56
-            sta PF2                 ;3  58/59
 
             lda (player_sprite),y   ;5  --
-            ldx TARGET_COLOR_0,y    ;4  --
             sta WSYNC
-            sta GRP0                ;3   3
-            stx COLUP0              ;3   6
-            lda #$0a                ;2   8
-            sta COLUPF              ;3  11
-            lda #$ff                ;2  13
-            sta PF0                 ;3  16
-            sta PF1                 ;3  19
-            sta PF2                 ;3  22
-            iny                     ;2  24
-            lda #$01                ;2  26
-            sta CTRLPF              ;3  29
+            ldx TARGET_COLOR_0,y    ;4   4
+            sta GRP0                ;3   7
+            stx COLUP0              ;3  10
+            lda #$0a                ;2  12
+            sta COLUPF              ;3  15
+            lda #$ff                ;2  17
+            sta PF0                 ;3  20
+            sta PF1                 ;3  23
+            sta PF2                 ;3  26
+            iny                     ;2  28
+            lda #$01                ;2  30
+            sta CTRLPF              ;3  33
     
-            lda TARGET_BG_0,y       ;5  34
-            sta COLUBK              ;3  37
-            lda (player_sprite),y   ;5  42
-            ldx TARGET_COLOR_0,y    ;4  46
+            lda TARGET_BG_0,y       ;5  38
+            sta COLUBK              ;3  41
+            lda (player_sprite),y   ;5  46
+            ldx TARGET_COLOR_0,y    ;4  50
             sta WSYNC
             sta GRP0                ;3   3
             stx COLUP0              ;3   6

@@ -222,17 +222,17 @@ text_kernel
 _text_draw_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
-            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
+            lda SC_READ_STRING_BUFFER_0,y        ;4   4
             sta GRP0                                      ;3   7
-            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
+            lda SC_READ_STRING_BUFFER_1,y        ;4  11
             sta GRP1                                      ;3  14
-            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
+            lda SC_READ_STRING_BUFFER_2,y        ;4  18
             sta GRP0                                      ;3  21
             ; load next 3 EDF
-            ldx SUPERCHIP_READ + STRING_BUFFER_4,y        ;4  25
+            ldx SC_READ_STRING_BUFFER_4,y        ;4  25
             txs                                           ;2  27
-            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  31
-            lda SUPERCHIP_READ + STRING_BUFFER_5,y        ;4  35
+            ldx SC_READ_STRING_BUFFER_3,y        ;4  31
+            lda SC_READ_STRING_BUFFER_5,y        ;4  35
             stx.w GRP1                                    ;4  39
             tsx                                           ;2  41
             stx GRP0                                      ;3  44
@@ -285,14 +285,14 @@ text_kernel_4
 _text_draw_4_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
-            lda SUPERCHIP_READ + STRING_BUFFER_0,y        ;4   4
+            lda SC_READ_STRING_BUFFER_0,y        ;4   4
             sta GRP0                                      ;3   7
-            lda SUPERCHIP_READ + STRING_BUFFER_1,y        ;4  11
+            lda SC_READ_STRING_BUFFER_1,y        ;4  11
             sta GRP1                                      ;3  14
-            lda SUPERCHIP_READ + STRING_BUFFER_2,y        ;4  18
+            lda SC_READ_STRING_BUFFER_2,y        ;4  18
             sta GRP0                                      ;3  21
             ; load next 3 EDF
-            ldx SUPERCHIP_READ + STRING_BUFFER_3,y        ;4  25
+            ldx SC_READ_STRING_BUFFER_3,y        ;4  25
             SLEEP 10                                      ;10 35
             stx.w GRP1                                    ;4  39
             sty GRP0                                      ;3  42 force vdelp

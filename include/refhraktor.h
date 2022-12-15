@@ -42,7 +42,7 @@ _power_grid_skip_power
             php
             ora power_grid_pf0,x
             rol 
-            sta power_grid_pf0,x
+            sta SC_WRITE_POWER_GRID_PF0,x
             dey
             bmi _power_grid_right
             ror power_grid_pf1,x
@@ -149,27 +149,33 @@ _power_grid_next
         
         ; TREATMENT 5: (plaid) no drain, alternating spots of flow
     MAC GRID_TREATMENT_5
-        lda frame
-        and #$70
-        lsr
+        dec power_grid_timer,x
+        bpl _power_grid_next
+        lda #$10
+        sta power_grid_timer,x
+        lda power_grid_reserve,x
+        clc
+        adc #$08
+        sta power_grid_reserve,x
+        and #$78
         tay
         lda PF0_GRID,y
-        sta power_grid_pf0,x
+        sta SC_WRITE_POWER_GRID_PF0,x
         iny
         lda PF0_GRID,y
-        sta power_grid_pf1,x
+        sta SC_WRITE_POWER_GRID_PF1,x
         iny
         lda PF0_GRID,y
-        sta power_grid_pf2,x
+        sta SC_WRITE_POWER_GRID_PF2,x
         iny
         lda PF0_GRID,y
-        sta power_grid_pf3,x
+        sta SC_WRITE_POWER_GRID_PF3,x
         iny
         lda PF0_GRID,y
-        sta power_grid_pf4,x
+        sta SC_WRITE_POWER_GRID_PF4,x
         iny
         lda PF0_GRID,y
-        sta power_grid_pf5,x
+        sta SC_WRITE_POWER_GRID_PF5,x
 _power_grid_next
 
     ENDM 

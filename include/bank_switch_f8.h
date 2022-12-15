@@ -9,6 +9,17 @@ SUPERCHIP_READ   = $1080 ; SC Read location
 SUPERCHIP = 0
     ENDIF
 
+  MAC SC_START
+SC_ADDR SET 0
+  ENDM
+
+  MAC SC_DS
+{1}          SET SC_ADDR
+SC_READ_{1}  SET SUPERCHIP_READ + SC_ADDR
+SC_WRITE_{1} SET SUPERCHIP_WRITE + SC_ADDR
+SC_ADDR      SET SC_ADDR + {2}
+  ENDM
+
 ; put at the start of every bank 
   MAC START_BANK ; {bank_number}
 BANK_NUM    SET {1}	

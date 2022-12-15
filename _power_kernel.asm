@@ -4,12 +4,12 @@
 ; grid helpers          
 
 sub_fill_grid ; x = player, a = value
-            sta power_grid_pf0,x
-            sta power_grid_pf1,x
-            sta power_grid_pf2,x
-            sta power_grid_pf3,x
-            sta power_grid_pf4,x
-            sta power_grid_pf5,x
+            sta SC_WRITE_POWER_GRID_PF0,x
+            sta SC_WRITE_POWER_GRID_PF1,x
+            sta SC_WRITE_POWER_GRID_PF2,x
+            sta SC_WRITE_POWER_GRID_PF3,x
+            sta SC_WRITE_POWER_GRID_PF4,x
+            sta SC_WRITE_POWER_GRID_PF5,x
             rts
 
 sub_x2pf ; a=coord, x=player => a=bit, y=blockptr
@@ -25,8 +25,8 @@ sub_x2pf ; a=coord, x=player => a=bit, y=blockptr
             tay 
             pla ; pull bit pattern
             eor #$ff ; BUGBUG inverting set bit
-            and power_grid_pf0,y
-            sta power_grid_pf0,y
+            and SC_WRITE_POWER_GRID_PF0,y
+            sta SC_WRITE_POWER_GRID_PF0,y
             rts
 
 ;  | PF0  | PF1      | PF2      | PF3  | PF4      | PF5      |
@@ -119,8 +119,22 @@ PF0_GRID
   .byte $f0, $00, $00, $00, $00, $f0, $0, $0 ; BUGBUG pad
   .byte $f0, $81, $81, $10, $18, $f8, $0, $0
   .byte $f0, $c3, $c3, $30, $3c, $fc, $0, $0
-  .byte $f0, $81, $81, $10, $18, $f8, $0, $0
-  .byte $f0, $00, $00, $00, $00, $f0, $0, $0
-  .byte $f0, $18, $18, $80, $81, $f1, $0, $0
+  .byte $f0, $c3, $c3, $30, $3c, $fc, $0, $0
+  .byte $f0, $42, $42, $20, $24, $f4, $0, $0
+  .byte $f0, $24, $24, $40, $24, $f2, $0, $0
+  .byte $f0, $3c, $3c, $c0, $c3, $f3, $0, $0
   .byte $f0, $3c, $3c, $c0, $c3, $f3, $0, $0
   .byte $f0, $18, $18, $80, $81, $f1, $0, $0
+  .byte $f0, $3c, $3c, $c0, $c3, $f3, $0, $0
+  .byte $f0, $3c, $3c, $c0, $c3, $f3, $0, $0
+  .byte $f0, $24, $24, $40, $24, $f2, $0, $0
+  .byte $f0, $42, $42, $20, $24, $f4, $0, $0
+  .byte $f0, $c3, $c3, $30, $3c, $fc, $0, $0
+  .byte $f0, $c3, $c3, $30, $3c, $fc, $0, $0
+  .byte $f0, $81, $81, $10, $18, $f8, $0, $0
+
+;   .byte $f0, $3c, $3c, $c0, $c3, $f3, $0, $0
+;   .byte $f0, $81, $81, $10, $18, $f8, $0, $0
+;   .byte $f0, $18, $18, $80, $81, $f1, $0, $0
+
+
