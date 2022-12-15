@@ -106,6 +106,10 @@ PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double w
 PLAYER_STATE_AUTO_FIRE = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
 
+POWER_RESERVE_COOLDOWN = $80
+POWER_RESERVE_MAX = $7f
+POWER_RESERVE_SHOT_DRAIN = 4
+
 ; ----------------------------------
 ; variables
 
@@ -237,6 +241,7 @@ STRING_WRITE = SC_WRITE_STRING_BUFFER_0
  
   SC_DS LASER_HMOV_0, PLAYFIELD_BEAM_RES
 
+  SC_DS POWER_GRID_COLOR, NUM_PLAYERS
   SC_DS POWER_GRID_PF0, NUM_PLAYERS
   SC_DS POWER_GRID_PF1, NUM_PLAYERS
   SC_DS POWER_GRID_PF2, NUM_PLAYERS
@@ -345,6 +350,8 @@ kernel_dropBall
             lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
             sta ball_x
             lda #$00
+            sta power_grid_timer
+            sta power_grid_timer + 1
             sta ball_ax
             sta ball_ax + 1
             sta ball_ay
@@ -353,6 +360,9 @@ kernel_dropBall
             sta ball_dx + 1
             sta ball_dy
             sta ball_dy + 1
+            lda #$80
+            sta power_grid_reserve
+            sta power_grid_reserve + 1
             ; animate ball drop
             lda game_timer
             and #$01
@@ -515,7 +525,7 @@ _power_grid_update
 _power_grid_update_loop
             ; TODO: other methods
             ; TODO: jump this
-            GRID_TREATMENT_5
+            GRID_TREATMENT_6
             dex
             bmi _power_grid_update_end
             jmp _power_grid_update_loop
@@ -586,13 +596,26 @@ _player_fire
             lda player_state,x
             and #PLAYER_STATE_HAS_POWER
             beq _player_misfire 
-            ; BUGBUG ; drain power
+            lda power_grid_reserve,x ; drain power reserve
+            sec
+            sbc #POWER_RESERVE_SHOT_DRAIN
+            bcs _player_power_save
+            lda #POWER_RESERVE_COOLDOWN
+_player_power_save
+            sta power_grid_reserve,x
             lda player_state,x
             ora #PLAYER_STATE_FIRING            
             jmp _player_save_fire
 _player_misfire
            ; BUGBUG penalize power
-_player_no_fire            
+_player_no_fire
+            lda power_grid_reserve,x ; drain power reserve
+            cmp #POWER_RESERVE_MAX
+            beq _player_power_skip_restore
+            clc
+            adc #$01
+            sta power_grid_reserve,x
+_player_power_skip_restore
             lda player_state,x
             and #$fd
 _player_save_fire

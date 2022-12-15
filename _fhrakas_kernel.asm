@@ -136,23 +136,23 @@ _lt_hi_draw_loop_2
             ldx TARGET_COLOR_0,y         ;4  20
 
             sta WSYNC
-            sta GRP0                     ;3   3
-            stx COLUP0                   ;3   6
-            lda TARGET_BG_0,y            ;5  11
-            sta COLUBK                   ;3  14
-            dey                          ;2  16
-            cpy #PLAYER_HEIGHT - 3       ;2  18
-            bcs _lt_hi_draw_loop_2       ;2  20
-            lda #$00                     ;2  22
-            sta PF0                      ;3  25
-            sta PF1                      ;3  28
-            sta PF2                      ;3  31
-            sta CTRLPF                   ;3  34
-            lda TARGET_BG_0,y            ;5  39
-            sta COLUPF                   ;3  42
-            lda (player_sprite+2),y      ;5  44
-            ldx TARGET_COLOR_0,y         ;4  48
-            sta CXCLR                    ;3  51 ; start collision
+            sta GRP0                         ;3   3
+            stx COLUP0                       ;3   6
+            lda TARGET_BG_0,y                ;5  11
+            sta COLUBK                       ;3  14
+            dey                              ;2  16
+            cpy #PLAYER_HEIGHT - 3           ;2  18
+            bcs _lt_hi_draw_loop_2           ;2  20
+            lda #$00                         ;2  22
+            sta PF0                          ;3  25
+            sta PF1                          ;3  28
+            sta PF2                          ;3  31
+            sta CTRLPF                       ;3  34
+            lda SC_READ_POWER_GRID_COLOR + 1 ;3  37
+            sta COLUPF                       ;3  40
+            lda (player_sprite+2),y          ;5  45
+            ldx TARGET_COLOR_0,y             ;4  49
+            sta CXCLR                        ;3  52 ; start collision
 
             sta WSYNC
             sta GRP0                        ;3   3
@@ -404,11 +404,11 @@ _lt_lo_draw_loop_0
             sta COLUBK              ;3  11
             iny                     ;2  13
 
-            lda TARGET_BG_0,y       ;5  18
-            sta COLUPF              ;3  21
-            lda (player_sprite),y   ;5  26
-            ldx TARGET_COLOR_0,y    ;4  30
-            sta CXCLR               ;3  33 ; start power collision check
+            lda SC_READ_POWER_GRID_COLOR ;3  16
+            sta COLUPF                   ;3  19
+            lda (player_sprite),y        ;5  24
+            ldx TARGET_COLOR_0,y         ;4  28
+            sta CXCLR                    ;3  31 ; start power collision check
 
             sta WSYNC
             sta GRP0                        ;3   3

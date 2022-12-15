@@ -145,8 +145,54 @@ _power_grid_drain
 _power_grid_next
     ENDM 
          
-        ; TREATMENT 4: (reconnect) draw from adjacent flow as power drains, rebuild in 2d
-        
+        ; TREATMENT 4: (glitch) rebuild random
+    MAC GRID_TREATMENT_4
+;         lda player_state,x
+;         and #PLAYER_STATE_FIRING
+;         beq _power_grid_replenish
+; _power_grid_drain
+;         lda player_x,x
+;         jsr sub_x2pf
+;         lda player_x,x
+;         clc
+;         adc #$04 ; BUGBUG: using a lot of cycles
+;         jsr sub_x2pf
+;         lda player_x,x
+;         clc
+;         adc #$08 ; BUGBUG: using a lot of cycles
+;         jsr sub_x2pf
+; _power_grid_replenish
+        dec power_grid_timer,x
+        bpl _power_grid_next
+        lda #$40
+        sta power_grid_timer,x
+        lda power_grid_reserve,x
+        clc
+        adc #$08
+        sta power_grid_reserve,x
+        and #$78
+        tay
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF0,x
+        iny
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF1,x
+        iny
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF2,x
+        iny
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF3,x
+        iny
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF4,x
+        iny
+        lda CleanStart,y
+        sta SC_WRITE_POWER_GRID_PF5,x
+        iny
+_power_grid_next
+    ENDM 
+
         ; TREATMENT 5: (plaid) no drain, alternating spots of flow
     MAC GRID_TREATMENT_5
         dec power_grid_timer,x
@@ -177,14 +223,31 @@ _power_grid_next
         lda PF0_GRID,y
         sta SC_WRITE_POWER_GRID_PF5,x
 _power_grid_next
-
     ENDM 
+
+        ; TREATMENT 6: adjust colors
+    MAC GRID_TREATMENT_6
+        lda power_grid_reserve,x
+        bmi _zero_grid
+        lsr
+        lsr
+        lsr
+        sta SC_WRITE_POWER_GRID_COLOR,x           
+        lda #$ff 
+        jmp _store_grid
+_zero_grid
+        lda #$00
+_store_grid
+        jsr sub_fill_grid
+_power_grid_next
+    ENDM 
+
+        ; TREATMENT 7: flicker as power drains
+
+
         ; TREATMENT 8: (river) no drain, alternating flow left/right/center/away
     MAC GRID_TREATMENT_8
         ; need state + timer + flow
     ENDM 
 
-        ; TREATMENT 6: adjust colors
-        ; TREATMENT 7: flicker as power drains
-        ; TREATMENT 9: sound designs
 
