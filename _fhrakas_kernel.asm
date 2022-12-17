@@ -101,7 +101,7 @@ _lo_resp_loop
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMM0                ;3  18+
             SLEEP 6                 ;3  24+ ; BUGBUG: line glitch
-            sta RESM0               ;3  27+ ; TODO: seems wasteful
+            sta RESM0               ;3  27+ ; BUGBUG: GLITCH: goes over
 
              ; resp top player
             sta WSYNC               ;3   0
@@ -114,7 +114,7 @@ _lt_hi_resp_loop
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMP0                ;3  18+
             SLEEP 3                 ;2  21+ ; BUGBUG: shim
-            sta RESP0               ;3  24+ 
+            sta RESP0               ;3  24+ ; 
 
             ; top line
             sta WSYNC
@@ -341,7 +341,7 @@ formation_end_jmp
             tax                             ;2  37
 _laser_hit_test
             lda #$40                        ;2  39
-            and CXM0P                       ;2  41 ; check collision
+            and CXM0P                       ;2  41 ; check collision; BUGBUG can miss
             bne _laser_hit_test_hit         ;2  43
             sta WSYNC 
             jmp _laser_hit_test_end
@@ -364,7 +364,7 @@ _lt_lo_resp_loop
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMP0                ;3  18+
             sta HMM0                ;3  21+ ; just for timing shim
-            sta RESP0               ;3  24+ 
+            sta RESP0               ;3  24+ ; 
 
             ; top line
             sta WSYNC

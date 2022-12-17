@@ -101,14 +101,14 @@ PLAYER_STATE_HAS_POWER = $01 ; power grid has power
 PLAYER_STATE_FIRING    = $02 ; player is firing
 ; BUGBUG: TODO
 PLAYER_STATE_RANGE     = $03 ; beam range
-PLAYER_STATE_LINE      = $08 ; 
+PLAYER_STATE_LINE      = $08 ; fire in a straight line
 PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
 PLAYER_STATE_AUTO_FIRE = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
 
-POWER_RESERVE_COOLDOWN = $80
+POWER_RESERVE_COOLDOWN = -64
 POWER_RESERVE_MAX = $7f
-POWER_RESERVE_SHOT_DRAIN = 4
+POWER_RESERVE_SHOT_DRAIN = 2
 
 ; ----------------------------------
 ; variables
@@ -146,7 +146,6 @@ player_x          ds NUM_PLAYERS      ; player x position
 player_score      ds NUM_PLAYERS      ; score
 
 power_grid_reserve ds NUM_PLAYERS
-power_grid_timer   ds NUM_PLAYERS
 
 laser_ax          ds 2  ;
 laser_ay          ds 2  ;
@@ -515,20 +514,11 @@ formation_update_return
 
             ; power_grid update
 power_grid_update
-            ; BUGBUG: TODO: update rate
+            ; update players on alternate frames
             lda frame
             and #$01
-            bne _power_grid_update
-            jmp _power_grid_update_end
-_power_grid_update
-            ldx #NUM_PLAYERS - 1            
-_power_grid_update_loop
-            ; TODO: other methods
-            ; TODO: jump this
+            tax
             GRID_TREATMENT_6
-            dex
-            bmi _power_grid_update_end
-            jmp _power_grid_update_loop
 _power_grid_update_end
 
 player_update
@@ -582,11 +572,24 @@ _player_update_anim
             lda local_player_sprite_lobyte
             sta player_sprite,y ; y = x * 2
 _player_end_move
-            cpx #1
+            ;; next player
+            dex
+            bmi _player_update_end
+            jmp _player_update_loop
+_player_update_end
+
+player_fire_aim
+            lda frame
+            and #$01
+            tax
+            cpx #1; BUGBUG: make autofire configurable
             bcc _player_update_skip_auto_fire
-            lda player_state,x
+_player__fire_auto
+            lda player_state,x 
             and #PLAYER_STATE_HAS_POWER
             beq _player_no_fire 
+            lda power_grid_reserve,x ; drain power reserve
+            bmi _player_no_fire ; BUGBUG doesn't work for AI
             jmp _player_fire
             ; power ; BUGBUG: debugging power
 _player_update_skip_auto_fire
@@ -597,6 +600,7 @@ _player_fire
             and #PLAYER_STATE_HAS_POWER
             beq _player_misfire 
             lda power_grid_reserve,x ; drain power reserve
+            bmi _player_misfire
             sec
             sbc #POWER_RESERVE_SHOT_DRAIN
             bcs _player_power_save
@@ -609,7 +613,7 @@ _player_power_save
 _player_misfire
            ; BUGBUG penalize power
 _player_no_fire
-            lda power_grid_reserve,x ; drain power reserve
+            lda power_grid_reserve,x ; restore power reserve
             cmp #POWER_RESERVE_MAX
             beq _player_power_skip_restore
             clc
@@ -620,17 +624,6 @@ _player_power_skip_restore
             and #$fd
 _player_save_fire
             sta player_state,x
-_player_update_next_player
-            ;; next player
-            dex
-            bmi _player_update_end
-            jmp _player_update_loop
-_player_update_end
-
-player_aim
-            lda frame
-            and #$01
-            tax
             ; calc distance between player and aim point
             ; firing - auto-aim
             lda ball_x
@@ -723,8 +716,8 @@ _player_draw_beam_skip_bump_hmov
             ; we are firing - calc force values
 _player_draw_beam_pattern_loop
             iny
-            tya
-            and #PLAYER_STATE_FIRING
+            ;tya BUGBUG: adjust patterns
+            lda #PLAYER_STATE_FIRING
             ora SC_READ_LASER_HMOV_0,y
             sta SC_WRITE_LASER_HMOV_0,y
             cpy #PLAYFIELD_BEAM_RES - 1
@@ -1363,24 +1356,31 @@ waitOnVBlank_loop
 ; MVP TODO
 ;  - physics glitches
 ;     - no power at certain angles
+;       - at least partially due to collision glitch fixes (if you miss bottom)
 ;     - uncontrollable bouncing
+;     - stuck vertical
 ;     - ununtuitive reaction to shots
 ;  - input glitches
 ;     - accidental firing when game starts
 ;  - power grid mechanics MVP
 ;    - variables
-;      - shot variable hi/lo power
-;      - shot range changes power
+;      - max power 
+;      - shot drain per shot
+;      - special drain per shot
+;      - cooldown recovery per frame
+;      - normal recovery per frame
+;      - visual cues
+;         - waveform (flow pattern)
+;         - power level
+;         - cooldown
+;         - recovery (from sides)
+;         - special ready
 ;      - power reserve level
-;      - waveform (flow pattern)
 ;      - pull rate (flow in from next to player)
 ;      - draw (remove from under player)
 ;      - width (area drained)
 ;      - capacitance (withhold before firing)
 ;      - relation to sound
-;  - power bank mechanics
-;     - boost / penalty 
-;     - add special powerup indicator
 ;  - shield weapon (would be good to test if possible)
 ;     - need way to organize player options
 ;     - need way to turn beam on/off per line
@@ -1436,6 +1436,10 @@ waitOnVBlank_loop
 ;     - mandala (spinning symmmetrics)
 ;     - chakra (circular rotating maze)
 ;  THINK ABOUT
+;  - power grid shot mechanics
+;      - shot power (per player)
+;      - choosable hi/lo power 
+;      - shot range affects power
 ;  - alternate target
 ;    - multiball (shadowball...)
 ;    - being able to attack other player
