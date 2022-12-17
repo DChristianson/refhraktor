@@ -146,6 +146,7 @@ player_x          ds NUM_PLAYERS      ; player x position
 player_score      ds NUM_PLAYERS      ; score
 
 power_grid_reserve ds NUM_PLAYERS
+power_grid_timer   ds NUM_PLAYERS
 
 laser_ax          ds 2  ;
 laser_ay          ds 2  ;
@@ -588,8 +589,9 @@ _player__fire_auto
             lda player_state,x 
             and #PLAYER_STATE_HAS_POWER
             beq _player_no_fire 
-            lda power_grid_reserve,x ; drain power reserve
-            bmi _player_no_fire ; BUGBUG doesn't work for AI
+            lda power_grid_reserve,x ; check power reserve
+            cmp #POWER_RESERVE_SHOT_DRAIN
+            bcc _player_no_fire ; 
             jmp _player_fire
             ; power ; BUGBUG: debugging power
 _player_update_skip_auto_fire
