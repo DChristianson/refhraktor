@@ -166,7 +166,7 @@
 
     MAC ADD16_8x; Given A16, B8, store A + B -> A 
             ldy #$00       ;2  2
-            lda {2},x      ;4  6
+            lda {2}        ;4  6
             bpl ._add16_8  ;2  8
             ldy #$ff       ;2 10
 ._add16_8

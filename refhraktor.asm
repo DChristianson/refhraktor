@@ -106,9 +106,9 @@ PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double w
 PLAYER_STATE_AUTO_FIRE = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
 
-POWER_RESERVE_COOLDOWN = -64
-POWER_RESERVE_MAX = $7f
-POWER_RESERVE_SHOT_DRAIN = 2
+POWER_RESERVE_COOLDOWN = -32
+POWER_RESERVE_MAX = 127
+POWER_RESERVE_SHOT_DRAIN = 4
 
 ; ----------------------------------
 ; variables
@@ -148,8 +148,6 @@ player_score      ds NUM_PLAYERS      ; score
 power_grid_reserve ds NUM_PLAYERS
 power_grid_timer   ds NUM_PLAYERS
 
-laser_ax          ds 2  ;
-laser_ay          ds 2  ;
 laser_lo_x        ds 1  ; start x for the low laser
 
 ball_y            ds 2 
@@ -201,6 +199,8 @@ local_player_draw_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computa
 local_player_draw_dx          = LOCAL_OVERLAY + 3
 local_player_draw_D           = LOCAL_OVERLAY + 4
 local_player_draw_hmove       = LOCAL_OVERLAY + 5
+local_laser_ay                = LOCAL_OVERLAY + 6 ; force over distance
+local_laser_ax                = LOCAL_OVERLAY + 7 ; sideways force
 
 ; -- playfield kernel locals
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
@@ -360,7 +360,7 @@ kernel_dropBall
             sta ball_dx + 1
             sta ball_dy
             sta ball_dy + 1
-            lda #$80
+            lda #POWER_RESERVE_COOLDOWN
             sta power_grid_reserve
             sta power_grid_reserve + 1
             ; animate ball drop
@@ -381,6 +381,10 @@ _drop_init_game
             ldx track_select
             lda TRACKS,x
             sta audio_tracker
+            ; power up
+            lda #POWER_RESERVE_MAX
+            sta power_grid_reserve
+            sta power_grid_reserve + 1
             ; init to game
             lda #BALL_COLOR
             sta ball_color
@@ -578,7 +582,7 @@ _player_end_move
             bmi _player_update_end
             jmp _player_update_loop
 _player_update_end
-
+            
 player_fire_aim
             lda frame
             and #$01
@@ -590,8 +594,7 @@ _player__fire_auto
             and #PLAYER_STATE_HAS_POWER
             beq _player_no_fire 
             lda power_grid_reserve,x ; check power reserve
-            cmp #POWER_RESERVE_SHOT_DRAIN
-            bcc _player_no_fire ; 
+            bmi _player_no_fire ; 
             jmp _player_fire
             ; power ; BUGBUG: debugging power
 _player_update_skip_auto_fire
@@ -616,10 +619,14 @@ _player_misfire
            ; BUGBUG penalize power
 _player_no_fire
             lda power_grid_reserve,x ; restore power reserve
-            cmp #POWER_RESERVE_MAX
-            beq _player_power_skip_restore
+            bpl _player_power_skip_restore
+            ; cmp #POWER_RESERVE_MAX
+            ; beq _player_power_skip_restore
             clc
             adc #$01
+            bmi _player_power_save_restore
+            lda #POWER_RESERVE_MAX
+_player_power_save_restore
             sta power_grid_reserve,x
 _player_power_skip_restore
             lda player_state,x
@@ -638,6 +645,8 @@ _player_aim_beam_hi
             clc
             adc #$01
             tay            ; dy
+            lda #PLAYFIELD_BEAM_RES / 2 ; shot power
+            sta local_laser_ay
             lda player_x,x
             sec
             sbc local_player_draw_aim_x    ; dx
@@ -646,30 +655,46 @@ _player_aim_beam_lo
             clc           ; add view height to get dy
             adc #PLAYFIELD_VIEWPORT_HEIGHT
             tay           ; dy
+            lda #-PLAYFIELD_BEAM_RES / 2 ; shot power
+            sta local_laser_ay
             lda local_player_draw_aim_x
             sec
             sbc player_x,x ; dx
 _player_aim_beam_interp
-            cpy #PLAYFIELD_BEAM_RES ; if dy < BEAM res, double everything
-            bcs _player_aim_beam_end
-            asl 
             sta local_player_draw_dx
+            sty local_player_draw_dy
+            sta local_laser_ax           
             tya
-            asl 
-            tay
-            lda local_player_draw_dx
+            sec
+            sbc #PLAYFIELD_BEAM_RES
+            bcs _player_aim_beam_interp_mid
+            asl local_player_draw_dx
+            asl local_player_draw_dy    
+            asl local_laser_ay
+            asl local_laser_ay
+            jmp _player_aim_beam_end
+_player_aim_beam_interp_mid
+            sbc #PLAYFIELD_BEAM_RES
+            bcs _player_aim_beam_end         
+            asl local_laser_ay
 _player_aim_beam_end
 
             ; figure out beam path
+            ldy local_player_draw_dy
+            lda local_player_draw_dx
 _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
-            sty local_player_draw_dy
-            cmp #00
             bpl _player_draw_beam_left
             eor #$ff
             clc
             adc #$01
             cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_right
+            sbc local_player_draw_dy
+            cmp #4 ; shim - checking if this is a miss
+            bcc _player_draw_skip_normalize_dx_left
+            lda #0
+            sta local_laser_ax
+            sta local_laser_ay
             tya
 _player_draw_skip_normalize_dx_right
             sta local_player_draw_dx 
@@ -678,6 +703,12 @@ _player_draw_skip_normalize_dx_right
 _player_draw_beam_left
             cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_left
+            sbc local_player_draw_dy
+            cmp #4 ; shim - checking if this is a miss
+            bcc _player_draw_skip_normalize_dx_left
+            lda #0
+            sta local_laser_ax
+            sta local_laser_ay
             tya
 _player_draw_skip_normalize_dx_left
             sta local_player_draw_dx
@@ -724,28 +755,6 @@ _player_draw_beam_pattern_loop
             sta SC_WRITE_LASER_HMOV_0,y
             cpy #PLAYFIELD_BEAM_RES - 1
             bmi _player_draw_beam_pattern_loop
-            ; calc ax/ay coefficient
-            ldy #$f0
-            sec
-            lda #PLAYFIELD_BEAM_RES * 2
-            sbc local_player_draw_x_travel
-            cpx #$00
-            bne _player_draw_beam_skip_invert_ay
-            ldy #$10
-            eor #$ff
-            clc
-            adc #$01
-_player_draw_beam_skip_invert_ay
-            sta laser_ay,x
-            lda local_player_draw_x_travel
-            asl
-            cpy local_player_draw_hmove 
-            beq _player_draw_beam_skip_invert_ax
-            eor #$ff
-            clc
-            adc #$01
-_player_draw_beam_skip_invert_ax
-            sta laser_ax,x
 _player_draw_beam_skip_firing
             cpx #0
             beq _player_aim_calc_lo
@@ -777,6 +786,22 @@ _player_aim_refract_no_invert
             sbc #96
 _player_aim_save_laser_x
             sta laser_lo_x
+
+;--------------------
+; apply laser effect (x = player/frame)
+
+laser_hit
+            lda #0
+            sta ball_ax
+            sta ball_ax + 1
+            sta ball_ay
+            sta ball_ay + 1
+            lda player_state,x ; x = player/frame)
+            and #PLAYER_STATE_FIRING
+            beq _laser_hit_end
+            ADD16_8x ball_ax, local_laser_ax 
+            ADD16_8x ball_ay, local_laser_ay  
+_laser_hit_end
 
 
 ;---------------------

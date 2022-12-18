@@ -331,24 +331,7 @@ formation_end_jmp
             sta PF0                         ;3   9
             sta PF1                         ;3  12
             sta PF2                         ;3  15
-            sta ball_ax + 1                 ;3  18
-            sta ball_ax                     ;3  21
-            sta ball_ay + 1                 ;3  24
-            sta ball_ay                     ;3  27
             sta VDELP1                      ;3  30
-            lda frame                       ;3  33
-            and #$01                        ;2  35
-            tax                             ;2  37
-_laser_hit_test
-            lda #$40                        ;2  39
-            and CXM0P                       ;2  41 ; check collision; BUGBUG can miss
-            bne _laser_hit_test_hit         ;2  43
-            sta WSYNC 
-            jmp _laser_hit_test_end
-_laser_hit_test_hit
-            ADD16_8x ball_ax, laser_ax      ;26 70
-            ADD16_8x ball_ay, laser_ay      ;26 ..
-_laser_hit_test_end
 
 ;---------------------
 ; laser track (lo)
