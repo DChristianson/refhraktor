@@ -154,8 +154,8 @@ ball_y            ds 2
 ball_x            ds 2
 ball_dy           ds 2
 ball_dx           ds 2
-ball_ay           ds 2
-ball_ax           ds 2
+ball_ay           ds 1
+ball_ax           ds 1
 ball_color        ds 1
 ball_voffset      ds 1 ; ball position countdown BUGBUG: TODO can make display local?
 ball_cx           ds BALL_HEIGHT ; collision registers
@@ -199,8 +199,6 @@ local_player_draw_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computa
 local_player_draw_dx          = LOCAL_OVERLAY + 3
 local_player_draw_D           = LOCAL_OVERLAY + 4
 local_player_draw_hmove       = LOCAL_OVERLAY + 5
-local_laser_ay                = LOCAL_OVERLAY + 6 ; force over distance
-local_laser_ax                = LOCAL_OVERLAY + 7 ; sideways force
 
 ; -- playfield kernel locals
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
@@ -353,9 +351,7 @@ kernel_dropBall
             sta power_grid_timer
             sta power_grid_timer + 1
             sta ball_ax
-            sta ball_ax + 1
             sta ball_ay
-            sta ball_ay + 1
             sta ball_dx
             sta ball_dx + 1
             sta ball_dy
@@ -473,9 +469,9 @@ _ball_update_cx_end_acc
             dey
             bpl _ball_update_cx_end
             ; apply acceleration if no collision
-            ADD16 ball_dx, ball_ax
+            ADD16_8x ball_dx, ball_ax
             CLAMP16 ball_dx, -4, 4
-            ADD16 ball_dy, ball_ay
+            ADD16_8x ball_dy, ball_ay
             CLAMP16 ball_dy, -4, 4
 _ball_update_cx_end
 
@@ -646,7 +642,7 @@ _player_aim_beam_hi
             adc #$01
             tay            ; dy
             lda #PLAYFIELD_BEAM_RES / 2 ; shot power
-            sta local_laser_ay
+            sta ball_ay
             lda player_x,x
             sec
             sbc local_player_draw_aim_x    ; dx
@@ -656,27 +652,30 @@ _player_aim_beam_lo
             adc #PLAYFIELD_VIEWPORT_HEIGHT
             tay           ; dy
             lda #-PLAYFIELD_BEAM_RES / 2 ; shot power
-            sta local_laser_ay
+            sta ball_ay
             lda local_player_draw_aim_x
             sec
             sbc player_x,x ; dx
 _player_aim_beam_interp
             sta local_player_draw_dx
             sty local_player_draw_dy
-            sta local_laser_ax           
+            eor #$ff ; store ball acceleratiob
+            clc
+            adc #$01
+            sta ball_ax           
             tya
             sec
             sbc #PLAYFIELD_BEAM_RES
             bcs _player_aim_beam_interp_mid
             asl local_player_draw_dx
             asl local_player_draw_dy    
-            asl local_laser_ay
-            asl local_laser_ay
+            asl ball_ay
+            asl ball_ay
             jmp _player_aim_beam_end
 _player_aim_beam_interp_mid
             sbc #PLAYFIELD_BEAM_RES
             bcs _player_aim_beam_end         
-            asl local_laser_ay
+            asl ball_ay
 _player_aim_beam_end
 
             ; figure out beam path
@@ -693,8 +692,8 @@ _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
             cmp #4 ; shim - checking if this is a miss
             bcc _player_draw_skip_normalize_dx_left
             lda #0
-            sta local_laser_ax
-            sta local_laser_ay
+            sta ball_ax
+            sta ball_ay
             tya
 _player_draw_skip_normalize_dx_right
             sta local_player_draw_dx 
@@ -707,8 +706,8 @@ _player_draw_beam_left
             cmp #4 ; shim - checking if this is a miss
             bcc _player_draw_skip_normalize_dx_left
             lda #0
-            sta local_laser_ax
-            sta local_laser_ay
+            sta ball_ax
+            sta ball_ay
             tya
 _player_draw_skip_normalize_dx_left
             sta local_player_draw_dx
@@ -791,16 +790,12 @@ _player_aim_save_laser_x
 ; apply laser effect (x = player/frame)
 
 laser_hit
-            lda #0
-            sta ball_ax
-            sta ball_ax + 1
-            sta ball_ay
-            sta ball_ay + 1
             lda player_state,x ; x = player/frame)
             and #PLAYER_STATE_FIRING
-            beq _laser_hit_end
-            ADD16_8x ball_ax, local_laser_ax 
-            ADD16_8x ball_ay, local_laser_ay  
+            bne _laser_hit_end
+            lda #0
+            sta ball_ax
+            sta ball_ay
 _laser_hit_end
 
 
@@ -1380,6 +1375,8 @@ waitOnVBlank_loop
 ;       - one factor is when ball_voffset starts at 1
 ;     - collision bugs (stuck)
 ;  - switch controls to shared code
+;  - shot mechanics 
+;      - shot range affects power
 ; MVP TODO
 ;  - physics glitches
 ;     - no power at certain angles
@@ -1390,24 +1387,27 @@ waitOnVBlank_loop
 ;  - input glitches
 ;     - accidental firing when game starts
 ;  - power grid mechanics MVP
-;    - variables
+;    - variables (per player?)
 ;      - max power 
 ;      - shot drain per shot
 ;      - special drain per shot
 ;      - cooldown recovery per frame
 ;      - normal recovery per frame
-;      - visual cues
-;         - waveform (flow pattern)
-;         - power level
-;         - cooldown
-;         - recovery (from sides)
-;         - special ready
-;      - power reserve level
+;    - visual cues
+;      - waveform (flow pattern)
+;      - power level
+;      - recovery (from sides)
+;      - special ready
 ;      - pull rate (flow in from next to player)
 ;      - draw (remove from under player)
 ;      - width (area drained)
-;      - capacitance (withhold before firing)
+;    - audio queues
+;      - power reserve level
+;      - cooldown
 ;      - relation to sound
+;  - shot mechanics MVP
+;      - alternating player gets to "serve"
+;      - spin
 ;  - shield weapon (would be good to test if possible)
 ;     - need way to organize player options
 ;     - need way to turn beam on/off per line
@@ -1440,7 +1440,8 @@ waitOnVBlank_loop
 ;     - get lasers starting from players
 ;     - remove color change glitches
 ;     - remove vdelay glitch on ball update
-;     - lasers weird at certain positions
+;     - lasers weird at certain positions 
+;     - frame rate glitch at certain positions
 ;  - clean up play screen 
 ;     - free up scanlines around power tracks
 ;     - adjust background / foreground color
@@ -1464,9 +1465,8 @@ waitOnVBlank_loop
 ;     - chakra (circular rotating maze)
 ;  THINK ABOUT
 ;  - power grid shot mechanics
-;      - shot power (per player)
+;      - shot power (capacitance) (per player)
 ;      - choosable hi/lo power 
-;      - shot range affects power
 ;  - alternate target
 ;    - multiball (shadowball...)
 ;    - being able to attack other player

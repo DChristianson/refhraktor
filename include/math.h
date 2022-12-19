@@ -5,6 +5,7 @@
     MAC CLAMP16 ; given A, MIN, MAX
             ; check bounds, set to MIN or MAX if out of bounds
             ; BUGBUG: doesn't handle fractions
+            ; BUGBUG: only works with pos/neg
             lda {1}
             bmi .clamp16_check_min
 .clamp16_check_max
@@ -16,9 +17,10 @@
             sta {1} + 1
             jmp .clamp16_end
 .clamp16_check_min
-            lda #{2}
+            lda #({2} - 1) ; shift one over 
             cmp {1}
             bcc .clamp16_end
+            adc #$00 ; add 1 (carry is set)
             sta {1}
             lda #$00
             sta {1} + 1
@@ -27,8 +29,9 @@
 
     MAC CLAMP_REFLECT_16 ; given A, B, MIN, MAX 
             ; check bounds, reflect B if we hit
+            ; BUGBUG: fractions is sketchy
 .clamp16_check_max
-            lda #{4}
+            lda #({4} - 1) ; fake fraction
             cmp {1}
             bcs .clamp16_check_min
             sta {1}
@@ -47,9 +50,10 @@
             sta {2}            
             jmp .clamp16_end
 .clamp16_check_min
-            lda #{3}
+            lda #({3} - 1) ; shift one over
             cmp {1}
             bcc .clamp16_end
+            adc #$00 ; add 1 (carry is set)
             sta {1}
             lda #$00
             sta {1} + 1
