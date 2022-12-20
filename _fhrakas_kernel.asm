@@ -254,12 +254,10 @@ _ball_resp_loop
             sta RESP0               ;3  24+
             sta RESP1               ;3  27+
 
- ; BUGBUG: vdelay?
             ; hmove ball, shadow 
             sta WSYNC                    ;3   0
             sta HMOVE                    ;3   3
             lda ball_color               ;3   6
-            ; BUGBUG: disable ball?
             sta COLUP0                   ;3   9
             ; point SP at collision register
             tsx                          ;2  11

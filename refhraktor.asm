@@ -103,8 +103,8 @@ PLAYER_STATE_FIRING    = $02 ; player is firing
 PLAYER_STATE_RANGE     = $03 ; beam range
 PLAYER_STATE_LINE      = $08 ; fire in a straight line
 PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
-PLAYER_STATE_AUTO_FIRE = $40 ; BUGBUG: TODO
-PLAYER_STATE_AUTO_AIM  = $80 ; BUGBUG: TODO
+PLAYER_STATE_AUTO_AIM  = $40 ; BUGBUG: TODO
+PLAYER_STATE_AUTO_FIRE = $80 ; BUGBUG: TODO
 
 POWER_RESERVE_COOLDOWN = -32
 POWER_RESERVE_MAX = 127
@@ -431,7 +431,7 @@ ball_update
             ; collision
             ldy #0
 _ball_update_cx_bottom
-            lda ball_cx + BALL_HEIGHT - 1)
+            lda ball_cx + BALL_HEIGHT - 1
             ora ball_cx + BALL_HEIGHT - 2
             bpl _ball_update_cx_top
             ABS16 ball_dy
@@ -526,8 +526,9 @@ player_update
             ldx #NUM_PLAYERS - 1
 _player_update_loop
             ; auto player movement
-            cpx #1
-            bcc _player_update_skip_auto_track
+            lda player_state,x
+            and #PLAYER_STATE_AUTO_AIM
+            beq _player_update_skip_auto_track
             lda ball_x
             sec
             sbc #(PLAYFIELD_WIDTH / 2)
@@ -583,10 +584,10 @@ player_fire_aim
             lda frame
             and #$01
             tax
-            cpx #1; BUGBUG: make autofire configurable
-            bcc _player_update_skip_auto_fire
-_player__fire_auto
             lda player_state,x 
+            ; check auto fire ($80)
+            bpl _player_update_skip_auto_fire
+_player_fire_auto
             and #PLAYER_STATE_HAS_POWER
             beq _player_no_fire 
             lda power_grid_reserve,x ; check power reserve
@@ -629,8 +630,28 @@ _player_power_skip_restore
             and #$fd
 _player_save_fire
             sta player_state,x
-            ; calc distance between player and aim point
+
+            and #PLAYER_STATE_FIRING
+            bne player_auto_aim
+            sta ball_ax ; a is already 0
+            sta ball_ay
+            sta laser_lo_x
+            ldy #PLAYFIELD_BEAM_RES - 1
+_player_draw_beam_clear_loop
+            sta SC_WRITE_LASER_HMOV_0,y
+            dey
+            bpl _player_draw_beam_clear_loop
+            jmp player_auto_aim_end
+
+            ; BUGBUG: TODO: from here - decide if firing
+            ;     : what kind of firing (auto, linear, barrier)
+            ;     : whether will hit
+            ;     : if hit, how hard
+            ;     : + refhraktion
+
             ; firing - auto-aim
+player_auto_aim 
+            ; calc distance between player and aim point
             lda ball_x
             sta local_player_draw_aim_x
             lda ball_voffset ; get distance to ball
@@ -640,30 +661,31 @@ _player_aim_beam_hi
             eor #$ff      ; invert offset to get dy
             clc
             adc #$01
-            tay            ; dy
+            sta local_player_draw_dy
             lda #PLAYFIELD_BEAM_RES / 2 ; shot power
             sta ball_ay
             lda player_x,x
             sec
             sbc local_player_draw_aim_x    ; dx
+            sta local_player_draw_dx
+            eor #$ff ; store ball acceleration
+            clc
+            adc #$01
+            sta ball_ax           
             jmp _player_aim_beam_interp
 _player_aim_beam_lo
             clc           ; add view height to get dy
             adc #PLAYFIELD_VIEWPORT_HEIGHT
-            tay           ; dy
+            sta local_player_draw_dy
             lda #-PLAYFIELD_BEAM_RES / 2 ; shot power
             sta ball_ay
             lda local_player_draw_aim_x
             sec
             sbc player_x,x ; dx
-_player_aim_beam_interp
             sta local_player_draw_dx
-            sty local_player_draw_dy
-            eor #$ff ; store ball acceleratiob
-            clc
-            adc #$01
             sta ball_ax           
-            tya
+_player_aim_beam_interp
+            lda local_player_draw_dy
             sec
             sbc #PLAYFIELD_BEAM_RES
             bcs _player_aim_beam_interp_mid
@@ -690,10 +712,11 @@ _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
             bcc _player_draw_skip_normalize_dx_right
             sbc local_player_draw_dy
             cmp #4 ; shim - checking if this is a miss
-            bcc _player_draw_skip_normalize_dx_left
+            bcc _player_draw_skip_clear_ax_right
             lda #0
             sta ball_ax
             sta ball_ay
+_player_draw_skip_clear_ax_right
             tya
 _player_draw_skip_normalize_dx_right
             sta local_player_draw_dx 
@@ -704,10 +727,11 @@ _player_draw_beam_left
             bcc _player_draw_skip_normalize_dx_left
             sbc local_player_draw_dy
             cmp #4 ; shim - checking if this is a miss
-            bcc _player_draw_skip_normalize_dx_left
+            bcc _player_draw_skip_clear_ax_left
             lda #0
             sta ball_ax
             sta ball_ay
+_player_draw_skip_clear_ax_left
             tya
 _player_draw_skip_normalize_dx_left
             sta local_player_draw_dx
@@ -742,19 +766,16 @@ _player_draw_beam_skip_bump_hmov
             sta local_player_draw_D
             dey
             bpl _player_draw_beam_loop
-            lda player_state,x
-            and #PLAYER_STATE_FIRING
-            beq _player_draw_beam_skip_firing
             ; we are firing - calc force values
 _player_draw_beam_pattern_loop
             iny
-            ;tya BUGBUG: adjust patterns
+            ; set beam pattern
+            ; BUGBUG: adjust patterns
             lda #PLAYER_STATE_FIRING
             ora SC_READ_LASER_HMOV_0,y
             sta SC_WRITE_LASER_HMOV_0,y
             cpy #PLAYFIELD_BEAM_RES - 1
             bmi _player_draw_beam_pattern_loop
-_player_draw_beam_skip_firing
             cpx #0
             beq _player_aim_calc_lo
             lda player_x + 1
@@ -785,19 +806,7 @@ _player_aim_refract_no_invert
             sbc #96
 _player_aim_save_laser_x
             sta laser_lo_x
-
-;--------------------
-; apply laser effect (x = player/frame)
-
-laser_hit
-            lda player_state,x ; x = player/frame)
-            and #PLAYER_STATE_FIRING
-            bne _laser_hit_end
-            lda #0
-            sta ball_ax
-            sta ball_ay
-_laser_hit_end
-
+player_auto_aim_end
 
 ;---------------------
 ; end vblank
