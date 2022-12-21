@@ -77,7 +77,7 @@ kernel_menu_track
             lda PLAYER_SPRITES_B2,x
             sta player_sprite + 2
             ; load stage
-            lda #12
+            lda #8
             ldx formation_select
             ldy STAGE_NAMES,x
             ldx #STRING_BUFFER_6
@@ -86,7 +86,7 @@ kernel_menu_track
             lda #8
             ldx track_select
             ldy TRACK_NAMES,x
-            ldx #STRING_BUFFER_C
+            ldx #STRING_BUFFER_A
             jsr strfmt
 
             jsr waitOnVBlank_2 ; SL 34
@@ -145,7 +145,7 @@ _equip_resp_loop
             ldy #30
 _not_stage
             ldx #STRING_BUFFER_6
-            jsr text_kernel
+            jsr text_kernel_4
 
             ; track
             ldy #02
@@ -155,7 +155,7 @@ _not_stage
             bne _not_track
             ldy #30
 _not_track
-            ldx #STRING_BUFFER_C
+            ldx #STRING_BUFFER_A
             jsr text_kernel_4
 
             ldx #19
@@ -353,10 +353,10 @@ _grid_nextGridLine
 ; y = char buffer offset
 
 strfmt
-            sty local_strfmt_start
+            sty local_strfmt_tail
             clc
-            adc local_strfmt_start
-            sta local_strfmt_start
+            adc local_strfmt_tail 
+            sta local_strfmt_tail
             ;; only write one line per run
             lda frame
             and #$07
@@ -571,9 +571,10 @@ _strfmt_hi_00
             iny
             ; fallthrough
 _strfmt_stop
+            ; fill out any blanks
             tya
             sec
-            sbc local_strfmt_start
+            sbc local_strfmt_tail
             bpl _strfmt_end
             eor #$ff
             adc #$00

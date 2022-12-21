@@ -183,7 +183,7 @@ local_strfmt_stack    = LOCAL_OVERLAY
 local_strfmt_index_hi = LOCAL_OVERLAY + 1
 local_strfmt_index_lo = LOCAL_OVERLAY + 2
 local_strfmt_index_offset = LOCAL_OVERLAY + 3
-local_strfmt_start = LOCAL_OVERLAY + 4
+local_strfmt_tail = LOCAL_OVERLAY + 4
 
 ; -- grid kernel locals
 local_grid_gap = LOCAL_OVERLAY      
@@ -225,6 +225,7 @@ local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min
   SC_DS STRING_BUFFER_6, 8
   SC_DS STRING_BUFFER_7, 8
   SC_DS STRING_BUFFER_8, 8
+  SC_DS STRING_BUFFER_9, 8
   SC_DS STRING_BUFFER_A, 8
   SC_DS STRING_BUFFER_B, 8
   SC_DS STRING_BUFFER_C, 8
@@ -1383,85 +1384,92 @@ waitOnVBlank_loop
 ;     - ball score not in goal
 ;       - one factor is when ball_voffset starts at 1
 ;     - collision bugs (stuck)
+;     - no power at certain angles
+;       - at least partially due to collision glitch fixes (if you miss bottom)
+;     - stuck vertical
+;     - ununtuitive reaction to shots
 ;  - switch controls to shared code
 ;  - shot mechanics 
 ;      - shot range affects power
-; MVP TODO
-;  - physics glitches
-;     - no power at certain angles
-;       - at least partially due to collision glitch fixes (if you miss bottom)
-;     - uncontrollable bouncing
-;     - stuck vertical
-;     - ununtuitive reaction to shots
-;  - input glitches
-;     - accidental firing when game starts
-;  - power grid mechanics MVP
+;  - power grid mechanics
 ;    - variables (per player?)
 ;      - max power 
 ;      - shot drain per shot
-;      - special drain per shot
 ;      - cooldown recovery per frame
 ;      - normal recovery per frame
-;    - visual cues
-;      - waveform (flow pattern)
-;      - power level
-;      - recovery (from sides)
-;      - special ready
-;      - pull rate (flow in from next to player)
-;      - draw (remove from under player)
-;      - width (area drained)
-;    - audio queues
-;      - power reserve level
-;      - cooldown
-;      - relation to sound
-;  - shot mechanics MVP
-;      - alternating player gets to "serve"
-;      - spin
+;  - code
+;     - split up by bank
+;     - organize superchip ram
+; MVP TODO
+;  - input glitches
+;     - accidental firing when game starts
+;  - physics glitches
+;     - low power at certain angles
+;     - uncontrollable bouncing
+;  - laser weapons
+;     - different power levels
+;     - make lasers refract off ball 
 ;  - shield weapon (would be good to test if possible)
 ;     - need way to organize player options
 ;     - need way to turn beam on/off per line
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
-;  - playfields
-;     - more vertical space
-;  - game over criteria
-;     - some way to end game
-;  - controls
-;     - some way to cancel back to lobby
-;  - MVP levels 
-;     - void (empty)
-;     - chute (tracks)
-;     - maze 
-;     - diamonds (obstacles)
-;     - crescent wings (dynamic)
-;     - pachinko (pins)
-;     - pinball (diagonal banks)
-;     - combat
-;  - code
-;     - split up by bank
-;     - organize superchip ram
 ;  - clean up menus 
 ;     - disable unused game modes
 ;     - forward/back/left/right value tranitions
 ;     - gradient color
 ;     - switch ai on/off
-;  - graphical glitches
-;     - get lasers starting from players
-;     - remove color change glitches
-;     - remove vdelay glitch on ball update
-;     - lasers weird at certain positions 
-;     - frame rate glitch at certain positions
+;     - show level 
+;  - game start / end logic
+;     - end game at specific score...
+;     - game timer?
+;     - alternating player gets to "serve"
+;     - alternately - some way to cancel back to lobby?
 ;  - clean up play screen 
 ;     - free up scanlines around power tracks
 ;     - adjust background / foreground color
-;     - free up player/missile/ball
+;     - free up player/missile/ball for background?
 ;     - add score
+;  - power grid sprinkles
+;    - visual cues
+;      - grid color shows power level
+;      - waveform (flow pattern)
+;         - recovery (from sides)
+;         - pull rate (flow in from next to player)
+;          - draw (remove from under player)
+;          - width (area drained)
+;    - audio queues
+;      - shot sound
+;      - cooldown warning
+;      - cooldown occurred
+;      - power restored
+;  - shot mechanics MVP
+;      - spin
+;  - sounds MVP
+;     - start ceremony
+;     - shot sound
+;     - grid sounds
+;     - score sounds
+;     - bounce sound
+;  - graphical glitches
+;     - get lasers starting from players
+;     - remove color change glitches
+;     - remove / mitigate vdelay glitch on ball update
+;     - lasers weird at certain positions 
+;     - frame rate glitch at certain positions
+;  - more playfields
+;     - more vertical space
+;     - MVP levels 
+;       - void (empty)
+;       - chute (tracks)
+;       - maze 
+;       - diamonds (obstacles)
+;       - crescent wings (dynamic)
+;       - pachinko (pins)
+;       - pinball (diagonal banks)
+;       - combat
 ;  MAYBE SOON
-;  - sounds
-;     - some basic sounds
 ;  - basic quest mode (could be good for testing)
-;  DELAY
-;  - make lasers refract off ball (maybe showing the power of the shot?)
 ;  - basic special attacks
 ;    - gravity wave (affect background)
 ;    - emp (affect foreground)
@@ -1501,7 +1509,7 @@ waitOnVBlank_loop
 ;         - extra special weapons
 ;  - physics
 ;    - friction
-;    - gradient field s
+;    - gradient fields
 ;    - boost zones
 ;    - speed limit
 ;  - dynamic playfield
@@ -1516,12 +1524,11 @@ waitOnVBlank_loop
 ;      - wide
 ;      - 3x
 ;      - pockets
-;  - play with grid design
-;  - start / end game logic
-;  - intro screen
-;  - game timer
-;  - start / end game transitions
-;  - cracktro
+;  - sprinkles
+;    - play with grid design
+;    - intro screen
+;    - start / end game transitions
+;    - cracktro
 ;  - co-op play
 ;        - MVP: available in quest mode
 ;        - two rails on same side of screen (up to 4 total with quadtari?)
