@@ -17,6 +17,41 @@
             lda #<{1}
             sta tx_on_timer
     ENDM
+
+    MAC SWITCH_JX_X; given var, max switch l/r
+            ldy {1},x
+            lsr
+            bcc ._switch_jx_right
+            dey
+            bpl ._switch_jx_save 
+            ldy #({2} - 1)
+            jmp ._switch_jx_save
+._switch_jx_right
+            iny 
+            cpy #{2}
+            bcc ._switch_jx_save
+            ldy #0
+._switch_jx_save
+            sty {1},x
+    ENDM
+
+    MAC SWITCH_JX ; given var, max switch l/r
+            ldy {1}
+            lsr
+            bcc ._switch_jx_right
+            dey
+            bpl ._switch_jx_save 
+            ldy #({2} - 1)
+            jmp ._switch_jx_save
+._switch_jx_right
+            iny 
+            cpy #{2}
+            bcc ._switch_jx_save
+            ldy #0
+._switch_jx_save
+            sty {1}
+    ENDM
+
           ; TREATMENT 0: symmetric flow towards player
     MAC GRID_TREATMENT_0
            ; roll in from sides

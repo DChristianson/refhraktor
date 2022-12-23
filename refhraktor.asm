@@ -900,14 +900,18 @@ menu_equip_on_press_down
             jmp jx_on_press_down_return
 
 menu_equip_on_move
-            and #$0f
-            eor #$0f
+            lsr
+            bcc _menu_equip_on_move_down
+            jsr gs_menu_game_setup
+            jmp jx_on_move_return
+_menu_equip_on_move_down
+            lsr
+            bcc _menu_equip_on_move_lr   
+            jsr gs_menu_stage_setup
+            jmp jx_on_move_return
+_menu_equip_on_move_lr
             beq _menu_equip_on_move_end      
-            and player_input,x
-            beq _menu_equip_on_move_end      
-            ; BUGBUG sense the jx proper
-            ; BUGBUG move up/down left/right
-            jsr switch_player
+            SWITCH_JX_X player_select, 3
 _menu_equip_on_move_end
             jmp jx_on_move_return
 
@@ -916,7 +920,7 @@ gs_menu_stage_setup
             and #$f0
             ora #GS_MENU_STAGE
             sta game_state
-            ldy formation_select
+            lda formation_select
             jsr select_formation
             ; jmp tables
             SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
@@ -927,14 +931,20 @@ menu_stage_on_press_down
             jmp jx_on_press_down_return
 
 menu_stage_on_move
-            and #$0f
-            eor #$0f
+            lsr
+            bcc _menu_stage_on_move_down
+            jsr gs_menu_equip_setup
+            jmp jx_on_move_return
+_menu_stage_on_move_down
+            lsr
+            bcc _menu_stage_on_move_lr
+            jsr gs_menu_track_setup
+            jmp jx_on_move_return
+_menu_stage_on_move_lr    
             beq _menu_stage_on_move_end      
-            and player_input,x
-            beq _menu_stage_on_move_end      
-            ; BUGBUG sense the jx proper
-            ; BUGBUG move up/down left/right
-            jsr switch_formation
+            SWITCH_JX formation_select, 4
+            tya ; y will be the formation
+            jsr select_formation
 _menu_stage_on_move_end
             jmp jx_on_move_return
 
@@ -952,14 +962,18 @@ menu_track_on_press_down
             jmp jx_on_press_down_return
 
 menu_track_on_move
-            and #$0f
-            eor #$0f
-            beq _menu_track_on_move_end      
-            and player_input,x
-            beq _menu_track_on_move_end      
-            ; BUGBUG sense the jx proper
-            ; BUGBUG move up/down left/right
-            jsr switch_track
+            lsr
+            bcc _menu_track_on_move_down
+            jsr gs_menu_stage_setup
+            jmp jx_on_move_return
+_menu_track_on_move_down
+            lsr
+            bcc _menu_track_on_move_lr
+            jsr gs_game_setup
+            jmp jx_on_move_return
+_menu_track_on_move_lr 
+            beq _menu_track_on_move_end  
+            SWITCH_JX track_select, 3
 _menu_track_on_move_end
             jmp jx_on_move_return
 
@@ -972,19 +986,26 @@ gs_menu_game_setup
             rts
 
 menu_game_on_press_down
-            ; select game
+            ; move on
             jsr gs_menu_equip_setup
             jmp jx_on_press_down_return
 
 menu_game_on_move
-            and #$0f
-            eor #$0f
-            beq _menu_game_on_move_end      
-            and player_input,x
-            beq _menu_game_on_move_end      
-            ; BUGBUG sense the jx proper
-            ; BUGBUG move up/down left/right
-            jsr switch_game_mode
+            lsr
+            lsr
+            bcc _menu_game_on_move_lr    
+            jsr gs_menu_equip_setup
+            jmp jx_on_move_return
+_menu_game_on_move_lr
+            ; TODO: we only really support one mode right now
+            lda game_state
+            clc
+            adc #$10
+            cmp #(GS_MENU_GAME + __MENU_GAME_QUEST + 1) ; BUGBUG: tournament disabled
+            bcc _menu_game_mode_save_state
+            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
+_menu_game_mode_save_state
+            sta game_state
 _menu_game_on_move_end
             jmp jx_on_move_return
 
@@ -1020,8 +1041,7 @@ _player_setup_loop
             sta player_x,x
             dex
             bpl _player_setup_loop
-            ; disable JX callbacks
-            ; TODO: use JX
+            ; disable JX callbacks (will use inputs from JX though)
             SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
             rts
 
@@ -1069,6 +1089,10 @@ _jx_update_loop
             jmp (jx_on_press_down)
 jx_on_press_down_return
             lda local_jx_player_input
+            and #$0f
+            eor #$0f
+            and player_input,x ; debounce
+            beq jx_on_move_return
             ldx local_jx_player_count ; restore x
             jmp (jx_on_move)
 jx_on_move_return
@@ -1087,45 +1111,8 @@ jx_menu_end
             rts
 
 
-;--------------------------
-; switch game subroutines
-
-switch_game_mode
-            lda game_state
-            clc
-            adc #$10
-            cmp #(GS_MENU_GAME + __MENU_GAME_QUEST + 1) ; BUGBUG: tournament disabled
-            bcc _switch_game_mode_save_state
-            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
-_switch_game_mode_save_state
-            sta game_state
-            rts
-
-;--------------------------
-; player select subroutines
-
-switch_player
-            ldy player_select,x
-            iny 
-            cpy #3
-            bcc _switch_player_save
-            ldy #0
-_switch_player_save
-            sty player_select,x
-            rts
-
 ;-------------------------
-; track select subroutines
-
-switch_track
-            ldy track_select
-            iny 
-            cpy #3
-            bcc _switch_track_save
-            ldy #0
-_switch_track_save
-            sty track_select
-            rts
+; track select data
 
 TRACKS
     byte CLICK_0
@@ -1135,16 +1122,7 @@ TRACKS
 ;--------------------------
 ; formation select subroutines
 
-switch_formation
-            ldy formation_select
-            iny
-            cpy #4
-            bcc _switch_stage_save
-            ldy #0
-_switch_stage_save
-            sty formation_select
 select_formation 
-            tya 
             asl
             tay
             lda FORMATION_UP_TABLE,y
@@ -1370,6 +1348,7 @@ waitOnVBlank_loop
 ;         - show stage and allow switch
 ;    - choose track
 ;         - show track and allow switch
+;     - forward/back/left/right value tranitions
 ;  - stabilize framerate
 ;  - remove extra scanline glitch due to player
 ;  - add power track
@@ -1403,23 +1382,23 @@ waitOnVBlank_loop
 ; MVP TODO
 ;  - input glitches
 ;     - accidental firing when game starts
+;  - clean up menus 
+;     - switch ai on/off
+;     - explicit start game option
+;     - instructions?
+;     - show level 
+;     - disable unused game modes
+;     - gradient color
 ;  - physics glitches
-;     - low power at certain angles
-;     - uncontrollable bouncing
+;     - doesn't reflect bounce on normal
 ;  - laser weapons
-;     - different power levels
+;     - different power levels for different ships..
 ;     - make lasers refract off ball 
 ;  - shield weapon (would be good to test if possible)
 ;     - need way to organize player options
 ;     - need way to turn beam on/off per line
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
-;  - clean up menus 
-;     - disable unused game modes
-;     - forward/back/left/right value tranitions
-;     - gradient color
-;     - switch ai on/off
-;     - show level 
 ;  - game start / end logic
 ;     - end game at specific score...
 ;     - game timer?
@@ -1444,6 +1423,7 @@ waitOnVBlank_loop
 ;      - cooldown occurred
 ;      - power restored
 ;  - shot mechanics MVP
+;      - relatively low power - can't knock out of sideways motion easily
 ;      - spin
 ;  - sounds MVP
 ;     - start ceremony
