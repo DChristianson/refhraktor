@@ -66,6 +66,7 @@ GS_GAME_VERSUS         = $80;
 GS_GAME_QUEST          = $90;
 GS_GAME_TOURNAMENT     = $a0;
 ; game types
+__GAME_MODE_MASK       = $0f
 __GAME_MODE_PLAY       = $00
 __GAME_MODE_CELEBRATE  = $01
 __GAME_MODE_DROP       = $02
@@ -105,6 +106,8 @@ PLAYER_STATE_LINE      = $08 ; fire in a straight line
 PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
 PLAYER_STATE_AUTO_AIM  = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_FIRE = $80 ; BUGBUG: TODO
+
+PLAYER_INPUT_MASK = $8f ; nothing pressed
 
 POWER_RESERVE_COOLDOWN = -32
 POWER_RESERVE_MAX = 127
@@ -357,7 +360,7 @@ kernel_dropBall
             sta ball_dx + 1
             sta ball_dy
             sta ball_dy + 1
-            lda #POWER_RESERVE_COOLDOWN
+            lda #POWER_RESERVE_MAX
             sta power_grid_reserve
             sta power_grid_reserve + 1
             ; animate ball drop
@@ -581,10 +584,15 @@ _player_end_move
             jmp _player_update_loop
 _player_update_end
             
+            ; player firing sequences run on alternative frames
 player_fire_aim
             lda frame
             and #$01
             tax
+            ; no firing until ball drops
+            lda game_state
+            and #__GAME_MODE_MASK
+            bne _player_no_fire ; in gameplay
             lda player_state,x 
             ; check auto fire ($80)
             bpl _player_update_skip_auto_fire
@@ -1379,9 +1387,9 @@ waitOnVBlank_loop
 ;  - code
 ;     - split up by bank
 ;     - organize superchip ram
-; MVP TODO
 ;  - input glitches
 ;     - accidental firing when game starts
+; MVP TODO
 ;  - clean up menus 
 ;     - switch ai on/off
 ;     - explicit start game option
@@ -1389,8 +1397,16 @@ waitOnVBlank_loop
 ;     - show level 
 ;     - disable unused game modes
 ;     - gradient color
-;  - physics glitches
-;     - doesn't reflect bounce on normal
+;  - clean up play screen 
+;     - free up scanlines around power tracks
+;     - adjust background / foreground color
+;     - free up player/missile/ball for background?
+;     - add score or timer
+;  - game start / end logic
+;     - end game at specific score...
+;     - game timer?
+;     - alternating player gets to "serve"
+;     - alternately - some way to cancel back to lobby?
 ;  - laser weapons
 ;     - different power levels for different ships..
 ;     - make lasers refract off ball 
@@ -1399,16 +1415,8 @@ waitOnVBlank_loop
 ;     - need way to turn beam on/off per line
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
-;  - game start / end logic
-;     - end game at specific score...
-;     - game timer?
-;     - alternating player gets to "serve"
-;     - alternately - some way to cancel back to lobby?
-;  - clean up play screen 
-;     - free up scanlines around power tracks
-;     - adjust background / foreground color
-;     - free up player/missile/ball for background?
-;     - add score
+;  - physics glitches
+;     - doesn't reflect bounce on normal well enough?
 ;  - power grid sprinkles
 ;    - visual cues
 ;      - grid color shows power level
