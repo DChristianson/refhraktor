@@ -203,12 +203,12 @@ local_player_draw_hmove       = LOCAL_OVERLAY + 5
 
 ; -- playfield kernel locals
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
-local_pf_beam_index = LOCAL_OVERLAY + 1  ; hold beam offset during playfield kernel 
-local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min 
-local_pf_p0_ptr     = LOCAL_OVERLAY + 3   ; formation p0 ptr
-local_pf_m0_dl      = LOCAL_OVERLAY + 5  ; pattern for missile 0
-local_pf_colupf_dl  = LOCAL_OVERLAY + 17
-local_pf_colubk_dl  = LOCAL_OVERLAY + 29
+local_pf_y_min      = LOCAL_OVERLAY + 1  ; hold y min 
+local_pf_pf0_ptr    = LOCAL_OVERLAY + 2   ; formation p0 ptr
+local_pf_m0_dl      = LOCAL_OVERLAY + 4  ; pattern for missile 0
+local_pf_colupf_dl  = LOCAL_OVERLAY + 16
+local_pf_colubk_dl  = LOCAL_OVERLAY + 28
+local_pf_p0_dl      = LOCAL_OVERLAY + 40
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
@@ -831,9 +831,9 @@ player_auto_aim_end
             ; finalize formation graphics
             ; BUGBUG: this will differ depending on player action
             lda #<P0_WALLS
-            sta local_pf_p0_ptr
+            sta local_pf_pf0_ptr
             lda #>P0_WALLS
-            sta local_pf_p0_ptr + 1
+            sta local_pf_pf0_ptr + 1
             lda #<COLUPF_COLORS_0
             sta local_pf_colupf_dl
             lda #>COLUPF_COLORS_0
@@ -1441,6 +1441,9 @@ waitOnVBlank_loop
 ;  - laser weapons
 ;     - different patterns/ ranges for different ships..
 ;     - make lasers refract off ball 
+;  - make room for extensive dl usage (will help do shield, possible multiball)
+;     - use DL for ball (heavy ram but will free a ton of cycles, allow anims)
+;     - replace ball_cx vector with rol bitmap (will free up a chunk of RAM)
 ;  - physics glitches
 ;     - doesn't reflect bounce on normal well enough?
 ;  - shot mechanics MVP

@@ -33,11 +33,7 @@
             ;; 2nd line
             sta HMOVE                    ;3   3
             ;; 
-            lda local_pf_beam_index      ;3   6
-            clc                          ;2   8
-            adc #$01                     ;2  10
-            and #$0f                     ;2  12
-            sta local_pf_beam_index      ;3  15
+            SLEEP 12                     ;12 15
             lda ({4}),y                  ;5  20
             dey                          ;2  22 ; getting ready for later
             SLEEP 3                      ;3  25
@@ -284,23 +280,22 @@ _ball_resp_loop
             lda #$00                     ;2  24 
             sta HMP1                     ;3  27
             sta COLUP1                   ;3  30
-            sta local_pf_beam_index      ;3  33
-            jmp formation_0              ;3  36
+            jmp formation_0              ;3  33
 
     ; try to avoid page branching problems
     ALIGN 256
 
 formation_0
     sta WSYNC
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 0, formation_p2_dl + 0, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_1_jmp, local_pf_m0_dl + 0
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 0, formation_p2_dl + 0, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_1_jmp, local_pf_m0_dl + 0
 formation_1
     sta WSYNC
 formation_1_jmp
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 2, formation_p2_dl + 2, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_2_jmp, local_pf_m0_dl + 2
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 2, formation_p2_dl + 2, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_2_jmp, local_pf_m0_dl + 2
 formation_2
     sta WSYNC
 formation_2_jmp
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 4, formation_p2_dl + 4, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_3_jmp, local_pf_m0_dl + 4
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 4, formation_p2_dl + 4, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_3_jmp, local_pf_m0_dl + 4
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -308,15 +303,15 @@ formation_2_jmp
 formation_3
     sta WSYNC
 formation_3_jmp
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 6, formation_p2_dl + 6, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_4_jmp, local_pf_m0_dl + 6
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 6, formation_p2_dl + 6, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_4_jmp, local_pf_m0_dl + 6
 formation_4
     sta WSYNC
 formation_4_jmp
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 8, formation_p2_dl + 8, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_5_jmp, local_pf_m0_dl + 8
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 8, formation_p2_dl + 8, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_5_jmp, local_pf_m0_dl + 8
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION local_pf_p0_ptr, formation_p1_dl + 10, formation_p2_dl + 10, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_end_jmp, local_pf_m0_dl + 10
+    FORMATION local_pf_pf0_ptr, formation_p1_dl + 10, formation_p2_dl + 10, local_pf_colubk_dl, local_pf_colupf_dl, #$0f, formation_end_jmp, local_pf_m0_dl + 10
 formation_end
             SLEEP 6                         ;6  66
             lda #$00                        ;2  68
