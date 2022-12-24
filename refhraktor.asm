@@ -98,14 +98,14 @@ TITLE_HEIGHT = TITLE_96x2_01 - TITLE_96x2_00
 LOOKUP_STD_HMOVE = STD_HMOVE_END - 256
 LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
-PLAYER_STATE_HAS_POWER = $01 ; power grid has power
-PLAYER_STATE_FIRING    = $02 ; player is firing
-; BUGBUG: TODO
-PLAYER_STATE_RANGE     = $03 ; beam range
-PLAYER_STATE_LINE      = $08 ; fire in a straight line
-PLAYER_STATE_BEAM_MASK = $30 ; 0 = pulse, 1 = continuous, 2 = wide, 3 = double wide
-PLAYER_STATE_AUTO_AIM  = $40 ; BUGBUG: TODO
-PLAYER_STATE_AUTO_FIRE = $80 ; BUGBUG: TODO
+PLAYER_STATE_HAS_POWER        = $01 ; power grid has power
+PLAYER_STATE_FIRING           = $02 ; player is firing
+PLAYER_STATE_BEAM_RANGE_FULL  = $04 ; 0 = full range, 1 = short range
+PLAYER_STATE_BEAM_ARC_FULL    = $08 ; 0 = full arc, 1 = limited arc
+PLAYER_STATE_BEAM_PULSE       = $10 ; 
+PLAYER_STATE_BEAM_WIDE        = $20 ; 
+PLAYER_STATE_AUTO_AIM         = $40 ; BUGBUG: TODO
+PLAYER_STATE_AUTO_FIRE        = $80 ; BUGBUG: TODO
 
 PLAYER_INPUT_MASK = $8f ; nothing pressed
 
@@ -273,6 +273,12 @@ CleanStart
 
     ; game setup
             jsr gs_splash_setup
+
+    ; initial settings
+            lda #0 ; pulse
+            sta player_select
+            lda #3 ; CPU
+            sta player_select + 1
 
 newFrame
 
@@ -919,7 +925,7 @@ _menu_equip_on_move_down
             jmp jx_on_move_return
 _menu_equip_on_move_lr
             beq _menu_equip_on_move_end      
-            SWITCH_JX_X player_select, 3
+            SWITCH_JX_X player_select, 4
 _menu_equip_on_move_end
             jmp jx_on_move_return
 
@@ -1045,6 +1051,11 @@ gs_game_setup
             sta formation_colubk + 1
             ldx #NUM_PLAYERS - 1
 _player_setup_loop
+            ; setup player state based on equipment
+            ldy player_select,x
+            lda PLAYER_STATES,y
+            sta player_state,x
+            ; put player in center
             lda #PLAYFIELD_WIDTH / 2
             sta player_x,x
             dex
@@ -1294,6 +1305,18 @@ PLAYER_SPRITES
     byte #<MTP_MKIV_0
     byte #<MTP_MKI_0
     byte #<MTP_MX888_0
+    byte #<MTP_CPU_0
+
+PLAYER_STATE_BEAM_RANGE_FULL  = $04 ; 0 = full range, 1 = short range
+PLAYER_STATE_BEAM_ARC_FULL    = $08 ; 0 = full arc, 1 = limited arc
+PLAYER_STATE_BEAM_PULSE       = $10 ; 
+PLAYER_STATE_BEAM_WIDE        = $20 ; 
+
+PLAYER_STATES
+    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_PULSE
+    byte #PLAYER_STATE_BEAM_RANGE_FULL
+    byte #PLAYER_STATE_BEAM_WIDE
+    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_PULSE | #PLAYER_STATE_AUTO_AIM | PLAYER_STATE_AUTO_FIRE 
 
 PLAYER_HEIGHTS
     byte #0
@@ -1345,6 +1368,9 @@ waitOnVBlank_loop
 ;  - alternate playfields
 ;  - bank switching
 ;  - different ships
+;  - different weapons
+;     - need way to organize player options
+;     - need way to turn beam on/off per line
 ;  - menu system
 ;    - choose game mode
 ;       - versus
@@ -1357,6 +1383,7 @@ waitOnVBlank_loop
 ;    - choose track
 ;         - show track and allow switch
 ;     - forward/back/left/right value tranitions
+;     - switch ai on/off
 ;  - stabilize framerate
 ;  - remove extra scanline glitch due to player
 ;  - add power track
@@ -1390,33 +1417,47 @@ waitOnVBlank_loop
 ;  - input glitches
 ;     - accidental firing when game starts
 ; MVP TODO
-;  - clean up menus 
-;     - switch ai on/off
-;     - explicit start game option
-;     - instructions?
-;     - show level 
-;     - disable unused game modes
-;     - gradient color
+;  - shield weapon (would be good to test if possible)
+;     - need way to turn beam on/off based on zone
+;     - need alternate aiming systems to get shield effect
+;  - laser weapons
+;     - different patterns/ ranges for different ships..
+;     - make lasers refract off ball 
+;  - physics glitches
+;     - doesn't reflect bounce on normal well enough?
+;  - shot mechanics MVP
+;      - relatively low power - can't knock out of sideways motion easily
+;        - gravity blast might be a way to quell that motion
+;        - friction might help
+;        - spin could be good
+;  - graphical glitches
+;     - get lasers starting from players
+;     - remove color change glitches
+;     - remove / mitigate vdelay glitch on ball update
+;     - lasers weird at certain positions 
+;     - frame rate glitch at certain positions
 ;  - clean up play screen 
+;     - add score or timer
 ;     - free up scanlines around power tracks
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball for background?
-;     - add score or timer
 ;  - game start / end logic
 ;     - end game at specific score...
 ;     - game timer?
 ;     - alternating player gets to "serve"
 ;     - alternately - some way to cancel back to lobby?
-;  - laser weapons
-;     - different power levels for different ships..
-;     - make lasers refract off ball 
-;  - shield weapon (would be good to test if possible)
-;     - need way to organize player options
-;     - need way to turn beam on/off per line
-;     - need way to turn beam on/off based on zone
-;     - need alternate aiming systems to get shield effect
-;  - physics glitches
-;     - doesn't reflect bounce on normal well enough?
+;  - clean up menus 
+;     - explicit start game option
+;     - instructions?
+;     - show level 
+;     - disable unused game modes
+;     - gradient color
+;  - sounds MVP
+;     - start ceremony
+;     - shot sound
+;     - grid sounds
+;     - score sounds
+;     - bounce sound
 ;  - power grid sprinkles
 ;    - visual cues
 ;      - grid color shows power level
@@ -1430,21 +1471,6 @@ waitOnVBlank_loop
 ;      - cooldown warning
 ;      - cooldown occurred
 ;      - power restored
-;  - shot mechanics MVP
-;      - relatively low power - can't knock out of sideways motion easily
-;      - spin
-;  - sounds MVP
-;     - start ceremony
-;     - shot sound
-;     - grid sounds
-;     - score sounds
-;     - bounce sound
-;  - graphical glitches
-;     - get lasers starting from players
-;     - remove color change glitches
-;     - remove / mitigate vdelay glitch on ball update
-;     - lasers weird at certain positions 
-;     - frame rate glitch at certain positions
 ;  - more playfields
 ;     - more vertical space
 ;     - MVP levels 

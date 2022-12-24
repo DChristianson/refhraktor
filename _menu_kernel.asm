@@ -800,6 +800,7 @@ PLAYER_SPRITES_B2
     byte #<MTP_MKIV_0
     byte #<MTP_MKI_0
     byte #<MTP_MX888_0
+    byte #<MTP_CPU_0
     
 ;-----------------------------
 ; Font
@@ -929,6 +930,7 @@ PLAYER_SPRITE_NAMES
     byte STRING_LC008
     byte STRING_LC0X1
     byte STRING_MX888
+    byte STRING_CPU
 
 GAME_MODE_NAMES
     byte STRING_VERSUS
