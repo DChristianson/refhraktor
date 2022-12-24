@@ -102,8 +102,9 @@ PLAYER_STATE_HAS_POWER        = $01 ; power grid has power
 PLAYER_STATE_FIRING           = $02 ; player is firing
 PLAYER_STATE_BEAM_RANGE_FULL  = $04 ; 0 = full range, 1 = short range
 PLAYER_STATE_BEAM_ARC_FULL    = $08 ; 0 = full arc, 1 = limited arc
-PLAYER_STATE_BEAM_PULSE       = $10 ; 
-PLAYER_STATE_BEAM_WIDE        = $20 ; 
+PLAYER_STATE_BEAM_2XWIDE      = $10 ; 
+PLAYER_STATE_BEAM_4XWIDE      = $20 ; 
+PLAYER_STATE_BEAM_8XWIDE      = $30 ; 
 PLAYER_STATE_AUTO_AIM         = $40 ; BUGBUG: TODO
 PLAYER_STATE_AUTO_FIRE        = $80 ; BUGBUG: TODO
 
@@ -135,12 +136,13 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-formation_up     ds 2   ; formation update ptr
+formation_up     ds 2   ; formation update ptr ; TODO: SPACE: can be indirect
 formation_p0     ds 2   ; formation p0 ptr
 formation_p1_dl  ds 12  ; playfield ptr pf1
 formation_p2_dl  ds 12  ; playfield ptr pf2
-formation_colupf ds 2
-formation_colubk ds 2
+formation_m0_dl  ds 12  ; pattern for missile 0
+formation_colupf ds 12
+formation_colubk ds 12
 
 player_input      ds NUM_PLAYERS      ; player input buffer
 player_state      ds NUM_PLAYERS      ; 
@@ -242,6 +244,11 @@ STRING_WRITE = SC_WRITE_STRING_BUFFER_0
   SC_START
  
   SC_DS LASER_HMOV_0, PLAYFIELD_BEAM_RES
+  SC_DS LASER_HMOV_1, PLAYFIELD_BEAM_RES
+  SC_DS LASER_HMOV_2, PLAYFIELD_BEAM_RES
+  SC_DS LASER_HMOV_3, PLAYFIELD_BEAM_RES
+  SC_DS LASER_HMOV_4, PLAYFIELD_BEAM_RES
+  SC_DS LASER_HMOV_5, PLAYFIELD_BEAM_RES
 
   SC_DS POWER_GRID_COLOR, NUM_PLAYERS
   SC_DS POWER_GRID_PF0, NUM_PLAYERS
@@ -275,9 +282,9 @@ CleanStart
             jsr gs_splash_setup
 
     ; initial settings
-            lda #0 ; pulse
+            lda #PLAYER_SELECT_MX888
             sta player_select
-            lda #3 ; CPU
+            lda #PLAYER_SELECT_CPU
             sta player_select + 1
 
 newFrame
@@ -781,16 +788,14 @@ _player_draw_beam_skip_bump_hmov
             sta local_player_draw_D
             dey
             bpl _player_draw_beam_loop
-            ; we are firing - calc force values
-_player_draw_beam_pattern_loop
-            iny
-            ; set beam pattern
-            ; BUGBUG: adjust patterns
+            ; create beam pattern
+            ldy #PLAYFIELD_BEAM_RES - 1
+_player_draw_beam_pattern_loop            
             lda #PLAYER_STATE_FIRING
             ora SC_READ_LASER_HMOV_0,y
             sta SC_WRITE_LASER_HMOV_0,y
-            cpy #PLAYFIELD_BEAM_RES - 1
-            bmi _player_draw_beam_pattern_loop
+            dey
+            bpl _player_draw_beam_pattern_loop
             cpx #0
             beq _player_aim_calc_lo
             lda player_x + 1
@@ -823,6 +828,18 @@ _player_aim_save_laser_x
             sta laser_lo_x
 player_auto_aim_end
 
+           ; BUGBUG: this will differ
+player_beam_formation
+            ldy #11
+_player_beam_formation_loop
+            lda #>SC_READ_LASER_HMOV_0
+            sta formation_m0_dl,y
+            dey
+            lda #<SC_READ_LASER_HMOV_0
+            sta formation_m0_dl,y
+            dey
+            bpl _player_beam_formation_loop
+
 ;---------------------
 ; end vblank
 
@@ -845,6 +862,9 @@ waitOnOverscan_loop
             dex
             bne waitOnOverscan_loop
             jmp newFrame
+            
+;---------------------
+; power grid drawing
 
     include "_power_kernel.asm"
 
@@ -1225,7 +1245,7 @@ _formation_load_loop
             sta formation_p2_dl,x
             iny
             inx
-            cpx #12
+            cpx #12 ; BUGBUG: TODO: go backwards
             bcc _formation_load_loop
             rts
 
@@ -1307,16 +1327,15 @@ PLAYER_SPRITES
     byte #<MTP_MX888_0
     byte #<MTP_CPU_0
 
-PLAYER_STATE_BEAM_RANGE_FULL  = $04 ; 0 = full range, 1 = short range
-PLAYER_STATE_BEAM_ARC_FULL    = $08 ; 0 = full arc, 1 = limited arc
-PLAYER_STATE_BEAM_PULSE       = $10 ; 
-PLAYER_STATE_BEAM_WIDE        = $20 ; 
-
 PLAYER_STATES
-    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_PULSE
+PLAYER_SELECT_MKIV = . - PLAYER_STATES
+    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_2XWIDE
+PLAYER_SELECT_MKI = . - PLAYER_STATES
     byte #PLAYER_STATE_BEAM_RANGE_FULL
-    byte #PLAYER_STATE_BEAM_WIDE
-    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_PULSE | #PLAYER_STATE_AUTO_AIM | PLAYER_STATE_AUTO_FIRE 
+PLAYER_SELECT_MX888 = . - PLAYER_STATES
+    byte #PLAYER_STATE_BEAM_8XWIDE
+PLAYER_SELECT_CPU = . - PLAYER_STATES
+    byte #PLAYER_STATE_BEAM_RANGE_FULL | #PLAYER_STATE_AUTO_AIM | PLAYER_STATE_AUTO_FIRE 
 
 PLAYER_HEIGHTS
     byte #0

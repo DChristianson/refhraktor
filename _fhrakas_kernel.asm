@@ -1,5 +1,5 @@
 
-    MAC FORMATION ; given p0, p1, p2, c, w, mask, addr
+    MAC FORMATION ; given p0, p1, p2, c, w, mask, addr, m0
 ._pl0_loop_0_hm
             lda ({1}),y                  ;5   5
             sta PF0                      ;3   8
@@ -7,30 +7,29 @@
             sta PF1                      ;3  16 
             ;; adjust playfield color
             lda ({4}),y                  ;5  21
-            ldx SC_READ_LASER_HMOV_0,y           ;4  25
+            SLEEP 4                      ;4  25
             sta COLUBK                   ;3  28
             lda ({3}),y                  ;5  33
             sta PF2                      ;3  36
-            ;; set beam hmov          
-            stx HMM0                     ;3  39
-            stx ENAM0                    ;3  42
+            ;; set beam hmov
+            lda ({8}),y                  ;5  41
+            sta HMM0                     ;3  44
+            sta ENAM0                    ;3  47
             ;; ball graphics
-            ldx ball_voffset             ;3  45
-            bpl ._pl0_draw_grp_0         ;2  47  ; sbpl
-            lda #$00                     ;2  49
-            jmp ._pl0_end_grp_0          ;3  52
+            ldx ball_voffset             ;3  50 ; BUGBUG: probably unroll this, or make a dl
+            bpl ._pl0_draw_grp_0         ;2  52  ; sbpl
+            lda #$00                     ;2  54
+            jmp ._pl0_end_grp_0          ;3  57
 ._pl0_draw_grp_0
-            lda BALL_GRAPHICS,x          ;4  52
+            lda BALL_GRAPHICS,x          ;4  57
 ._pl0_end_grp_0
-            sta GRP0                     ;3  55
-            sta GRP1                     ;3  58 
-            lda ({5}),y                  ;5  63 ; load pf color 
-            tax                          ;2  65
+            sta GRP0                     ;3  60
+            sta GRP1                     ;3  63
+            lda ({5}),y                  ;5  68 ; load pf color 
             ;; EOL
-            lda #$00                     ;2  67
-            sta.w COLUBK                 ;4  71
-            SLEEP 2                      ;2  73 
-            stx COLUPF                   ;3  76
+            stx COLUBK                   ;4  71
+            SLEEP 2                      ;2  73
+            sta COLUPF                   ;3  76
             ;; 2nd line
             sta HMOVE                    ;3   3
             ;; 
@@ -68,7 +67,7 @@
             bpl ._pl0_continue           ;2  57 ; sbpl
             jmp formation_end            ;3  60
 ._pl0_continue
-            ldx #$00                     ;2  62
+            SLEEP 2                      ;2  62 BUGBUG: was ldx #0
             tya                          ;2  64
             bmi ._pl0_advance_formation  ;2  66 ; sbeq
             SLEEP 2                      ;2  68
@@ -293,15 +292,15 @@ _ball_resp_loop
 
 formation_0
     sta WSYNC
-    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, formation_colubk, formation_colupf, #$0f, formation_1_jmp
+    FORMATION formation_p0, formation_p1_dl + 0, formation_p2_dl + 0, formation_colubk, formation_colupf, #$0f, formation_1_jmp, formation_m0_dl + 0
 formation_1
     sta WSYNC
 formation_1_jmp
-    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, formation_colubk, formation_colupf, #$0f, formation_2_jmp
+    FORMATION formation_p0, formation_p1_dl + 2, formation_p2_dl + 2, formation_colubk, formation_colupf, #$0f, formation_2_jmp, formation_m0_dl + 2
 formation_2
     sta WSYNC
 formation_2_jmp
-    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, formation_colubk, formation_colupf, #$0f, formation_3_jmp
+    FORMATION formation_p0, formation_p1_dl + 4, formation_p2_dl + 4, formation_colubk, formation_colupf, #$0f, formation_3_jmp, formation_m0_dl + 4
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -309,15 +308,15 @@ formation_2_jmp
 formation_3
     sta WSYNC
 formation_3_jmp
-    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, formation_colubk, formation_colupf, #$0f, formation_4_jmp
+    FORMATION formation_p0, formation_p1_dl + 6, formation_p2_dl + 6, formation_colubk, formation_colupf, #$0f, formation_4_jmp, formation_m0_dl + 6
 formation_4
     sta WSYNC
 formation_4_jmp
-    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, formation_colubk, formation_colupf, #$0f, formation_5_jmp
+    FORMATION formation_p0, formation_p1_dl + 8, formation_p2_dl + 8, formation_colubk, formation_colupf, #$0f, formation_5_jmp, formation_m0_dl + 8
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end_jmp
+    FORMATION formation_p0, formation_p1_dl + 10, formation_p2_dl + 10, formation_colubk, formation_colupf, #$0f, formation_end_jmp, formation_m0_dl + 10
 formation_end
             SLEEP 6                         ;6  66
             lda #$00                        ;2  68
