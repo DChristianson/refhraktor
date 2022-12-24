@@ -137,12 +137,8 @@ jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
 formation_up     ds 2   ; formation update ptr ; TODO: SPACE: can be indirect
-formation_p0     ds 2   ; formation p0 ptr
 formation_p1_dl  ds 12  ; playfield ptr pf1
 formation_p2_dl  ds 12  ; playfield ptr pf2
-formation_m0_dl  ds 12  ; pattern for missile 0
-formation_colupf ds 12
-formation_colubk ds 12
 
 player_input      ds NUM_PLAYERS      ; player input buffer
 player_state      ds NUM_PLAYERS      ; 
@@ -170,7 +166,7 @@ scroll         ds 1 ; y value to start showing playfield
 
 display_playfield_limit ds 1
 
-LOCAL_OVERLAY           ds 8
+LOCAL_OVERLAY           ds 64
 
 ; -- joystick kernel locals
 local_jx_player_input = LOCAL_OVERLAY
@@ -209,6 +205,10 @@ local_player_draw_hmove       = LOCAL_OVERLAY + 5
 local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
 local_pf_beam_index = LOCAL_OVERLAY + 1  ; hold beam offset during playfield kernel 
 local_pf_y_min      = LOCAL_OVERLAY + 2  ; hold y min 
+local_pf_p0_ptr     = LOCAL_OVERLAY + 3   ; formation p0 ptr
+local_pf_m0_dl      = LOCAL_OVERLAY + 5  ; pattern for missile 0
+local_pf_colupf_dl  = LOCAL_OVERLAY + 17
+local_pf_colubk_dl  = LOCAL_OVERLAY + 29
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
@@ -828,15 +828,27 @@ _player_aim_save_laser_x
             sta laser_lo_x
 player_auto_aim_end
 
-           ; BUGBUG: this will differ
-player_beam_formation
+            ; finalize formation graphics
+            ; BUGBUG: this will differ depending on player action
+            lda #<P0_WALLS
+            sta local_pf_p0_ptr
+            lda #>P0_WALLS
+            sta local_pf_p0_ptr + 1
+            lda #<COLUPF_COLORS_0
+            sta local_pf_colupf_dl
+            lda #>COLUPF_COLORS_0
+            sta local_pf_colupf_dl + 1
+            lda #<COLUBK_COLORS_1
+            sta local_pf_colubk_dl
+            lda #>COLUBK_COLORS_1
+            sta local_pf_colubk_dl + 1
             ldy #11
 _player_beam_formation_loop
             lda #>SC_READ_LASER_HMOV_0
-            sta formation_m0_dl,y
+            sta local_pf_m0_dl,y
             dey
             lda #<SC_READ_LASER_HMOV_0
-            sta formation_m0_dl,y
+            sta local_pf_m0_dl,y
             dey
             bpl _player_beam_formation_loop
 
@@ -1056,19 +1068,6 @@ gs_game_setup
             sta scroll
             lda #DROP_DELAY
             sta game_timer
-            ; initial formation
-            lda #<P0_WALLS
-            sta formation_p0
-            lda #>P0_WALLS
-            sta formation_p0 + 1
-            lda #<COLUPF_COLORS_0
-            sta formation_colupf
-            lda #>COLUPF_COLORS_0
-            sta formation_colupf + 1
-            lda #<COLUBK_COLORS_1
-            sta formation_colubk
-            lda #>COLUBK_COLORS_1
-            sta formation_colubk + 1
             ldx #NUM_PLAYERS - 1
 _player_setup_loop
             ; setup player state based on equipment
