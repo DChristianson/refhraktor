@@ -57,15 +57,50 @@ wx_clear_beam
             ; firing - "regular" beam-style weapons
 wx_auto_aim_beam
             ; calc distance between player and aim point
-            jsr sub_calc_beam_aim
-            ; interpolate beam
+            jsr sub_calc_beam_parameters
+            ; interpolate beam BUGBUG: needed?
             lda local_player_draw_dy
             cmp #PLAYFIELD_BEAM_RES
             bcs _player_aim_beam_end
             asl local_player_draw_dx
             asl local_player_draw_dy    
 _player_aim_beam_end
-            ; BUGBUG: TODO get preliminary acceleration values
+            ; get ball ay
+            lda local_player_draw_dy
+            sec
+            sbc local_player_draw_dx
+            beq _player_aim_save_ay
+            lsr
+            lsr
+            lsr
+            lsr
+            tay
+            lda TABLE_BEAM_POWER,y
+_player_aim_save_ay
+            cpx #0
+            bne _player_aim_save_ay_hi
+            eor #$ff
+            clc
+            adc #1
+_player_aim_save_ay_hi
+            sta ball_ay
+            beq _player_aim_save_ax
+            ; get ball ax
+            lda local_player_draw_dx
+            lsr
+            beq _player_aim_save_ax
+            lsr
+            lsr
+            tay
+            lda TABLE_BEAM_SPIN,y
+_player_aim_save_ax
+            bit local_player_draw_hmove
+            bpl _player_aim_save_ax_l
+            eor #$ff
+            clc
+            adc #1
+_player_aim_save_ax_l
+            sta ball_ax
             ; get beam pattern
             lda #PLAYER_STATE_BEAM_MASK
             and player_state,x
@@ -75,7 +110,7 @@ _player_aim_beam_end
             lda TABLE_BEAM_PATTERNS,y
             sta local_player_draw_pattern
             ; draw beam 
-            jsr sub_draw_beam_check
+            jsr sub_draw_beam
             ; sort out beam x placement
             cpx #0
             beq _player_aim_calc_lo
@@ -116,13 +151,18 @@ _player_aim_save_laser_x
 
 wx_arc_beam
             ; calc distance between player and aim point
-            jsr sub_calc_beam_aim
+            jsr sub_calc_beam_parameters
             lda local_player_draw_dy
             sec 
-            sbc #20
+            sbc #20 ; BUGBUG: variablize
             bcs _player_arc_miss
             lda local_player_draw_dx
+            cmp #15
+            bcs _player_arc_miss
+            lda ball_x
+            sbc player_x,x
             ldy #$80  ; BUGBUG: need lo/hi
+            jmp _player_arc_save_accel
 _player_arc_miss
             lda #0
             ldy #0
@@ -154,7 +194,7 @@ _player_arc_skip_rol_pattern
             WRITE_BUFFER SC_WRITE_LASER_HMOV_0
             WRITE_BUFFER SC_WRITE_LASER_HMOV_2
             ; draw beam
-            jsr sub_draw_beam_check
+            jsr sub_draw_beam
             ; figure out x
             cpx #0
             beq _player_arc_aim_calc_lo
@@ -174,7 +214,7 @@ _player_arc_aim_calc_lo
 _player_arc_aim_refract_no_invert
             adc player_x
             sec
-            sbc #$05
+            sbc #$07
             cmp #160 ; compare to screen width
             bcc _player_arc_aim_save_laser_x
             sbc #96
@@ -224,46 +264,32 @@ wx_gamma_beam
             ;   ball_voffset
             ;   x -> player #
             ; modifies:
-            ;   local_player_draw_dx
-            ;   local_player_draw_dy
-sub_calc_beam_aim
+            ;   local_player_draw_dx      - normalized to positive
+            ;   local_player_draw_dy      - normalized to positive
+            ;   local_player_draw_pattern - on/off pattern
+            ;   local_player_draw_hmove   - x direction
+sub_calc_beam_parameters
             lda ball_voffset ; get distance to ball
-            cpx #$00
+            cpx #0
             beq _player_aim_beam_lo
 _player_aim_beam_hi
             eor #$ff      ; invert offset to get dy
             clc
             adc #$01
             sta local_player_draw_dy
+            tay
             lda player_x,x
             sec
             sbc ball_x    ; dx
-            sta local_player_draw_dx
-            rts
+            jmp _player_draw_beam_calc
 _player_aim_beam_lo
             clc           ; add view height to get dy
             adc #PLAYFIELD_VIEWPORT_HEIGHT
             sta local_player_draw_dy
+            tay
             lda ball_x
             sec
             sbc player_x,x ; dx
-            sta local_player_draw_dx
-            rts
-
-            ; expects: 
-            ;   local_player_draw_dx
-            ;   local_player_draw_dy
-            ;   local_player_draw_pattern
-            ; modifies:
-            ;   local_player_draw_dx - normalized
-            ;   local_player_draw_pattern - rotated
-            ;   local_player_draw_D
-            ;   local_player_draw_x_travel
-            ;   local_player_draw_hmove 
-sub_draw_beam_check 
-            ; figure out beam path
-            ldy local_player_draw_dy
-            lda local_player_draw_dx
 _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
             bpl _player_draw_beam_left
             eor #$ff
@@ -271,13 +297,6 @@ _player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
             adc #$01
             cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_right
-            sbc local_player_draw_dy
-            cmp #4 ; BUGBUG: shim - checking if this is a miss
-            bcc _player_draw_skip_clear_ax_right
-            lda #0
-            sta ball_ax
-            sta ball_ay
-_player_draw_skip_clear_ax_right
             tya
 _player_draw_skip_normalize_dx_right
             sta local_player_draw_dx 
@@ -286,19 +305,26 @@ _player_draw_skip_normalize_dx_right
 _player_draw_beam_left
             cmp local_player_draw_dy
             bcc _player_draw_skip_normalize_dx_left
-            sbc local_player_draw_dy
-            cmp #4 ; BUGBUG: shim - checking if this is a miss
-            bcc _player_draw_skip_clear_ax_left
-            lda #0
-            sta ball_ax
-            sta ball_ay
-_player_draw_skip_clear_ax_left
             tya
 _player_draw_skip_normalize_dx_left
             sta local_player_draw_dx
             lda #$10
 _player_draw_beam_set_hmov
             sta local_player_draw_hmove
+            rts
+
+            ; Bresenham line drawing
+            ; expects: 
+            ;   local_player_draw_dx      - normalized to positive
+            ;   local_player_draw_dy      - normalized to positive
+            ;   local_player_draw_pattern - on/off pattern
+            ;   local_player_draw_hmove   - x direction
+            ; modifies:
+            ;   local_player_draw_dx - used for scratch
+            ;   local_player_draw_pattern - rotated
+            ;   local_player_draw_D - 
+            ;   local_player_draw_x_travel - hmove distance
+sub_draw_beam
             asl local_player_draw_dx  ; dx = 2 * dx
             lda #$00
             sta local_player_draw_x_travel
@@ -340,6 +366,27 @@ TABLE_BEAM_JUMP
     word #wx_auto_aim_beam
     word #wx_arc_beam
     word #wx_gamma_beam
+
+TABLE_BEAM_POWER
+    byte $40
+    byte $20
+    byte $10
+    byte $10
+    byte $08
+    byte $08
+
+TABLE_BEAM_SPIN
+    ; BUGBUG: super sketch
+    byte $08
+    byte $08
+    byte $10
+    byte $10
+    byte $10
+    byte $20
+    byte $20
+    byte $20
+    byte $40
+    byte $40
 
 TABLE_BEAM_PATTERNS
     byte %11111111
