@@ -213,12 +213,12 @@ text_kernel
             sta HMOVE
 
             txa
-            sta local_pf_y_min
+            sta local_tk_y_min
             clc
             adc #7 ; font height
             tay
             tsx
-            stx local_pf_stack
+            stx local_tk_stack
 _text_draw_0
             sta WSYNC                                     ;3   0
             ; load and store first 3 
@@ -239,9 +239,9 @@ _text_draw_0
             sta GRP1                                      ;3  47
             sty GRP0                                      ;3  50 force vdelp
             dey
-            cpy local_pf_y_min
+            cpy local_tk_y_min
             bpl _text_draw_0
-            ldx local_pf_stack
+            ldx local_tk_stack
             txs
             lda #$00
             sta NUSIZ0
@@ -278,7 +278,7 @@ text_kernel_4
             sta HMOVE
 
             txa
-            sta local_pf_y_min
+            sta local_tk_y_min
             clc
             adc #7 ; font height
             tay
@@ -297,7 +297,7 @@ _text_draw_4_0
             stx.w GRP1                                    ;4  39
             sty GRP0                                      ;3  42 force vdelp
             dey
-            cpy local_pf_y_min
+            cpy local_tk_y_min
             bpl _text_draw_4_0
             lda #$00
             sta NUSIZ0
@@ -853,9 +853,9 @@ STRING_CHOOSE = . - STRING_CONSTANTS
     byte 96, 113, 144, 144, 160, 104, 0
 STRING_GAME = . - STRING_CONSTANTS
     byte 112, 88, 136, 104, 0
-STRING_P1 = . - STRING_CONSTANTS
+STRING_PF1 = . - STRING_CONSTANTS
     byte 145, 9, 0
-STRING_P2 = . - STRING_CONSTANTS
+STRING_PF2 = . - STRING_CONSTANTS
     byte 145, 16, 0
 STRING_STAGE = . - STRING_CONSTANTS
     byte 160, 161, 88, 112, 104, 0

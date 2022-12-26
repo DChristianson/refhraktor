@@ -100,19 +100,23 @@ LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
 PLAYER_STATE_HAS_POWER        = $01 ; power grid has power
 PLAYER_STATE_FIRING           = $02 ; player is firing
-PLAYER_STATE_BEAM_RANGE_FULL  = $04 ; 0 = full range, 1 = short range
-PLAYER_STATE_BEAM_ARC_FULL    = $08 ; 0 = full arc, 1 = limited arc
+PLAYER_STATE_BEAM_MASK        = $0e 
+PLAYER_STATE_BEAM_PULSE       = $04 ; 
+PLAYER_STATE_BEAM_ARC         = $08 ; 
+PLAYER_STATE_BEAM_GAMMA       = $0c ; 
 PLAYER_STATE_BEAM_2XWIDE      = $10 ; 
 PLAYER_STATE_BEAM_4XWIDE      = $20 ; 
 PLAYER_STATE_BEAM_8XWIDE      = $30 ; 
-PLAYER_STATE_AUTO_AIM         = $40 ; BUGBUG: TODO
-PLAYER_STATE_AUTO_FIRE        = $80 ; BUGBUG: TODO
+PLAYER_STATE_AUTO_AIM         = $40 ; 
+PLAYER_STATE_AUTO_FIRE        = $80 ; 
 
 PLAYER_INPUT_MASK = $8f ; nothing pressed
 
 POWER_RESERVE_COOLDOWN = -32
 POWER_RESERVE_MAX = 127
 POWER_RESERVE_SHOT_DRAIN = 4
+
+BEAM_GAMMA_POWER = $80
 
 ; ----------------------------------
 ; variables
@@ -136,9 +140,10 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-formation_up     ds 2   ; formation update ptr ; TODO: SPACE: can be indirect
-formation_p1_dl  ds 12  ; playfield ptr pf1
-formation_p2_dl  ds 12  ; playfield ptr pf2
+formation_up      ds 2   ; formation update ptr 
+formation_pf0_ptr ds 2   ; playfield ptr pf0
+formation_pf1_dl  ds 12  ; playfield dl pf1
+formation_pf2_dl  ds 12  ; playfield dl pf2
 
 player_input      ds NUM_PLAYERS      ; player input buffer
 player_state      ds NUM_PLAYERS      ; 
@@ -176,8 +181,8 @@ local_jx_player_count = LOCAL_OVERLAY + 1
 local_jmp_addr = LOCAL_OVERLAY ; (ds 2)
 
 ; -- formation load args
-local_formation_load_p1 = LOCAL_OVERLAY ; (ds 2)
-local_formation_load_p2 = LOCAL_OVERLAY + 2 ; (ds 2)
+local_formation_load_pf1 = LOCAL_OVERLAY ; (ds 2)
+local_formation_load_pf2 = LOCAL_OVERLAY + 2 ; (ds 2)
 
 ; -- strfmt locals
 local_strfmt_stack    = LOCAL_OVERLAY 
@@ -193,22 +198,27 @@ local_grid_inc = LOCAL_OVERLAY + 1
 ; -- player update kernel locals
 local_player_sprite_lobyte = LOCAL_OVERLAY ; (ds 1)
 
+; -- used to jump to wx processing
+local_wx_beam_proc_ptr        = LOCAL_OVERLAY
+
 ; -- player beam drawing kernel locals
 local_player_draw_x_travel    = LOCAL_OVERLAY
-local_player_draw_aim_x       = LOCAL_OVERLAY + 1 ; player aim point x
-local_player_draw_dy          = LOCAL_OVERLAY + 2 ; use for line drawing computation
-local_player_draw_dx          = LOCAL_OVERLAY + 3
-local_player_draw_D           = LOCAL_OVERLAY + 4
-local_player_draw_hmove       = LOCAL_OVERLAY + 5
+local_player_draw_dy          = LOCAL_OVERLAY + 1 
+local_player_draw_dx          = LOCAL_OVERLAY + 2
+local_player_draw_D           = LOCAL_OVERLAY + 3
+local_player_draw_hmove       = LOCAL_OVERLAY + 4
+local_player_draw_pattern     = LOCAL_OVERLAY + 5
+
+; -- 
+local_tk_stack = LOCAL_OVERLAY           ; hold stack ptr during text
+local_tk_y_min = LOCAL_OVERLAY + 1  ; hold y min during text kernel
 
 ; -- playfield kernel locals
-local_pf_stack = LOCAL_OVERLAY           ; hold stack ptr during playfield
-local_pf_y_min      = LOCAL_OVERLAY + 1  ; hold y min 
-local_pf_pf0_ptr    = LOCAL_OVERLAY + 2   ; formation p0 ptr
-local_pf_m0_dl      = LOCAL_OVERLAY + 4  ; pattern for missile 0
-local_pf_colupf_dl  = LOCAL_OVERLAY + 16
-local_pf_colubk_dl  = LOCAL_OVERLAY + 28
-local_pf_p0_dl      = LOCAL_OVERLAY + 40
+local_fk_stack      =  LOCAL_OVERLAY     ; hold stack ptr during playfield
+local_fk_m0_dl      = LOCAL_OVERLAY + 2  ; pattern for missile 0
+local_fk_colupf_dl  = LOCAL_OVERLAY + 14
+local_fk_colubk_dl  = LOCAL_OVERLAY + 26
+local_fk_p0_dl      = LOCAL_OVERLAY + 38 
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
@@ -652,205 +662,23 @@ _player_power_skip_restore
             and #$fd
 _player_save_fire
             sta player_state,x
-
-            and #PLAYER_STATE_FIRING
-            bne player_auto_aim
-            sta ball_ax ; a is already 0
-            sta ball_ay
-            sta laser_lo_x
-            ldy #PLAYFIELD_BEAM_RES - 1
-_player_draw_beam_clear_loop
-            sta SC_WRITE_LASER_HMOV_0,y
-            dey
-            bpl _player_draw_beam_clear_loop
-            jmp player_auto_aim_end
-
-            ; BUGBUG: TODO: from here - decide if firing
-            ;     : what kind of firing (auto, linear, barrier)
-            ;     : whether will hit
-            ;     : if hit, how hard
-            ;     : + refhraktion
-
-            ; firing - auto-aim
-player_auto_aim 
-            ; calc distance between player and aim point
-            lda ball_x
-            sta local_player_draw_aim_x
-            lda ball_voffset ; get distance to ball
-            cpx #$00
-            beq _player_aim_beam_lo
-_player_aim_beam_hi
-            eor #$ff      ; invert offset to get dy
-            clc
-            adc #$01
-            sta local_player_draw_dy
-            lda #PLAYFIELD_BEAM_RES / 2 ; shot power
-            sta ball_ay
-            lda player_x,x
-            sec
-            sbc local_player_draw_aim_x    ; dx
-            sta local_player_draw_dx
-            eor #$ff ; store ball acceleration
-            clc
-            adc #$01
-            sta ball_ax           
-            jmp _player_aim_beam_interp
-_player_aim_beam_lo
-            clc           ; add view height to get dy
-            adc #PLAYFIELD_VIEWPORT_HEIGHT
-            sta local_player_draw_dy
-            lda #-PLAYFIELD_BEAM_RES / 2 ; shot power
-            sta ball_ay
-            lda local_player_draw_aim_x
-            sec
-            sbc player_x,x ; dx
-            sta local_player_draw_dx
-            sta ball_ax           
-_player_aim_beam_interp
-            lda local_player_draw_dy
-            sec
-            sbc #PLAYFIELD_BEAM_RES
-            bcs _player_aim_beam_interp_mid
-            asl local_player_draw_dx
-            asl local_player_draw_dy    
-            asl ball_ay
-            asl ball_ay
-            jmp _player_aim_beam_end
-_player_aim_beam_interp_mid
-            sbc #PLAYFIELD_BEAM_RES
-            bcs _player_aim_beam_end         
-            asl ball_ay
-_player_aim_beam_end
-
-            ; figure out beam path
-            ldy local_player_draw_dy
-            lda local_player_draw_dx
-_player_draw_beam_calc ; on entry, a is dx (signed), y is dy (unsigned)
-            bpl _player_draw_beam_left
-            eor #$ff
-            clc
-            adc #$01
-            cmp local_player_draw_dy
-            bcc _player_draw_skip_normalize_dx_right
-            sbc local_player_draw_dy
-            cmp #4 ; shim - checking if this is a miss
-            bcc _player_draw_skip_clear_ax_right
-            lda #0
-            sta ball_ax
-            sta ball_ay
-_player_draw_skip_clear_ax_right
-            tya
-_player_draw_skip_normalize_dx_right
-            sta local_player_draw_dx 
-            lda #$f0
-            jmp _player_draw_beam_set_hmov
-_player_draw_beam_left
-            cmp local_player_draw_dy
-            bcc _player_draw_skip_normalize_dx_left
-            sbc local_player_draw_dy
-            cmp #4 ; shim - checking if this is a miss
-            bcc _player_draw_skip_clear_ax_left
-            lda #0
-            sta ball_ax
-            sta ball_ay
-_player_draw_skip_clear_ax_left
-            tya
-_player_draw_skip_normalize_dx_left
-            sta local_player_draw_dx
-            lda #$10
-_player_draw_beam_set_hmov
-            sta local_player_draw_hmove
-            asl local_player_draw_dx  ; dx = 2 * dx
-            lda local_player_draw_dx
-            sec
-            sbc local_player_draw_dy  ; D = 2dx - dy
-            asl local_player_draw_dy  ; dy = 2 * dy
-            sta local_player_draw_D
-            lda #$00
-            sta local_player_draw_x_travel
-            ldy #PLAYFIELD_BEAM_RES - 1 ; will stop at 16
-_player_draw_beam_loop
-            lda #$01
-            cmp local_player_draw_D
-            bpl _player_draw_beam_skip_bump_hmov
-            ; need an hmov
-            lda local_player_draw_D
-            sec
-            sbc local_player_draw_dy  ; D = D - 2 * dy
-            sta local_player_draw_D
-            lda local_player_draw_hmove
-            inc local_player_draw_x_travel
-_player_draw_beam_skip_bump_hmov
-            sta SC_WRITE_LASER_HMOV_0,y ; cheating that #$01 is in a            
-            lda local_player_draw_D
-            clc
-            adc local_player_draw_dx  ; D = D + 2 * dx
-            sta local_player_draw_D
-            dey
-            bpl _player_draw_beam_loop
-            ; create beam pattern
-            ldy #PLAYFIELD_BEAM_RES - 1
-_player_draw_beam_pattern_loop            
-            lda #PLAYER_STATE_FIRING
-            ora SC_READ_LASER_HMOV_0,y
-            sta SC_WRITE_LASER_HMOV_0,y
-            dey
-            bpl _player_draw_beam_pattern_loop
-            cpx #0
-            beq _player_aim_calc_lo
-            lda player_x + 1
-            sec
-            sbc #5
-            sta laser_lo_x 
-            jmp _player_aim_save_laser_x         
-_player_aim_calc_lo
-            ; find lo player beam starting point
-            ; last local_player_x_travel will have the (signed) x distance covered  
-            ; multiply by 5 to get 80 scanline x distance
-            lda local_player_draw_x_travel
-            asl 
-            asl 
-            clc
-            adc local_player_draw_x_travel
-            ldy local_player_draw_hmove 
-            bpl _player_aim_refract_no_invert
-            eor #$ff
-            clc
-            adc #$01
-_player_aim_refract_no_invert
-            adc player_x
-            sec
-            sbc #$05
-            cmp #160 ; compare to screen width
-            bcc _player_aim_save_laser_x
-            sbc #96
-_player_aim_save_laser_x
-            sta laser_lo_x
-player_auto_aim_end
-
-            ; finalize formation graphics
-            ; BUGBUG: this will differ depending on player action
-            lda #<P0_WALLS
-            sta local_pf_pf0_ptr
-            lda #>P0_WALLS
-            sta local_pf_pf0_ptr + 1
-            lda #<COLUPF_COLORS_0
-            sta local_pf_colupf_dl
-            lda #>COLUPF_COLORS_0
-            sta local_pf_colupf_dl + 1
-            lda #<COLUBK_COLORS_1
-            sta local_pf_colubk_dl
-            lda #>COLUBK_COLORS_1
-            sta local_pf_colubk_dl + 1
-            ldy #11
-_player_beam_formation_loop
-            lda #>SC_READ_LASER_HMOV_0
-            sta local_pf_m0_dl,y
-            dey
-            lda #<SC_READ_LASER_HMOV_0
-            sta local_pf_m0_dl,y
-            dey
-            bpl _player_beam_formation_loop
+            ; jump to beam drawing
+            and #PLAYER_STATE_BEAM_MASK
+            lsr
+            lsr 
+            bcs _player_call_wx
+            jmp wx_clear_beam
+_player_call_wx
+            asl
+            tay
+            lda TABLE_BEAM_JUMP + 1,y
+            sta local_wx_beam_proc_ptr + 1
+            lda TABLE_BEAM_JUMP,y
+            sta local_wx_beam_proc_ptr
+            jmp (local_wx_beam_proc_ptr)
+            ; by the time we hit wx_player_return we've set up 
+            ; the dl's for beam, p0, colupf and colubk
+wx_player_return
 
 ;---------------------
 ; end vblank
@@ -874,7 +702,12 @@ waitOnOverscan_loop
             dex
             bne waitOnOverscan_loop
             jmp newFrame
-            
+
+;---------------------
+; beam effect drawing
+
+    include "_beam_kernel.asm"
+
 ;---------------------
 ; power grid drawing
 
@@ -1178,50 +1011,50 @@ FORMATION_UP_TABLE
     ALIGN 256
 
 FORMATION_VOID_UP
-            lda #<FORMATION_VOID_P1
-            sta local_formation_load_p1
-            lda #>FORMATION_VOID_P1
-            sta local_formation_load_p1 + 1
-            lda #<FORMATION_VOID_P2
-            sta local_formation_load_p2
-            lda #>FORMATION_VOID_P2
-            sta local_formation_load_p2 + 1
+            lda #<FORMATION_VOID_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_VOID_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_VOID_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_VOID_PF2
+            sta local_formation_load_pf2 + 1
             jsr formation_load
             jmp formation_update_return
 
 FORMATION_CHUTE_UP
-            lda #<FORMATION_CHUTE_P1
-            sta local_formation_load_p1
-            lda #>FORMATION_CHUTE_P1
-            sta local_formation_load_p1 + 1
-            lda #<FORMATION_CHUTE_P2
-            sta local_formation_load_p2
-            lda #>FORMATION_CHUTE_P2
-            sta local_formation_load_p2 + 1
+            lda #<FORMATION_CHUTE_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_CHUTE_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_CHUTE_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_CHUTE_PF2
+            sta local_formation_load_pf2 + 1
             jsr formation_load
             jmp formation_update_return
 
 FORMATION_DIAMONDS_UP
-            lda #<FORMATION_DIAMONDS_P1
-            sta local_formation_load_p1
-            lda #>FORMATION_DIAMONDS_P1
-            sta local_formation_load_p1 + 1
-            lda #<FORMATION_DIAMONDS_P2
-            sta local_formation_load_p2
-            lda #>FORMATION_DIAMONDS_P2
-            sta local_formation_load_p2 + 1
+            lda #<FORMATION_DIAMONDS_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_DIAMONDS_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_DIAMONDS_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_DIAMONDS_PF2
+            sta local_formation_load_pf2 + 1
             jsr formation_load
             jmp formation_update_return
 
 FORMATION_WINGS_UP
-            lda #<FORMATION_WINGS_P1
-            sta local_formation_load_p1
-            lda #>FORMATION_WINGS_P1
-            sta local_formation_load_p1 + 1
-            lda #<FORMATION_WINGS_P2
-            sta local_formation_load_p2
-            lda #>FORMATION_WINGS_P2
-            sta local_formation_load_p2 + 1
+            lda #<FORMATION_WINGS_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_WINGS_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_WINGS_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_WINGS_PF2
+            sta local_formation_load_pf2 + 1
             jsr formation_load
             jmp formation_update_return
 
@@ -1238,17 +1071,17 @@ formation_load
             ; copy the list
             ldx #0
 _formation_load_loop
-            lda (local_formation_load_p1),y
-            sta formation_p1_dl,x
-            lda (local_formation_load_p2),y
-            sta formation_p2_dl,x
+            lda (local_formation_load_pf1),y
+            sta formation_pf1_dl,x
+            lda (local_formation_load_pf2),y
+            sta formation_pf2_dl,x
             iny
             inx
             cpx #12 ; BUGBUG: TODO: go backwards
             bcc _formation_load_loop
             rts
 
-FORMATION_VOID_P1
+FORMATION_VOID_PF1
     word #P1_GOAL_TOP
     word #PX_WALLS_BLANK
     word #PX_WALLS_BLANK
@@ -1258,8 +1091,8 @@ FORMATION_VOID_P1
     word #PX_WALLS_BLANK
     word #P1_GOAL_BOTTOM
 
-FORMATION_VOID_P2
-FORMATION_CHUTE_P2
+FORMATION_VOID_PF2
+FORMATION_CHUTE_PF2
     word #P2_GOAL_TOP
     word #PX_WALLS_BLANK
     word #PX_WALLS_BLANK
@@ -1269,7 +1102,7 @@ FORMATION_CHUTE_P2
     word #PX_WALLS_BLANK
     word #P2_GOAL_BOTTOM
 
-FORMATION_CHUTE_P1
+FORMATION_CHUTE_PF1
     word #P1_GOAL_TOP
     word #PX_WALLS_BLANK
     word #P1_WALLS_CHUTE
@@ -1279,7 +1112,7 @@ FORMATION_CHUTE_P1
     word #PX_WALLS_BLANK
     word #P1_GOAL_BOTTOM
 
-FORMATION_DIAMONDS_P1
+FORMATION_DIAMONDS_PF1
     word #P1_GOAL_TOP
     word #PX_WALLS_BLANK
     word #P1_WALLS_DIAMONDS
@@ -1289,7 +1122,7 @@ FORMATION_DIAMONDS_P1
     word #PX_WALLS_BLANK
     word #P1_GOAL_BOTTOM
 
-FORMATION_DIAMONDS_P2
+FORMATION_DIAMONDS_PF2
     word #P2_GOAL_TOP
     word #P2_WALLS_CUBES_TOP
     word #PX_WALLS_BLANK
@@ -1299,7 +1132,7 @@ FORMATION_DIAMONDS_P2
     word #P2_WALLS_CUBES_BOTTOM
     word #P2_GOAL_BOTTOM
 
-FORMATION_WINGS_P1
+FORMATION_WINGS_PF1
     word #P1_GOAL_TOP
     word #PX_WALLS_BLANK
     word #PX_WALLS_BLANK
@@ -1309,7 +1142,7 @@ FORMATION_WINGS_P1
     word #P1_WALLS_WINGS_BOTTOM
     word #P1_GOAL_BOTTOM
 
-FORMATION_WINGS_P2
+FORMATION_WINGS_PF2
     word #P2_GOAL_TOP
     word #PX_WALLS_BLANK
     word #P2_WALLS_WINGS_TOP
@@ -1328,13 +1161,13 @@ PLAYER_SPRITES
 
 PLAYER_STATES
 PLAYER_SELECT_MKIV = . - PLAYER_STATES
-    byte #PLAYER_STATE_BEAM_RANGE_FULL | PLAYER_STATE_BEAM_2XWIDE
+    byte #PLAYER_STATE_BEAM_2XWIDE
 PLAYER_SELECT_MKI = . - PLAYER_STATES
-    byte #PLAYER_STATE_BEAM_RANGE_FULL
+    byte #PLAYER_STATE_BEAM_PULSE
 PLAYER_SELECT_MX888 = . - PLAYER_STATES
-    byte #PLAYER_STATE_BEAM_8XWIDE
+    byte #PLAYER_STATE_BEAM_ARC | #PLAYER_STATE_BEAM_8XWIDE
 PLAYER_SELECT_CPU = . - PLAYER_STATES
-    byte #PLAYER_STATE_BEAM_RANGE_FULL | #PLAYER_STATE_AUTO_AIM | PLAYER_STATE_AUTO_FIRE 
+    byte #PLAYER_STATE_BEAM_PULSE | #PLAYER_STATE_AUTO_AIM | PLAYER_STATE_AUTO_FIRE 
 
 PLAYER_HEIGHTS
     byte #0
@@ -1434,18 +1267,24 @@ waitOnVBlank_loop
 ;     - organize superchip ram
 ;  - input glitches
 ;     - accidental firing when game starts
-; MVP TODO
-;  - shield weapon (would be good to test if possible)
+;  - shield (arc) weapon (would be good to test if possible)
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
 ;  - laser weapons
-;     - different patterns/ ranges for different ships..
-;     - make lasers refract off ball 
+;     - different patternsfor different ships..
+; MVP TODO
+;  - laser problems
+;     - power ranges for different ships broken
+;     - massive number of cycles used
+;  - weapon effects
+;     -  make lasers refract off ball 
 ;  - make room for extensive dl usage (will help do shield, possible multiball)
-;     - use DL for ball (heavy ram but will free a ton of cycles, allow anims)
-;     - replace ball_cx vector with rol bitmap (will free up a chunk of RAM)
+;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
+;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
 ;  - physics glitches
 ;     - doesn't reflect bounce on normal well enough?
+;  - arc shield controls
+;     - moving stick creates ranged shot
 ;  - shot mechanics MVP
 ;      - relatively low power - can't knock out of sideways motion easily
 ;        - gravity blast might be a way to quell that motion
