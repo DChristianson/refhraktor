@@ -1,11 +1,22 @@
 
 
+    ; invert an address
+    MAC  INV8
+            lda {1} 
+            eor #$ff
+            clc
+            adc #1
+            sta {1}
+    ENDM
+
+    ; BUGBUG : probably not needed
     MAC  TSY
             tsx              ;2 
             txa              ;2
             tay              ;2
     ENDM
 
+    ; BUGBUG : probably not needed
     MAC  TYS
             tya              ;2
             tax              ;2
@@ -77,12 +88,6 @@ _player_aim_beam_end
             tay
             lda TABLE_BEAM_POWER,y
 _player_aim_save_ay
-            cpx #0
-            bne _player_aim_save_ay_hi
-            eor #$ff
-            clc
-            adc #1
-_player_aim_save_ay_hi
             sta ball_ay
             beq _player_aim_save_ax
             ; get ball ax
@@ -93,13 +98,12 @@ _player_aim_save_ay_hi
             lsr
             tay
             lda TABLE_BEAM_SPIN,y
-_player_aim_save_ax
             bit local_player_draw_hmove
-            bpl _player_aim_save_ax_l
+            bpl _player_aim_save_ax
             eor #$ff
             clc
             adc #1
-_player_aim_save_ax_l
+_player_aim_save_ax
             sta ball_ax
             ; get beam pattern
             lda #PLAYER_STATE_BEAM_MASK
@@ -114,13 +118,17 @@ _player_aim_save_ax_l
             ; sort out beam x placement
             cpx #0
             beq _player_aim_calc_lo
+            ; invert x acceleration
+            INV8 ball_ax
             lda player_x + 1
             sec
             sbc #5
             jmp _player_aim_save_laser_x         
 _player_aim_calc_lo
+            ; invert y acceleration
+            INV8 ball_ay
             ; find lo player beam starting point
-            ; last local_player_x_travel will have the (signed) x distance covered  
+            ; last local_player_x_travel will have the (unsigned) x distance covered  
             ; multiply by 5 to get 80 scanline x distance
             lda local_player_draw_x_travel
             asl 
@@ -154,7 +162,7 @@ wx_arc_beam
             jsr sub_calc_beam_parameters
             lda local_player_draw_dy
             sec 
-            sbc #20 ; BUGBUG: variablize
+            sbc #$18 ; BUGBUG: variablize
             bcs _player_arc_miss
             lda local_player_draw_dx
             cmp #15

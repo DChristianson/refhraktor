@@ -1271,22 +1271,33 @@ waitOnVBlank_loop
 ;     - need way to turn beam on/off based on zone
 ;     - need alternate aiming systems to get shield effect
 ;  - laser weapons
-;     - different patternsfor different ships..
+;     - different patterns for different ships..
+;     - arc shield mechanic
 ; MVP TODO
-;  - laser problems
-;     - power ranges for different ships broken
-;     - massive number of cycles used
+;  - shot glitches
+;     - incorrect for hi/lo player
+;     - not calculated off on ball center
+;  - basic special attacks
+;     - gravity wave (affect background)
+;     - emp (affect foreground)
 ;  - weapon effects
-;     -  make lasers refract off ball 
-;  - make room for extensive dl usage (will help do shield, possible multiball)
+;     - make lasers refract off ball
+;     - arc shield anim 
+;  - code
+;     - massive number of cycles used
 ;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
 ;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
+;     - review bugbugs
 ;  - physics glitches
+;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
-;  - arc shield controls
-;     - moving stick creates ranged shot
+;  - power glitches
+;     - accidental drain when game starts
 ;  - shot mechanics MVP
-;      - relatively low power - can't knock out of sideways motion easily
+;     - recharge if don't fire
+;     - arc shield needs less drain
+;     - arc shield foving stick creates ranged shot?
+;     - relatively low power - can't knock out of sideways motion easily
 ;        - gravity blast might be a way to quell that motion
 ;        - friction might help
 ;        - spin could be good
@@ -1344,9 +1355,6 @@ waitOnVBlank_loop
 ;       - combat
 ;  MAYBE SOON
 ;  - basic quest mode (could be good for testing)
-;  - basic special attacks
-;    - gravity wave (affect background)
-;    - emp (affect foreground)
 ;  - dynamic levels 
 ;     - locking rings (dynamic)
 ;     - breakfall (dynamic, destructable)
