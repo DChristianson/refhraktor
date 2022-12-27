@@ -1,5 +1,5 @@
 
-    MAC FORMATION ; given p0, p1, p2, c, w, mask, addr, m0
+    MAC FORMATION ; given p0, p1, p2, c, w, mask, addr, m0, p0
 ._pl0_loop_0_hm
             lda ({1}),y                  ;5   5
             sta PF0                      ;3   8
@@ -16,15 +16,10 @@
             sta HMM0                     ;3  44
             sta ENAM0                    ;3  47
             ;; ball graphics
-            ldx ball_voffset             ;3  50 ; BUGBUG: probably unroll this, or make a dl
-            bpl ._pl0_draw_grp_0         ;2  52  ; sbpl
-            lda #$00                     ;2  54
-            jmp ._pl0_end_grp_0          ;3  57
-._pl0_draw_grp_0
-            lda BALL_GRAPHICS,x          ;4  57
-._pl0_end_grp_0
-            sta GRP0                     ;3  60
-            sta GRP1                     ;3  63
+            lda ({9}),y                  ;5  52
+            sta GRP0                     ;3  55
+            sta GRP1                     ;3  58
+            SLEEP 5                      ;5  63
             lda ({5}),y                  ;5  68 ; load pf color 
             ;; EOL
             stx COLUBK                   ;4  71
@@ -288,15 +283,15 @@ _ball_resp_loop
 
 formation_0
     sta WSYNC
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 0, formation_pf2_dl + 0, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_1_jmp, local_fk_m0_dl + 0
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 0, formation_pf2_dl + 0, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_1_jmp, local_fk_m0_dl + 0, local_fk_p0_dl + 0
 formation_1
     sta WSYNC
 formation_1_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 2, formation_pf2_dl + 2, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_2_jmp, local_fk_m0_dl + 2
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 2, formation_pf2_dl + 2, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_2_jmp, local_fk_m0_dl + 2, local_fk_p0_dl + 2
 formation_2
     sta WSYNC
 formation_2_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 4, formation_pf2_dl + 4, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_3_jmp, local_fk_m0_dl + 4
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 4, formation_pf2_dl + 4, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_3_jmp, local_fk_m0_dl + 4, local_fk_p0_dl + 4
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -304,15 +299,15 @@ formation_2_jmp
 formation_3
     sta WSYNC
 formation_3_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 6, formation_pf2_dl + 6, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_4_jmp, local_fk_m0_dl + 6
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 6, formation_pf2_dl + 6, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_4_jmp, local_fk_m0_dl + 6, local_fk_p0_dl + 6
 formation_4
     sta WSYNC
 formation_4_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 8, formation_pf2_dl + 8, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_5_jmp, local_fk_m0_dl + 8
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 8, formation_pf2_dl + 8, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_5_jmp, local_fk_m0_dl + 8, local_fk_p0_dl + 8
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 10, formation_pf2_dl + 10, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_end_jmp, local_fk_m0_dl + 10
+    FORMATION formation_pf0_ptr, formation_pf1_dl + 10, formation_pf2_dl + 10, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_end_jmp, local_fk_m0_dl + 10, local_fk_p0_dl + 10
 formation_end
             SLEEP 6                         ;6  66
             lda #$00                        ;2  68
@@ -738,13 +733,17 @@ PF2_WALLS_WINGS_BOTTOM
     ALIGN 256
 
 BEAM_OFF_HMOV_0
+BALL_GRAPHICS_OFF
 COLUBK_COLORS_0 ; compression - 16 0's
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+BALL_GRAPHICS_PAD
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 BALL_GRAPHICS
     byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
 BALL_GRAPHICS_END
-    ; pad 8 0 at end of ball graphics
+    ; pad 16 0 at end of ball graphics
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
 BEAM_ON_HMOV_0

@@ -672,8 +672,41 @@ _player_call_wx
             sta local_wx_beam_proc_ptr
             jmp (local_wx_beam_proc_ptr)
             ; by the time we hit wx_player_return we've set up 
-            ; the dl's for beam, p0, colupf and colubk
+            ; the dl's for beam, colupf and colubk
 wx_player_return
+
+            ; final dl - for p0 / p1
+            ; notes: 
+            ;  -36 ball_voffset
+            ;  will start in formation 2 at y = 4
+ball_dl_setup
+            ; WARNING: need to store stack    
+            WRITE_DL local_fk_p0_dl, BALL_GRAPHICS_OFF
+            ldx #$ff
+            txs ; BUGBUG: KLUDGE
+            lda ball_voffset
+            eor #$ff
+            clc
+            adc #1 ;
+            clc
+            adc display_scroll
+            tax
+            lsr
+            lsr
+            lsr
+            lsr
+            asl 
+            tay
+            txa
+            and #$0f         ; 
+            adc #<BALL_GRAPHICS_PAD
+            sta local_fk_p0_dl,y ; this needs to be 
+            iny
+            iny
+            sec
+            sbc #16
+            sta local_fk_p0_dl,y
+_ball_dl_end
 
 ;---------------------
 ; end vblank
@@ -1264,6 +1297,7 @@ waitOnVBlank_loop
 ;     - split up by bank
 ;     - organize superchip ram
 ;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
+;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
 ;  - input glitches
 ;     - accidental firing when game starts
 ;  - shield (arc) weapon (would be good to test if possible)
@@ -1275,10 +1309,30 @@ waitOnVBlank_loop
 ;  - shot glitches
 ;     - not calculated off on ball center
 ; MVP TODO
-;  - code
-;     - massive number of cycles used drawing
-;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
-;     - review bugbugs
+;  - sounds MVP
+;    - audio queues
+;      - menu l/r (fugue arpeggio bits)
+;      - menu u/d (fugue other bits)
+;      - game start (fugue pause)
+;      - ball drop / get ready ()
+;      - shot sound (blast)
+;      - bounce sound (adjust tempo)
+;      - cooldown warning (alarm)
+;      - cooldown occurred (power down)
+;      - power restored (tune)
+;      - goal sound (pulses)
+;  - clean up menus 
+;     - explicit start game option
+;     - instructions?
+;     - show level 
+;     - disable unused game modes
+;     - gradient color
+;  - graphical glitches
+;     - get lasers starting from players
+;     - remove color change glitches
+;     - remove / mitigate vdelay glitch on ball update
+;     - lasers weird at certain positions 
+;     - frame rate glitch at certain positions
 ;  - game start / end logic
 ;     - end game at specific score...
 ;     - game timer?
@@ -1301,35 +1355,15 @@ waitOnVBlank_loop
 ;     - recharge if don't fire
 ;     - arc shield needs less drain but maybe less power
 ;     - arc shield range adjust mode
-;  - sounds MVP
-;    - audio queues
-;      - menu l/r (fugue arpeggio bits)
-;      - menu u/d (fugue other bits)
-;      - game start (fugue pause)
-;      - ball drop / get ready ()
-;      - shot sound (blast)
-;      - bounce sound (adjust tempo)
-;      - cooldown warning (alarm)
-;      - cooldown occurred (power down)
-;      - power restored (tune)
-;      - goal sound (pulses)
+;  - power glitches
+;     - accidental drain when game starts
 ;  - physics glitches
 ;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
-;  - power glitches
-;     - accidental drain when game starts
-;  - graphical glitches
-;     - get lasers starting from players
-;     - remove color change glitches
-;     - remove / mitigate vdelay glitch on ball update
-;     - lasers weird at certain positions 
-;     - frame rate glitch at certain positions
-;  - clean up menus 
-;     - explicit start game option
-;     - instructions?
-;     - show level 
-;     - disable unused game modes
-;     - gradient color
+;     - ball can still get stuck
+;  - code
+;     - massive number of cycles used drawing
+;     - review bugbugs
 ;  - power grid sprinkles
 ;    - visual cues
 ;      - some sort of rolling effect
