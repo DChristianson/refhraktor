@@ -145,11 +145,11 @@ formation_pf0_ptr ds 2   ; playfield ptr pf0
 formation_pf1_dl  ds 12  ; playfield dl pf1
 formation_pf2_dl  ds 12  ; playfield dl pf2
 
+player_score      ds NUM_PLAYERS      ; score
 player_input      ds NUM_PLAYERS      ; player input buffer
 player_state      ds NUM_PLAYERS      ; 
 player_sprite     ds 2 * NUM_PLAYERS  ; pointer
 player_x          ds NUM_PLAYERS      ; player x position
-player_score      ds NUM_PLAYERS      ; score
 
 power_grid_reserve ds NUM_PLAYERS
 power_grid_timer   ds NUM_PLAYERS
@@ -163,15 +163,15 @@ ball_dx           ds 2
 ball_ay           ds 1
 ball_ax           ds 1
 ball_color        ds 1
-ball_voffset      ds 1 ; ball position countdown BUGBUG: TODO can make display local?
-ball_cx           ds BALL_HEIGHT ; collision registers
+ball_voffset      ds 1 ; ball position countdown 
+ball_cx           ds 1 ; collision register
 
-display_scroll      ; scroll adjusted to modulo block
+display_scroll      ; scroll adjusted to modulo block 
 scroll         ds 1 ; y value to start showing playfield
 
-display_playfield_limit ds 1
+display_playfield_limit ds 1 ; BUGBUG see if need
 
-LOCAL_OVERLAY           ds 64
+LOCAL_OVERLAY           ds 50
 
 ; -- joystick kernel locals
 local_jx_player_input = LOCAL_OVERLAY
@@ -209,16 +209,16 @@ local_beam_draw_hmove       = LOCAL_OVERLAY + 3 ; hmove direction
 local_beam_draw_pattern     = LOCAL_OVERLAY + 4 ; pattern for drawing
 local_beam_draw_D           = LOCAL_OVERLAY + 5
 local_beam_draw_x_travel    = LOCAL_OVERLAY + 6
-; -- 
+
+; -- text kernel locals
 local_tk_stack = LOCAL_OVERLAY      ; hold stack ptr during text
 local_tk_y_min = LOCAL_OVERLAY + 1  ; hold y min during text kernel
 
-; -- playfield kernel locals
-local_fk_stack      = LOCAL_OVERLAY      ; hold stack ptr during playfield
-local_fk_m0_dl      = LOCAL_OVERLAY + 2  ; pattern for missile 0
-local_fk_colupf_dl  = LOCAL_OVERLAY + 14
-local_fk_colubk_dl  = LOCAL_OVERLAY + 26
-local_fk_p0_dl      = LOCAL_OVERLAY + 38 
+; -- fhrakas kernel locals
+local_fk_m0_dl      = LOCAL_OVERLAY      ; pattern for missile 0
+local_fk_colupf_dl  = LOCAL_OVERLAY + 12
+local_fk_colubk_dl  = LOCAL_OVERLAY + 24
+local_fk_p0_dl      = LOCAL_OVERLAY + 36 ; pattern for p0 
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
@@ -458,27 +458,22 @@ ball_update
             ; collision
             ldy #0
 _ball_update_cx_bottom
-            lda ball_cx + BALL_HEIGHT - 1
-            ora ball_cx + BALL_HEIGHT - 2
-            bpl _ball_update_cx_top
-            ABS16 ball_dy
+            lda #%11000000
+            and ball_cx
+            beq _ball_update_cx_top
+            NEG16 ball_dy
             iny
             jmp _ball_update_cx_horiz
 _ball_update_cx_top
-            ora ball_cx + 1
-            ora ball_cx
-            bpl _ball_update_cx_horiz
-            NEG16 ball_dy
+            lda #%00000011
+            and ball_cx
+            beq _ball_update_cx_horiz
+            ABS16 ball_dy
             iny
 _ball_update_cx_horiz
-            ldx #BALL_HEIGHT - 3
-_ball_update_cx_loop
-            lda ball_cx,x
-            bmi _ball_update_cx_horiz_update
-            dex
-            cpx #2
-            bcs _ball_update_cx_loop
-            jmp _ball_update_cx_end_acc
+            lda #%00111100
+            and ball_cx
+            beq _ball_update_cx_end_acc
 _ball_update_cx_horiz_update
             ; BUGBUG 005f to ffa1 (min needs to be dx/1)
             lda ball_dx

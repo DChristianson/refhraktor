@@ -32,38 +32,41 @@
             sta COLUPF                   ;3  76
             ;; 2nd line
             sta HMOVE                    ;3   3
-            ;; 
-            SLEEP 12                     ;12 15
+            ;; get C set for checking collision
+            lda #$80                     ;2   5
+            adc CXP0FB                   ;3   8
+            sta CXCLR                    ;3  11
+            SLEEP 4                      ;4  15
             lda ({4}),y                  ;5  20
             dey                          ;2  22 ; getting ready for later
-            SLEEP 3                      ;3  25
+            ldx ball_voffset             ;3  25
             sta COLUBK                   ;3  28
             ;; ball offsets
-            ldx ball_voffset             ;3  31
-            bmi ._pl0_inc_ball_offset    ;2  33 ; sbmi
-            lda CXP0FB                   ;3  36
-            pha                          ;3  39
-            dex                          ;2  41
-            bmi ._pl0_ball_end           ;2  43 ; sbmi
-            sta CXCLR                    ;3  46 ; clear collision for next line
-            jmp ._pl0_save_ball_offset   ;3  49 
+            bmi ._pl0_inc_ball_offset    ;2  30 ; sbmi
+            lda ball_cx                  ;3  33
+            ror                          ;2  35
+            sta ball_cx                  ;3  38
+            dex                          ;2  40
+            bmi ._pl0_ball_end           ;2  42 ; sbmi
+            SLEEP 3                      ;3  45
+            jmp ._pl0_save_ball_offset   ;3  48 
 ._pl0_ball_end
-            ldx #128                     ;2  46
-            jmp ._pl0_save_ball_offset   ;3  49
+            ldx #128                     ;2  45
+            jmp ._pl0_save_ball_offset   ;3  48
 ._pl0_inc_ball_offset 
-            SLEEP 8                      ;8  42
-            inx                          ;2  44
-            beq ._pl0_ball_start         ;2  46 ; sbeq
-            jmp ._pl0_save_ball_offset   ;3  49
+            SLEEP 10                     ;10 41
+            inx                          ;2  43
+            beq ._pl0_ball_start         ;2  45 ; sbeq
+            jmp ._pl0_save_ball_offset   ;3  48
 ._pl0_ball_start 
-            ldx #BALL_HEIGHT - 1         ;2  49
+            ldx #BALL_HEIGHT - 1         ;2  48
 ._pl0_save_ball_offset
-            stx ball_voffset             ;3  52
-            dec display_playfield_limit  ;3  55
-            bpl ._pl0_continue           ;2  57 ; sbpl
-            jmp formation_end            ;3  60
+            stx ball_voffset             ;3  51
+            dec display_playfield_limit  ;5  56
+            bpl ._pl0_continue           ;2  58 ; sbpl
+            jmp formation_end            ;3  61
 ._pl0_continue
-            SLEEP 2                      ;2  62 BUGBUG: was ldx #0
+            SLEEP 3                      ;3  62 BUGBUG: was ldx #0
             tya                          ;2  64
             bmi ._pl0_advance_formation  ;2  66 ; sbeq
             SLEEP 2                      ;2  68
@@ -254,33 +257,31 @@ _ball_resp_loop
             sta HMOVE                    ;3   3
             lda ball_color               ;3   6
             sta COLUP0                   ;3   9
-            ; point SP at collision register
-            tsx                          ;2  11
-            stx local_fk_stack           ;3  14
-            ldx #ball_cx + BALL_HEIGHT-1 ;2  16
-            txs                          ;2  18
-            sta CXCLR                    ;3  21
+            ; clear collision register
+            sta CXCLR                    ;3  12
+            ; start prepping playfield 
+            lda display_scroll           ;3  15
+            eor #$ff                     ;2  17 ; invert as we will count down
+            and #$0f                     ;2  19
+            tay                          ;2  21
             ; zero out hmoves what need zeros
             lda #$00                     ;2  23
             sta HMP0                     ;3  26
             lda #$70                     ;2  28 ; shift P1/M0 back 7 clocks
-            sta HMP1                     ;3  31
+            sta HMP1                     ;3  32
 
             ; hmove ++ and prep for playfield next line
             sta WSYNC                    ;0   0
             sta HMOVE                    ;3   3
-            lda display_scroll           ;3   6
-            eor #$ff                     ;2   8 ; invert as we will count down
-            and #$0f                     ;2  10
-            tay                          ;2  12
-            lda #80                      ;2  14
-            sta display_playfield_limit  ;3  17
-            lda #$01                     ;2  19
-            sta VDELP1                   ;3  22
-            lda #$00                     ;2  24 
+            lda #80                      ;2   5
+            sta display_playfield_limit  ;3   8
+            lda #$01                     ;2  10
+            sta VDELP1                   ;3  13
+            lda #$00                     ;2  15 
+            sta COLUP1                   ;3  18
+            SLEEP 6                      ;6  24
             sta HMP1                     ;3  27
-            sta COLUP1                   ;3  30
-            jmp formation_0              ;3  33
+            jmp formation_0              ;3  27
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -487,9 +488,6 @@ _lt_lo_draw_loop_2
             stx COLUPF
 
 ; kernel exit
-
-            ldx local_fk_stack      ;3   --
-            txs                     ;2   --
 
             sta WSYNC
             lda #$00
