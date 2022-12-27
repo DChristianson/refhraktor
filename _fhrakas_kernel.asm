@@ -737,23 +737,24 @@ PF2_WALLS_WINGS_BOTTOM
 
     ALIGN 256
 
-COLUBK_COLORS_0
+BEAM_OFF_HMOV_0
+COLUBK_COLORS_0 ; compression - 16 0's
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-COLUBK_COLORS_1
+BALL_GRAPHICS
+    byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
+BALL_GRAPHICS_END
+    ; pad 8 0 at end of ball graphics
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+
+BEAM_ON_HMOV_0
+COLUBK_COLORS_1 ; compression, enam0 always on and 16 bytes of color 2 are the same
     byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
     byte #$02,#$02,#$02,#$02,#$02,#$02,#$02,#$02
-COLUBK_COLORS_2
-    byte #$09,#$09,#$09,#$09,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
 COLUPF_COLORS_0
     byte #$06,#$06,#$08,#$08,#$0a,#$0a,#$0c,#$0c
     byte #$0e,#$0e,#$0c,#$0c,#$0a,#$0a,#$08,#$08
-
-BALL_GRAPHICS
-    byte #$3c,#$7e,#$ff,#$ff,#$ff,#$ff,#$7e,#$3c
-BALL_GRAPHICS_END
 
     ; standard lookup for hmoves
 STD_HMOVE_BEGIN
@@ -797,17 +798,4 @@ TARGET_COLOR_0
 TARGET_BG_0
     byte $0,$00,$00,$0b,$bc,$bc,$0b,$00,$00,$00; 9
 
-COLUBK_0_ADDR
-    word #COLUBK_COLORS_0
-COLUBK_1_ADDR
-    word #COLUBK_COLORS_1
-COLUBK_2_ADDR
-    word #COLUBK_COLORS_2
-COLUPF_0_ADDR
-    word #COLUPF_COLORS_0
 
-BEAM_OFF_HMOV_0
-    byte $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0, $0
-
-BEAM_ON_HMOV_0
-    byte $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2, $2
