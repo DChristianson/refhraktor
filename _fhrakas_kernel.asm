@@ -19,7 +19,8 @@
             lda ({9}),y                  ;5  52
             sta GRP0                     ;3  55
             sta GRP1                     ;3  58
-            SLEEP 5                      ;5  63
+            ldx #0                       ;2  60
+            SLEEP 3                      ;3  63
             lda ({5}),y                  ;5  68 ; load pf color 
             ;; EOL
             stx COLUBK                   ;4  71
@@ -61,16 +62,17 @@
             bpl ._pl0_continue           ;2  58 ; sbpl
             jmp formation_end            ;3  61
 ._pl0_continue
-            SLEEP 3                      ;3  62 BUGBUG: was ldx #0
-            tya                          ;2  64
-            bmi ._pl0_advance_formation  ;2  66 ; sbeq
-            SLEEP 2                      ;2  68
+            ldx #0                       ;2  61 ; get a 0
+            tya                          ;2  63
+            bmi ._pl0_advance_formation  ;2  65 ; sbeq
+            SLEEP 3                      ;3  68
             stx COLUBK                   ;3  71
             ;; EOL
             SLEEP 2                      ;2  73
             jmp ._pl0_loop_0_hm          ;3  --
 ._pl0_advance_formation
-            stx.w COLUBK                 ;3  71
+            SLEEP 2                      ;2  68
+            stx COLUBK                   ;3  71
             ldy #{6}                     ;2  73
             jmp {7}                      ;3  --
     ENDM
