@@ -549,7 +549,7 @@ P2_GRAPHICS_0
     ; try to avoid page branching problems
     ALIGN 256
 
-P0_WALLS
+PF0_WALLS
 	; .byte %11000000
 	; .byte %10000000
 	; .byte %10000000
@@ -621,47 +621,47 @@ P0_WALLS
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
 
-P2_GOAL_TOP
+PF2_GOAL_TOP
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
     byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
 
-PX_WALLS_BLANK
+PFX_WALLS_BLANK
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
-P2_GOAL_BOTTOM   
+PF2_GOAL_BOTTOM   
     byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
     byte #$01,#$01,#$00,#$00,#$00,#$00,#$00,#$00
 
 
-P1_GOAL_BOTTOM
+PF1_GOAL_BOTTOM
     byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
     byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
 
-P1_GOAL_TOP
+PF1_GOAL_TOP
     byte #$00,#$00,#$01,#$01,#$7f,#$ff,#$ff,#$ff 
     byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
 
 
 
-P1_WALLS_CHUTE
-P2_WALLS_CHUTE
+PF1_WALLS_CHUTE
+PF2_WALLS_CHUTE
     byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
     byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
 
-P1_WALLS_DIAMONDS
+PF1_WALLS_DIAMONDS
     byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
     byte #$22,#$22,#$14,#$14,#$14,#$08,#$00,#$00
 
-P2_WALLS_CUBES_TOP
+PF2_WALLS_CUBES_TOP
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-P2_WALLS_CUBES_BOTTOM
+PF2_WALLS_CUBES_BOTTOM
     byte #$e0,#$e0,#$e0,#$20,#$20,#$e0,#$e0,#$e0
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     
     ALIGN 256
     
-P1_WALLS_WINGS_TOP
+PF1_WALLS_WINGS_TOP
 	.byte %00000000
 	.byte %00000000
 	.byte %00000000
@@ -679,7 +679,7 @@ P1_WALLS_WINGS_TOP
 	.byte %00001000
     .byte %00010000
 
-P1_WALLS_WINGS_BOTTOM
+PF1_WALLS_WINGS_BOTTOM
 	.byte %00001000
 	.byte %00000100
 	.byte %00001000
@@ -698,7 +698,7 @@ P1_WALLS_WINGS_BOTTOM
 	.byte %00000000
 
 
-P2_WALLS_WINGS_TOP
+PF2_WALLS_WINGS_TOP
 	.byte %00000010
 	.byte %00000100
 	.byte %00001010
@@ -716,7 +716,7 @@ P2_WALLS_WINGS_TOP
 	.byte %10100000
 	.byte %01010000
 
-P2_WALLS_WINGS_BOTTOM
+PF2_WALLS_WINGS_BOTTOM
 	.byte %10100000
 	.byte %01000000
 	.byte %10100000

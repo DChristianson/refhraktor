@@ -1077,75 +1077,75 @@ _formation_load_loop
             rts
 
 FORMATION_VOID_PF1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
+    word #PF1_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF1_GOAL_BOTTOM
 
 FORMATION_VOID_PF2
 FORMATION_CHUTE_PF2
-    word #P2_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P2_GOAL_BOTTOM
+    word #PF2_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF2_GOAL_BOTTOM
 
 FORMATION_CHUTE_PF1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #P1_WALLS_CHUTE
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
+    word #PF1_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PF1_WALLS_CHUTE
+    word #PF1_WALLS_CHUTE
+    word #PF1_WALLS_CHUTE
+    word #PF1_WALLS_CHUTE
+    word #PFX_WALLS_BLANK
+    word #PF1_GOAL_BOTTOM
 
 FORMATION_DIAMONDS_PF1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_DIAMONDS
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_DIAMONDS
-    word #PX_WALLS_BLANK
-    word #P1_GOAL_BOTTOM
+    word #PF1_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PF1_WALLS_DIAMONDS
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF1_WALLS_DIAMONDS
+    word #PFX_WALLS_BLANK
+    word #PF1_GOAL_BOTTOM
 
 FORMATION_DIAMONDS_PF2
-    word #P2_GOAL_TOP
-    word #P2_WALLS_CUBES_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P2_WALLS_CUBES_BOTTOM
-    word #P2_GOAL_BOTTOM
+    word #PF2_GOAL_TOP
+    word #PF2_WALLS_CUBES_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF2_WALLS_CUBES_BOTTOM
+    word #PF2_GOAL_BOTTOM
 
 FORMATION_WINGS_PF1
-    word #P1_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P1_WALLS_WINGS_TOP
-    word #P1_WALLS_WINGS_BOTTOM
-    word #P1_GOAL_BOTTOM
+    word #PF1_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF1_WALLS_WINGS_TOP
+    word #PF1_WALLS_WINGS_BOTTOM
+    word #PF1_GOAL_BOTTOM
 
 FORMATION_WINGS_PF2
-    word #P2_GOAL_TOP
-    word #PX_WALLS_BLANK
-    word #P2_WALLS_WINGS_TOP
-    word #P2_WALLS_WINGS_BOTTOM
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #PX_WALLS_BLANK
-    word #P2_GOAL_BOTTOM    
+    word #PF2_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PF2_WALLS_WINGS_TOP
+    word #PF2_WALLS_WINGS_BOTTOM
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF2_GOAL_BOTTOM    
 
 ; BUGBUG; duplicate data
 PLAYER_SPRITES
@@ -1263,6 +1263,7 @@ waitOnVBlank_loop
 ;  - code
 ;     - split up by bank
 ;     - organize superchip ram
+;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
 ;  - input glitches
 ;     - accidental firing when game starts
 ;  - shield (arc) weapon (would be good to test if possible)
@@ -1277,7 +1278,6 @@ waitOnVBlank_loop
 ;  - code
 ;     - massive number of cycles used drawing
 ;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
-;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
 ;     - review bugbugs
 ;  - game start / end logic
 ;     - end game at specific score...
