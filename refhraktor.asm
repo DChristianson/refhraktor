@@ -201,20 +201,20 @@ local_player_sprite_lobyte = LOCAL_OVERLAY ; (ds 1)
 ; -- used to jump to wx processing
 local_wx_beam_proc_ptr        = LOCAL_OVERLAY
 
-; -- player beam drawing kernel locals
-local_player_draw_x_travel    = LOCAL_OVERLAY
-local_player_draw_dy          = LOCAL_OVERLAY + 1 
-local_player_draw_dx          = LOCAL_OVERLAY + 2
-local_player_draw_D           = LOCAL_OVERLAY + 3
-local_player_draw_hmove       = LOCAL_OVERLAY + 4
-local_player_draw_pattern     = LOCAL_OVERLAY + 5
-
+; -- beam drawing kernel locals
+local_beam_draw_cx          = LOCAL_OVERLAY     ; collision distance
+local_beam_draw_dy          = LOCAL_OVERLAY + 1 ; y distance (positive)
+local_beam_draw_dx          = LOCAL_OVERLAY + 2 ; x distance (positive)
+local_beam_draw_hmove       = LOCAL_OVERLAY + 3 ; hmove direction
+local_beam_draw_pattern     = LOCAL_OVERLAY + 4 ; pattern for drawing
+local_beam_draw_D           = LOCAL_OVERLAY + 5
+local_beam_draw_x_travel    = LOCAL_OVERLAY + 6
 ; -- 
-local_tk_stack = LOCAL_OVERLAY           ; hold stack ptr during text
+local_tk_stack = LOCAL_OVERLAY      ; hold stack ptr during text
 local_tk_y_min = LOCAL_OVERLAY + 1  ; hold y min during text kernel
 
 ; -- playfield kernel locals
-local_fk_stack      =  LOCAL_OVERLAY     ; hold stack ptr during playfield
+local_fk_stack      = LOCAL_OVERLAY      ; hold stack ptr during playfield
 local_fk_m0_dl      = LOCAL_OVERLAY + 2  ; pattern for missile 0
 local_fk_colupf_dl  = LOCAL_OVERLAY + 14
 local_fk_colubk_dl  = LOCAL_OVERLAY + 26
@@ -1276,24 +1276,48 @@ waitOnVBlank_loop
 ;  - laser weapons
 ;     - different patterns for different ships..
 ;     - arc shield mechanic
+;  - shot glitches
+;     - not calculated off on ball center
 ; MVP TODO
 ;  - code
-;     - massive number of cycles used
+;     - massive number of cycles used drawing
 ;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
 ;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
 ;     - review bugbugs
-;  - shot glitches
-;     - not calculated off on ball center
+;  - game start / end logic
+;     - end game at specific score...
+;     - game timer?
+;     - alternating player gets to "serve"
+;     - alternately - some way to cancel back to lobby?
+;  - clean up play screen 
+;     - add score or timer
+;     - get rid of crap on side
+;     - free up scanlines around power tracks
+;     - adjust background / foreground color
+;     - free up player/missile/ball for background?
+;  - basic special attacks
+;     - gravity wave (affect background)
+;     - emp (affect foreground)
+;     - gamma laser 
+;  - weapon effects
+;     - make lasers refract off ball
+;     - improve arc shield anim 
 ;  - shot mechanics MVP
 ;     - recharge if don't fire
 ;     - arc shield needs less drain but maybe less power
 ;     - arc shield range adjust mode
-;  - basic special attacks
-;     - gravity wave (affect background)
-;     - emp (affect foreground)
-;  - weapon effects
-;     - make lasers refract off ball
-;     - arc shield anim 
+;  - sounds MVP
+;    - audio queues
+;      - menu l/r (fugue arpeggio bits)
+;      - menu u/d (fugue other bits)
+;      - game start (fugue pause)
+;      - ball drop / get ready ()
+;      - shot sound (blast)
+;      - bounce sound (adjust tempo)
+;      - cooldown warning (alarm)
+;      - cooldown occurred (power down)
+;      - power restored (tune)
+;      - goal sound (pulses)
 ;  - physics glitches
 ;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
@@ -1305,61 +1329,42 @@ waitOnVBlank_loop
 ;     - remove / mitigate vdelay glitch on ball update
 ;     - lasers weird at certain positions 
 ;     - frame rate glitch at certain positions
-;  - clean up play screen 
-;     - add score or timer
-;     - free up scanlines around power tracks
-;     - adjust background / foreground color
-;     - free up player/missile/ball for background?
-;  - game start / end logic
-;     - end game at specific score...
-;     - game timer?
-;     - alternating player gets to "serve"
-;     - alternately - some way to cancel back to lobby?
 ;  - clean up menus 
 ;     - explicit start game option
 ;     - instructions?
 ;     - show level 
 ;     - disable unused game modes
 ;     - gradient color
-;  - sounds MVP
-;     - start ceremony
-;     - shot sound
-;     - grid sounds
-;     - score sounds
-;     - bounce sound
 ;  - power grid sprinkles
 ;    - visual cues
+;      - some sort of rolling effect
 ;      - grid color shows power level
 ;      - waveform (flow pattern)
 ;         - recovery (from sides)
 ;         - pull rate (flow in from next to player)
 ;          - draw (remove from under player)
 ;          - width (area drained)
-;    - audio queues
-;      - shot sound
-;      - cooldown warning
-;      - cooldown occurred
-;      - power restored
-;  - more playfields
-;     - more vertical space
-;     - MVP levels 
-;       - void (empty)
-;       - chute (tracks)
-;       - maze 
-;       - diamonds (obstacles)
-;       - crescent wings (dynamic)
-;       - pachinko (pins)
-;       - pinball (diagonal banks)
-;       - combat
-;  MAYBE SOON
+;  - playfields MVP
+;    - void (empty)
+;    - diamonds (obstacles)
+;    - ladder (maze-like)
+;    - chute (tracks)
+;    - pachinko (pins)
+;  SOON
 ;  - basic quest mode (could be good for testing)
-;  - dynamic levels 
+;  - alternative goals
+;  - different height levels
+;  - more levels themes
 ;     - locking rings (dynamic)
 ;     - breakfall (dynamic, destructable)
 ;     - blocks (dynamic)
+;     - crescent wings (dynamic)
 ;     - conway (dynamic)
 ;     - mandala (spinning symmmetrics)
 ;     - chakra (circular rotating maze)
+;     - pinball (diagonal banks, active targets
+;     - combat
+;     - castle
 ;  THINK ABOUT
 ;  - power grid shot mechanics
 ;      - shot power (capacitance) (per player)
