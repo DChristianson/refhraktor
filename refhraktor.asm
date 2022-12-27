@@ -1253,6 +1253,9 @@ waitOnVBlank_loop
 ;       - at least partially due to collision glitch fixes (if you miss bottom)
 ;     - stuck vertical
 ;     - ununtuitive reaction to shots
+;     - incorrect for hi/lo player
+;     - relatively low power - can't knock out of sideways motion easily
+;        - spin could be good
 ;  - switch controls to shared code
 ;  - shot mechanics 
 ;      - shot range affects power
@@ -1274,33 +1277,28 @@ waitOnVBlank_loop
 ;     - different patterns for different ships..
 ;     - arc shield mechanic
 ; MVP TODO
+;  - code
+;     - massive number of cycles used
+;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
+;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
+;     - review bugbugs
 ;  - shot glitches
-;     - incorrect for hi/lo player
 ;     - not calculated off on ball center
+;  - shot mechanics MVP
+;     - recharge if don't fire
+;     - arc shield needs less drain but maybe less power
+;     - arc shield range adjust mode
 ;  - basic special attacks
 ;     - gravity wave (affect background)
 ;     - emp (affect foreground)
 ;  - weapon effects
 ;     - make lasers refract off ball
 ;     - arc shield anim 
-;  - code
-;     - massive number of cycles used
-;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
-;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
-;     - review bugbugs
 ;  - physics glitches
 ;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
 ;  - power glitches
 ;     - accidental drain when game starts
-;  - shot mechanics MVP
-;     - recharge if don't fire
-;     - arc shield needs less drain
-;     - arc shield foving stick creates ranged shot?
-;     - relatively low power - can't knock out of sideways motion easily
-;        - gravity blast might be a way to quell that motion
-;        - friction might help
-;        - spin could be good
 ;  - graphical glitches
 ;     - get lasers starting from players
 ;     - remove color change glitches
