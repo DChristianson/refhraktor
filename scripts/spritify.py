@@ -184,7 +184,7 @@ formats = {
 }
 
 # variable resolution sprite
-def emit_varsprite8(varname, image, fp, reverse=False, fmt=asmfmt, debug=False):
+def emit_varsprite8(varname, image, fp, reverse=False, invert=False, fmt=asmfmt, debug=False):
     width, _ = image.size
     if not image.mode == 'RGBA':
         image = image.convert(mode='RGBA')
@@ -192,6 +192,8 @@ def emit_varsprite8(varname, image, fp, reverse=False, fmt=asmfmt, debug=False):
     rows = chunker(map(bit, data), width)
     if reverse:
         rows = [tuple(reversed(row)) for row in rows]
+    if invert:
+        rows = reversed(list(rows))
 
     compressedbits = list([compress8(list(row)) for row in rows])
     solution = find_offset_solution(compressedbits, solve_left=True)
@@ -202,7 +204,7 @@ def emit_varsprite8(varname, image, fp, reverse=False, fmt=asmfmt, debug=False):
     nusizes = list([ nusize(cb.scale) for cb in compressedbits])
     ctrl = list([hmove(offset) + size for offset, size in zip(left_delta, nusizes)])
     graphics = list([bits2int(bits) for bits in padded_bits])
-
+    
     # write output
     for name, col in [('ctrl', ctrl), ('graphics', graphics)]:
         fmt(f'{varname}_{name}', [col], fp)
@@ -234,6 +236,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate 6502 assembly for sprite graphics')
     parser.add_argument('--format', type=str, choices=['asm', 'bas'], default='asm')
     parser.add_argument('--reverse', type=bool, default=False)
+    parser.add_argument('--invert', type=bool, default=False)
     parser.add_argument('--debug', type=bool, default=False)
     parser.add_argument('--bits', type=int, choices=range(8, 8 * 32 + 1, 8), default=8)
     parser.add_argument('filenames', nargs='*')
@@ -259,5 +262,5 @@ if __name__ == "__main__":
                 elif width == 8:
                     emit_spriteMulti(varname, image, out, bits=8, fmt=fmt)
                 else:
-                    emit_varsprite8(varname, image, out, reverse=args.reverse, fmt=fmt, debug=args.debug)
+                    emit_varsprite8(varname, image, out, reverse=args.reverse, invert=args.invert, fmt=fmt, debug=args.debug)
         

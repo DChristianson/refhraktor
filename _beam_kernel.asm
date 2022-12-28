@@ -180,78 +180,56 @@ _player_arc_miss
 _player_arc_save_accel
             sta ball_ax 
             sty ball_ay
-            ; base draw pattern
-            lda #%10101010
-            sta local_beam_draw_pattern
-            lda #$02
-            bit frame
-            beq _player_arc_skip_rol_pattern
-            rol local_beam_draw_pattern
-_player_arc_skip_rol_pattern
-            ; sweep back and forth
-            ; TODO: randomized value
-            lda frame
-            and #$fe
-            asl
-            asl
-            and #$1f
-            sec
-            sbc #16
-            sta local_beam_draw_dx
-            lda #16
-            sta local_beam_draw_dy
-            ; clear draw buffer
-            lda #0
-            WRITE_BUFFER SC_WRITE_LASER_HMOV_0
-            WRITE_BUFFER SC_WRITE_LASER_HMOV_2
-            ; draw beam
-            jsr sub_draw_beam
             ; figure out x
-            cpx #0
-            beq _player_arc_aim_calc_lo
-            lda player_x + 1
+            lda player_x,x
             sec
-            sbc #5
-            jmp _player_aim_save_laser_x         
-_player_arc_aim_calc_lo
-            ; find lo player beam starting point
-            ; last local_beam_x_travel will have the (signed) x distance covered  
-            lda local_beam_draw_x_travel
-            ldy local_beam_draw_hmove 
-            bpl _player_arc_aim_refract_no_invert
-            eor #$ff
-            clc
-            adc #$01
-_player_arc_aim_refract_no_invert
-            adc player_x
-            sec
-            sbc #$07
-            cmp #160 ; compare to screen width
-            bcc _player_arc_aim_save_laser_x
-            sbc #96
-_player_arc_aim_save_laser_x
+            sbc #8
             sta laser_lo_x
             ; BUGBUG: TODO: make dl
-            TSY
             WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
-            WRITE_ADDR local_fk_m0_dl + 0, BEAM_OFF_HMOV_0 ; hack
-            WRITE_ADDR local_fk_m0_dl + 2, BEAM_OFF_HMOV_0 ; hack
-            WRITE_ADDR local_fk_m0_dl + 4, BEAM_OFF_HMOV_0 ; hack
-            WRITE_ADDR local_fk_m0_dl + 6, BEAM_OFF_HMOV_0 ; hack
-            TYS
+            WRITE_ADDR local_fk_m0_dl + 0, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 2, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 4, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 6, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 8, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 10, SHIELD_ANIM_0_CTRL_LO ; hack
+            ; sweep back and forth
+            lda frame 
+            and #$06
+            asl
+            asl
+            asl
+            asl
+            cpx #0 ; BUGBUG has been wiped
+            beq _player_arc_skip_shim_hi
+            clc
+            adc #<SHIELD_ANIM_0_CTRL_HI
+            sta local_fk_m0_dl + 1
             ; pad draw buffer
-            lda #>SC_READ_LASER_HMOV_0
-            sta local_fk_m0_dl + 11
-            sta local_fk_m0_dl + 9
             lda ball_voffset
             and #$0f
             clc
-            adc #<SC_READ_LASER_HMOV_0
+            adc local_fk_m0_dl + 1
+            sta local_fk_m0_dl + 1
+            adc #16
+            sta local_fk_m0_dl + 0
+            jmp _player_arc_done
+_player_arc_skip_shim_hi
+            sta local_fk_m0_dl + 10
+            ; pad draw buffer
+            lda ball_voffset
+            and #$0f
+            clc
+            adc local_fk_m0_dl + 10
             sta local_fk_m0_dl + 10
             adc #16
             sta local_fk_m0_dl + 8
+_player_arc_done
+            ; BUGBUG: TODO: make dl
+            TSY
+            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
+            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
+            TYS
             jmp wx_player_return
 
 wx_gamma_beam

@@ -1309,7 +1309,15 @@ waitOnVBlank_loop
 ;  - shot glitches
 ;     - not calculated off on ball center
 ; MVP TODO
+;  - weapon effects
+;     - improve arc shield anim 
+;     - make lasers refract off ball
+;  - basic special attacks
+;     - gravity wave (affect background)
+;     - emp (affect foreground)
+;     - gamma laser 
 ;  - sounds MVP
+;    - remove / replace bg music
 ;    - audio queues
 ;      - menu l/r (fugue arpeggio bits)
 ;      - menu u/d (fugue other bits)
@@ -1344,13 +1352,6 @@ waitOnVBlank_loop
 ;     - free up scanlines around power tracks
 ;     - adjust background / foreground color
 ;     - free up player/missile/ball for background?
-;  - basic special attacks
-;     - gravity wave (affect background)
-;     - emp (affect foreground)
-;     - gamma laser 
-;  - weapon effects
-;     - make lasers refract off ball
-;     - improve arc shield anim 
 ;  - shot mechanics MVP
 ;     - recharge if don't fire
 ;     - arc shield needs less drain but maybe less power
