@@ -14,27 +14,26 @@
             ;; set beam hmov
             lda ({8}),y                  ;5  41
             sta HMM0                     ;3  44
-            sta ENAM0                    ;3  47
+            SLEEP 3                      ;3  47
             ;; ball graphics
             lda ({9}),y                  ;5  52
             sta GRP0                     ;3  55
             sta GRP1                     ;3  58
-            ldx #0                       ;2  60
-            SLEEP 3                      ;3  63
-            lda ({5}),y                  ;5  68 ; load pf color 
+            lda ({5}),y                  ;5  63 ; load pf color 
+            tax                          ;2  65
+            lda #0                       ;2  67
             ;; EOL
-            stx COLUBK                   ;4  71
-            SLEEP 2                      ;2  73
-            sta COLUPF                   ;3  76
+            sta.w COLUBK                 ;4  71
+            lda #$80                     ;2  73 ; use to set up collision
+            stx COLUPF                   ;3  76
             ;; 2nd line
             sta HMOVE                    ;3   3
             ;; get C set for checking collision
-            lda #$80                     ;2   5
-            adc CXP0FB                   ;3   8
-            sta CXCLR                    ;3  11
-            SLEEP 4                      ;4  15
-            lda ({4}),y                  ;5  20
-            dey                          ;2  22 ; getting ready for later
+            adc CXP0FB                   ;3   6 ; push into carry bit
+            sta CXCLR                    ;3   9
+            lda ({8}),y                  ;5  14
+            sta ENAM0                    ;3  17
+            lda ({4}),y                  ;5  22
             ldx ball_voffset             ;3  25
             sta COLUBK                   ;3  28
             ;; ball offsets
@@ -63,7 +62,7 @@
             jmp formation_end            ;3  61
 ._pl0_continue
             ldx #0                       ;2  61 ; get a 0
-            tya                          ;2  63
+            dey                          ;2  63 ; getting ready for later
             bmi ._pl0_advance_formation  ;2  65 ; sbeq
             SLEEP 3                      ;3  68
             stx COLUBK                   ;3  71
@@ -731,34 +730,39 @@ PF2_WALLS_WINGS_BOTTOM
 	.byte %00001000
 	.byte %00000000
 
-
     ALIGN 256
-    ; SHIELD animation (uses one whole page...)
+    ; SHIELD LO animation (uses one whole page...) BUGBUG: can compress
 
 SHIELD_ANIM_0_CTRL_LO
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $02,$02,$f0,$02,$12,$20,$02,$e2,$c0,$02,$42,$02,$02,$00,$00,$00; 16
+    byte $2,$0,$e2,$f0,$32,$20,$20,$20,$20,$c2,$f2,$f0,$f0,$f0,$0,$0; 16
 SHIELD_ANIM_1_CTRL_LO
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $02,$02,$02,$e0,$02,$20,$02,$22,$00,$02,$e2,$c2,$c2,$00,$10,$00; 16
+    byte $2,$12,$10,$c2,$d0,$12,$10,$10,$10,$10,$0,$2,$0,$0,$0,$0; 16
 SHIELD_ANIM_2_CTRL_LO
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $02,$02,$00,$02,$e0,$02,$22,$40,$02,$c2,$72,$92,$02,$00,$00,$00; 16
+    byte $2,$0,$22,$10,$d2,$e0,$e0,$e0,$e0,$42,$12,$10,$10,$10,$0,$0; 16
 SHIELD_ANIM_3_CTRL_LO
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $02,$02,$f2,$30,$02,$e0,$02,$e2,$e0,$02,$42,$42,$42,$b0,$d0,$00; 16
+    byte $2,$f2,$f0,$42,$30,$f2,$f0,$f0,$f0,$f0,$2,$0,$0,$0,$0,$0; 16
+    byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+
+    ALIGN 256
+    ; SHIELD HI animation (uses one whole page...) BUGBUG: can compress
+
 SHIELD_ANIM_0_CTRL_HI
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $00,$00,$00,$02,$00,$02,$c2,$40,$02,$22,$e0,$02,$f2,$10,$02,$02; 16
+    byte $10,$10,$10,$10,$0,$42,$d2,$e0,$e0,$e0,$e0,$22,$10,$2,$0,$2; 16
 SHIELD_ANIM_1_CTRL_HI
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $00,$90,$00,$02,$20,$62,$22,$00,$02,$e2,$e0,$02,$20,$02,$02,$02; 16
+    byte $0,$0,$0,$0,$f2,$f0,$f0,$f0,$f0,$0,$42,$30,$f2,$f0,$2,$2; 16
 SHIELD_ANIM_2_CTRL_HI
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $00,$00,$00,$02,$20,$52,$92,$42,$c0,$02,$e2,$20,$02,$00,$02,$02; 16
+    byte $f0,$f0,$f0,$f0,$0,$c2,$32,$20,$20,$20,$20,$e2,$f0,$2,$0,$2; 16
 SHIELD_ANIM_3_CTRL_HI
     byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    byte $00,$00,$20,$62,$b0,$d2,$c2,$20,$02,$22,$20,$02,$d0,$02,$12,$02; 16
+    byte $0,$0,$0,$0,$0,$12,$10,$10,$10,$10,$c2,$d0,$12,$10,$2,$2; 16
+    byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
 
     ALIGN 256
 

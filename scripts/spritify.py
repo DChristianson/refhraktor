@@ -65,9 +65,7 @@ def hmove(n):
 
 CompressedBits = namedtuple('CompressedBits', ['scale', 'start_index', 'end_index', 'bits'])
 
-# compress an array of bits to a single byte at single, double or quad resolution
-# return tuple of 
-def compress8(bits):
+def get_bounds(bits):
     start_index = len(bits)
     end_index = -1
     for i, b in enumerate(bits):
@@ -77,6 +75,12 @@ def compress8(bits):
             start_index = i
         if i > end_index:
             end_index = i
+    return start_index, end_index
+
+# compress an array of bits to a single byte at single, double or quad resolution
+# return tuple of 
+def compress8(bits):
+    start_index, end_index = get_bounds(bits)
     bits = bits[start_index:end_index + 1]
     bit_length = len(bits)
     if (bit_length <= 8):
@@ -183,8 +187,8 @@ formats = {
     'bas': basfmt
 }
 
-# variable resolution sprite
-def emit_varsprite8(varname, image, fp, reverse=False, invert=False, fmt=asmfmt, debug=False):
+# find offsets for a missile (enam)
+def emit_varmissile(varname, image, fp, reverse=False, mirror=False, fmt=asmfmt, debug=False):
     width, _ = image.size
     if not image.mode == 'RGBA':
         image = image.convert(mode='RGBA')
@@ -192,7 +196,65 @@ def emit_varsprite8(varname, image, fp, reverse=False, invert=False, fmt=asmfmt,
     rows = chunker(map(bit, data), width)
     if reverse:
         rows = [tuple(reversed(row)) for row in rows]
-    if invert:
+    if mirror:
+        rows = reversed(list(rows))
+
+    bounds = list([get_bounds(row) for row in rows])
+    offsets = [0] * len(bounds)
+    enable = [0] * len(bounds)
+
+    last_start_index = -1
+    last_start_row = -1
+    for i, (start_index, end_index) in enumerate(bounds):
+        if start_index > end_index:
+            continue
+        if last_start_row == -1:
+            last_start_index = start_index 
+        if start_index < end_index:
+            enable[i] = 2
+        dx = start_index - last_start_index
+        dy = i - last_start_row
+        ix = float(dx) / dy
+        D = 0
+        while True:
+            last_start_row += 1
+            if last_start_row == i:
+                offsets[i] = dx
+                last_start_index = start_index
+                break
+            D += ix
+            step = int(D)
+            if step != 0:
+                offsets[last_start_row] = step
+                dx -= step
+                D = D - step
+
+    ctrl = list([hmove(offset) + size for offset, size in zip(offsets, enable)])
+
+    # write output
+    for name, col in [('ctrl', ctrl)]:
+        fmt(f'{varname}_{name}', [col], fp)
+
+    if debug:
+        # diagnostic output
+        cumulative_offset = 0
+        for (start_index, end_index), offset, enable in zip(bounds, offsets, enable):
+            char = '*' if enable > 0 else '.'
+            pad = ' ' * (24 + cumulative_offset)
+            fp.write(f';  {offset:03d}: {pad}{char} - ({start_index}:{end_index})\n')
+            cumulative_offset += offset
+ 
+
+# variable resolution sprite
+def emit_varsprite8(varname, image, fp, reverse=False, mirror=False, fmt=asmfmt, debug=False):
+    width, _ = image.size
+    if not image.mode == 'RGBA':
+        image = image.convert(mode='RGBA')
+    data = image.getdata()
+    rows = chunker(map(bit, data), width)
+    if reverse:
+        rows = [tuple(reversed(row)) for row in rows]
+    if mirror:
         rows = reversed(list(rows))
 
     compressedbits = list([compress8(list(row)) for row in rows])
@@ -204,7 +266,7 @@ def emit_varsprite8(varname, image, fp, reverse=False, invert=False, fmt=asmfmt,
     nusizes = list([ nusize(cb.scale) for cb in compressedbits])
     ctrl = list([hmove(offset) + size for offset, size in zip(left_delta, nusizes)])
     graphics = list([bits2int(bits) for bits in padded_bits])
-    
+
     # write output
     for name, col in [('ctrl', ctrl), ('graphics', graphics)]:
         fmt(f'{varname}_{name}', [col], fp)
@@ -236,9 +298,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Generate 6502 assembly for sprite graphics')
     parser.add_argument('--format', type=str, choices=['asm', 'bas'], default='asm')
     parser.add_argument('--reverse', type=bool, default=False)
-    parser.add_argument('--invert', type=bool, default=False)
+    parser.add_argument('--mirror', type=bool, default=False)
     parser.add_argument('--debug', type=bool, default=False)
-    parser.add_argument('--bits', type=int, choices=range(8, 8 * 32 + 1, 8), default=8)
+    parser.add_argument('--bits', type=int, choices=[1] + list(range(8, 8 * 32 + 1, 8)), default=8)
     parser.add_argument('filenames', nargs='*')
 
     args = parser.parse_args()
@@ -261,6 +323,8 @@ if __name__ == "__main__":
                     emit_spriteMulti(varname, image, out, bits=args.bits, fmt=fmt)
                 elif width == 8:
                     emit_spriteMulti(varname, image, out, bits=8, fmt=fmt)
+                elif args.bits == 1:
+                    emit_varmissile(varname, image, out, reverse=args.reverse, mirror=args.mirror, fmt=fmt, debug=args.debug)
                 else:
-                    emit_varsprite8(varname, image, out, reverse=args.reverse, invert=args.invert, fmt=fmt, debug=args.debug)
+                    emit_varsprite8(varname, image, out, reverse=args.reverse, mirror=args.mirror, fmt=fmt, debug=args.debug)
         

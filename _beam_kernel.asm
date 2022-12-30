@@ -165,14 +165,15 @@ wx_arc_beam
             jsr sub_calc_beam_parameters
             lda local_beam_draw_dy
             sec 
-            sbc #$18 ; BUGBUG: variablize
+            sbc #16 ; BUGBUG: variablize
             bcs _player_arc_miss
-            lda local_beam_draw_dx
-            cmp #15
-            bcs _player_arc_miss
-            lda ball_x
+            lda local_beam_draw_cx
+            cmp #2
+            bpl _player_arc_miss
+            lda ball_x ; 
+            sec
             sbc player_x,x
-            ldy #$80  ; BUGBUG: need lo/hi
+            ldy TABLE_BEAM_ARC_POWER,x
             jmp _player_arc_save_accel
 _player_arc_miss
             lda #0
@@ -187,12 +188,8 @@ _player_arc_save_accel
             sta laser_lo_x
             ; BUGBUG: TODO: make dl
             WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            WRITE_ADDR local_fk_m0_dl + 0, SHIELD_ANIM_0_CTRL_LO ; hack
-            WRITE_ADDR local_fk_m0_dl + 2, SHIELD_ANIM_0_CTRL_LO ; hack
             WRITE_ADDR local_fk_m0_dl + 4, SHIELD_ANIM_0_CTRL_LO ; hack
             WRITE_ADDR local_fk_m0_dl + 6, SHIELD_ANIM_0_CTRL_LO ; hack
-            WRITE_ADDR local_fk_m0_dl + 8, SHIELD_ANIM_0_CTRL_LO ; hack
-            WRITE_ADDR local_fk_m0_dl + 10, SHIELD_ANIM_0_CTRL_LO ; hack
             ; sweep back and forth
             lda frame 
             and #$06
@@ -204,26 +201,36 @@ _player_arc_save_accel
             beq _player_arc_skip_shim_hi
             clc
             adc #<SHIELD_ANIM_0_CTRL_HI
-            sta local_fk_m0_dl + 1
+            sta local_fk_m0_dl + 2
             ; pad draw buffer
-            lda ball_voffset
+            lda scroll
             and #$0f
             clc
-            adc local_fk_m0_dl + 1
-            sta local_fk_m0_dl + 1
+            adc local_fk_m0_dl + 2
+            sta local_fk_m0_dl + 2
             adc #16
             sta local_fk_m0_dl + 0
+            lda #>SHIELD_ANIM_0_CTRL_HI
+            sta local_fk_m0_dl + 1
+            sta local_fk_m0_dl + 3
+            WRITE_ADDR local_fk_m0_dl + 8, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 10, SHIELD_ANIM_0_CTRL_LO ; hack
             jmp _player_arc_done
 _player_arc_skip_shim_hi
             sta local_fk_m0_dl + 10
             ; pad draw buffer
-            lda ball_voffset
+            lda scroll
             and #$0f
             clc
             adc local_fk_m0_dl + 10
             sta local_fk_m0_dl + 10
             adc #16
             sta local_fk_m0_dl + 8
+            lda #>SHIELD_ANIM_0_CTRL_LO
+            sta local_fk_m0_dl + 9
+            sta local_fk_m0_dl + 11
+            WRITE_ADDR local_fk_m0_dl + 0, SHIELD_ANIM_0_CTRL_LO ; hack
+            WRITE_ADDR local_fk_m0_dl + 2, SHIELD_ANIM_0_CTRL_LO ; hack
 _player_arc_done
             ; BUGBUG: TODO: make dl
             TSY
@@ -356,6 +363,10 @@ _player_draw_beam_skip_enam0
             bpl _player_draw_beam_loop
             asl local_beam_draw_x_travel; BUGBUG: doubling x travel
             rts
+
+TABLE_BEAM_ARC_POWER
+    byte $80
+    byte $7f
 
 TABLE_BEAM_JUMP
     word #wx_auto_aim_beam
