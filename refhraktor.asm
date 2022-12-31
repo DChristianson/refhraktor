@@ -1306,12 +1306,36 @@ waitOnVBlank_loop
 ;  - laser weapons
 ;     - different patterns for different ships..
 ;     - arc shield mechanic
+;     - improve arc shield anim 
 ;  - shot glitches
 ;     - not calculated off on ball center
+;  - remove color change glitches
 ; MVP TODO
-;  - weapon effects
-;     - improve arc shield anim 
-;     - make lasers refract off ball
+;  - graphical glitches
+;     - frame rate glitch at certain positions / lasers weird at certain positions 
+;       - can make lasers refract off ball
+;       - or just limit laser range
+;     - remove / mitigate vdelay glitch on ball update
+;  - clean up menus 
+;     - explicit start game option
+;     - instructions?
+;     - show level 
+;     - disable unused game modes
+;     - gradient color
+;  - game start / end logic
+;     - end game at specific score...
+;     - game timer?
+;     - alternating player gets to "serve"
+;     - alternately - some way to cancel back to lobby?
+;  - clean up play screen 
+;     - add score or timer
+;     - free up scanlines around power tracks
+;     - get rid of crap on side
+;     - adjust background / foreground color
+;     - adjust shot color
+;     - free up player/missile/ball for grid background?
+;  - power glitches
+;     - accidental drain when game starts
 ;  - basic special attacks
 ;     - gravity wave (affect background)
 ;     - emp (affect foreground)
@@ -1329,35 +1353,12 @@ waitOnVBlank_loop
 ;      - cooldown occurred (power down)
 ;      - power restored (tune)
 ;      - goal sound (pulses)
-;  - clean up menus 
-;     - explicit start game option
-;     - instructions?
-;     - show level 
-;     - disable unused game modes
-;     - gradient color
-;  - graphical glitches
-;     - get lasers starting from players
-;     - remove color change glitches
-;     - remove / mitigate vdelay glitch on ball update
-;     - lasers weird at certain positions 
-;     - frame rate glitch at certain positions
-;  - game start / end logic
-;     - end game at specific score...
-;     - game timer?
-;     - alternating player gets to "serve"
-;     - alternately - some way to cancel back to lobby?
-;  - clean up play screen 
-;     - add score or timer
-;     - get rid of crap on side
-;     - free up scanlines around power tracks
-;     - adjust background / foreground color
-;     - free up player/missile/ball for background?
+;  - weapon effects
+;       - make lasers refract off ball
 ;  - shot mechanics MVP
 ;     - recharge if don't fire
 ;     - arc shield needs less drain but maybe less power
 ;     - arc shield range adjust mode
-;  - power glitches
-;     - accidental drain when game starts
 ;  - physics glitches
 ;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
@@ -1366,6 +1367,7 @@ waitOnVBlank_loop
 ;     - massive number of cycles used drawing
 ;     - review bugbugs
 ;  - power grid sprinkles
+;    - get lasers starting from players
 ;    - visual cues
 ;      - some sort of rolling effect
 ;      - grid color shows power level

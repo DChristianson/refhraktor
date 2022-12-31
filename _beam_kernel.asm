@@ -147,9 +147,9 @@ _player_aim_refract_no_invert
             adc player_x
             sec
             sbc #$05
-            cmp #160 ; compare to screen width
+            cmp #150 ; BUGBUG: kludge to draw in safe screen width
             bcc _player_aim_save_laser_x
-            sbc #96
+            sbc #106 ; BUGBUG: kludge to draw in safe screen width
 _player_aim_save_laser_x
             sta laser_lo_x
             TSY
