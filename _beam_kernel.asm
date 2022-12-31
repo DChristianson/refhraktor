@@ -364,6 +364,8 @@ _player_draw_beam_skip_enam0
             asl local_beam_draw_x_travel; BUGBUG: doubling x travel
             rts
 
+BEAM_GAMMA_POWER = $80
+
 TABLE_BEAM_ARC_POWER
     byte $80
     byte $7f

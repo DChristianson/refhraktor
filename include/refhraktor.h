@@ -267,6 +267,8 @@ _power_grid_next
         lsr
         lsr
         lsr
+        lsr
+        ora #POWER_GRID_COLOR
         sta SC_WRITE_POWER_GRID_COLOR,x           
         lda #$ff 
         jmp _store_grid

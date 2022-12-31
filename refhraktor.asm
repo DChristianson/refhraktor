@@ -24,6 +24,7 @@ WHITE = $0f
 BLACK = 0
 BALL_COLOR = $2C
 LOGO_COLOR = $C4
+POWER_COLOR = $C0
 SCANLINES = 262
 #else
 ; PAL Colors
@@ -31,6 +32,7 @@ WHITE = $0E
 BLACK = 0
 BALL_COLOR = $2A
 LOGO_COLOR = $53
+POWER_COLOR = $50
 SCANLINES = 262
 #endif
 
@@ -38,9 +40,8 @@ SCANLINES = 262
 ; game states
 ; 
 ; $0yyyxxxx : attract/menu screens
-; $1yyyxxxx ; game play screens
-;  xxxx = current screen
-;   yyy = game control
+;   yyy = current screen 
+;  xxxx = game type select
 ;
 GS_ATTRACT             = $00;
 GS_ATTRACT_SPLASH_0    = $00;
@@ -55,11 +56,15 @@ GS_ATTRACT_TITLE       = $03;
 GS_MENU_GAME           = $04; 
 GS_MENU_EQUIP          = $05; 
 GS_MENU_STAGE          = $06; 
-GS_MENU_TRACK          = $07; 
+GS_MENU_ACCEPT         = $07; 
 ; select game types
 __MENU_GAME_VERSUS     = $00
 __MENU_GAME_QUEST      = $10
 __MENU_GAME_TOURNAMENT = $20
+
+; $1yyyxxxx ; game play screens
+;   yyy = game type
+;  xxxx = game mode
 
 GS_GAME                = $80
 GS_GAME_VERSUS         = $80;
@@ -76,6 +81,7 @@ __GAME_MODE_START      = $04
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
 
+GAME_PULSE            = 127
 DROP_DELAY            = 63
 SPLASH_DELAY          = 7
 CELEBRATE_DELAY       = 127
@@ -116,7 +122,7 @@ POWER_RESERVE_COOLDOWN = -32
 POWER_RESERVE_MAX = 127
 POWER_RESERVE_SHOT_DRAIN = 4
 
-BEAM_GAMMA_POWER = $80
+DEFAULT_TIME_LIMIT = 64
 
 ; ----------------------------------
 ; variables
@@ -132,8 +138,8 @@ audio_tracker    ds 2  ; next track
 audio_timer      ds 2  ; time left on audio
 
 game_state       ds 1  ; current game state
+time_limit       ds 1  ; game time limit
 formation_select ds 1           ; which level
-track_select     ds 1           ; which audio track
 player_select    ds NUM_PLAYERS ; what player options
 
 tx_on_timer      ds 2  ; timed event sub ptr
@@ -292,7 +298,7 @@ CleanStart
             jsr gs_splash_setup
 
     ; initial settings
-            lda #PLAYER_SELECT_MX888
+            lda #PLAYER_SELECT_MKI
             sta player_select
             lda #PLAYER_SELECT_CPU
             sta player_select + 1
@@ -364,10 +370,16 @@ GAME_JUMP_TABLE
 
 
 ;--------------------
+; game summary kernel
+
+kernel_gameOver
+            ; TODO: something
+            jmp scroll_update
+
+;--------------------
 ; gameplay update kernel
 
 kernel_startGame
-kernel_gameOver
 kernel_dropBall
             ; ball state
             lda #64 - BALL_HEIGHT / 2
@@ -387,7 +399,7 @@ kernel_dropBall
             sta power_grid_reserve
             sta power_grid_reserve + 1
             ; animate ball drop
-            lda game_timer
+            lda frame
             and #$01
             bne _drop_flicker_ball
             lda #BALL_COLOR
@@ -396,40 +408,10 @@ _drop_flicker_ball
             lda #$00
 _drop_save_ball_color
             sta ball_color
-_drop_count_down
-            lda game_timer ; todo: TX this?
-            bne _drop_continue
-_drop_init_game
-            ; start audio track
-            ldx track_select
-            lda TRACKS,x
-            sta audio_tracker
-            ; power up
-            lda #POWER_RESERVE_MAX
-            sta power_grid_reserve
-            sta power_grid_reserve + 1
-            ; init to game
-            lda #BALL_COLOR
-            sta ball_color
-            lda game_state
-            and #$f0
-            ora #__GAME_MODE_PLAY
-            sta game_state
-_drop_continue
             jmp scroll_update
 
 kernel_celebrateScore
-            ; TODO: something to celebrate            
             inc ball_color
-            lda game_timer ; todo: TX this?
-            bne _celebrate_continue
-            lda #DROP_DELAY
-            sta game_timer
-            lda game_state
-            and #$f0
-            ora #__GAME_MODE_DROP
-            sta game_state
-_celebrate_continue
             jmp scroll_update ; skip ball update
 
 kernel_playGame
@@ -446,12 +428,11 @@ _ball_score_lo_check
             inc player_score + 1
 _ball_score_celebrate
             ; next screen will be score celebration
-            lda #CELEBRATE_DELAY
-            sta game_timer
+            SET_TX_CALLBACK game_celebrate_timer, CELEBRATE_DELAY
             lda game_state
             and #$f0
             ora #__GAME_MODE_CELEBRATE
-            sta game_state
+            sta game_state ; goto celebrate
 _ball_score_end
 
 ball_update
@@ -740,13 +721,75 @@ waitOnOverscan_loop
 ; power grid drawing
 
     include "_power_kernel.asm"
+;
+;
+
+game_on_timer
+            lda time_limit
+            sec
+            sbc #1 
+            sta time_limit
+            beq _game_on_time_up
+            lsr
+            lsr
+            lsr
+            beq _game_on_time_8left
+            jmp _game_on_timer_repeat
+_game_on_time_8left
+            ; play a sound
+            lda #TRACK_0      
+            sta audio_tracker
+            sta audio_tracker + 1
+            ; continue
+            jmp _game_on_timer_repeat
+_game_on_time_up
+            SET_TX_CALLBACK game_over_timer, DROP_DELAY
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_GAME_OVER
+            sta game_state
+            jmp tx_on_timer_return
+_game_on_timer_repeat
+            lda #GAME_PULSE
+            sta game_timer
+            jmp tx_on_timer_return
+
+game_drop_timer
+            ; drop complete
+            ; TODO: start audio track
+            ; power up
+            lda #POWER_RESERVE_MAX
+            sta power_grid_reserve
+            sta power_grid_reserve + 1
+            ; init to game
+            lda #BALL_COLOR
+            sta ball_color
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_PLAY
+            sta game_state ; goto game play
+            ; set play callback
+            SET_TX_CALLBACK game_on_timer, GAME_PULSE
+            jmp tx_on_timer_return
+
+game_celebrate_timer
+            SET_TX_CALLBACK game_drop_timer, DROP_DELAY
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_DROP
+            sta game_state ; goto drop ball
+            jmp tx_on_timer_return
+
+game_over_timer
+            jsr gs_title_setup ; back to title
+            jmp tx_on_timer_return
 
 ;------------------------
 ; splash kernel state transition
 
 gs_splash_setup
             lda #GS_ATTRACT_SPLASH_0
-            sta game_state
+            sta game_state ; goto splash screen
             ;
             SET_TX_CALLBACK splash_on_timer, SPLASH_DELAY
             ; input jump tables
@@ -759,7 +802,7 @@ splash_on_timer
             lda game_state
             cmp #GS_ATTRACT_TITLE
             bne _splash_timer_repeat
-            jsr gs_title_setup
+            jsr gs_title_setup ; on to title
             jmp tx_on_timer_return
 _splash_timer_repeat
             lda #SPLASH_DELAY
@@ -771,7 +814,7 @@ _splash_timer_repeat
 
 gs_title_setup
             lda #GS_ATTRACT_TITLE 
-            sta game_state
+            sta game_state ; goto title display
             ; start sound
             lda #TRACK_0      
             sta audio_tracker
@@ -796,7 +839,7 @@ gs_menu_equip_setup
             lda game_state
             and #$f0
             ora #GS_MENU_EQUIP
-            sta game_state
+            sta game_state ; goto equip menu
             ; jmp tables
             SET_JX_CALLBACKS menu_equip_on_press_down, menu_equip_on_move
             ; done
@@ -826,7 +869,7 @@ gs_menu_stage_setup
             lda game_state
             and #$f0
             ora #GS_MENU_STAGE
-            sta game_state
+            sta game_state ; goto stage menu
             lda formation_select
             jsr select_formation
             ; jmp tables
@@ -834,7 +877,7 @@ gs_menu_stage_setup
             rts
 
 menu_stage_on_press_down
-            jsr gs_menu_track_setup
+            jsr gs_menu_accept_setup
             jmp jx_on_press_down_return
 
 menu_stage_on_move
@@ -845,7 +888,7 @@ menu_stage_on_move
 _menu_stage_on_move_down
             lsr
             bcc _menu_stage_on_move_lr
-            jsr gs_menu_track_setup
+            jsr gs_menu_accept_setup
             jmp jx_on_move_return
 _menu_stage_on_move_lr    
             beq _menu_stage_on_move_end      
@@ -855,39 +898,31 @@ _menu_stage_on_move_lr
 _menu_stage_on_move_end
             jmp jx_on_move_return
 
-gs_menu_track_setup
+gs_menu_accept_setup
             lda game_state
             and #$f0
-            ora #GS_MENU_TRACK
-            sta game_state
-            SET_JX_CALLBACKS menu_track_on_press_down, menu_track_on_move
+            ora #GS_MENU_ACCEPT
+            sta game_state ; goto accept menu
+            SET_JX_CALLBACKS menu_accept_on_press_down, menu_accept_on_move
             rts
 
-menu_track_on_press_down
+menu_accept_on_press_down
             ; game setups
+            ; BUGBUG : check both players
             jsr gs_game_setup
             jmp jx_on_press_down_return
 
-menu_track_on_move
+menu_accept_on_move
             lsr
-            bcc _menu_track_on_move_down
+            bcc _menu_accept_on_move_down
             jsr gs_menu_stage_setup
-            jmp jx_on_move_return
-_menu_track_on_move_down
-            lsr
-            bcc _menu_track_on_move_lr
-            jsr gs_game_setup
-            jmp jx_on_move_return
-_menu_track_on_move_lr 
-            beq _menu_track_on_move_end  
-            SWITCH_JX track_select, 3
-_menu_track_on_move_end
+_menu_accept_on_move_down
             jmp jx_on_move_return
 
 gs_menu_game_setup
             ; setup game mode 
             lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
-            sta game_state
+            sta game_state ; set default game mode
             ; jmp tables
             SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
@@ -912,7 +947,7 @@ _menu_game_on_move_lr
             bcc _menu_game_mode_save_state
             lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
 _menu_game_mode_save_state
-            sta game_state
+            sta game_state ; choose game mode
 _menu_game_on_move_end
             jmp jx_on_move_return
 
@@ -923,12 +958,13 @@ gs_game_setup
             lda game_state
             and #$f0
             ora #(GS_GAME + __GAME_MODE_START)
-            sta game_state
+            sta game_state ; goto game start
+            ; set time limit
+            lda #DEFAULT_TIME_LIMIT
+            sta time_limit
             ; move to game
             lda #0
             sta scroll
-            lda #DROP_DELAY
-            sta game_timer
             ldx #NUM_PLAYERS - 1
 _player_setup_loop
             ; setup player state based on equipment
@@ -942,6 +978,7 @@ _player_setup_loop
             bpl _player_setup_loop
             ; disable JX callbacks (will use inputs from JX though)
             SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
+            SET_TX_CALLBACK game_drop_timer, DROP_DELAY
             rts
 
 ;--------------------------
@@ -1008,15 +1045,6 @@ jx_on_move_return
             jmp _jx_update_loop
 jx_menu_end
             rts
-
-
-;-------------------------
-; track select data
-
-TRACKS
-    byte CLICK_0
-    byte TABLA_0
-    byte GLITCH_0
 
 ;--------------------------
 ; formation select subroutines
@@ -1263,6 +1291,7 @@ waitOnVBlank_loop
 ;         - show track and allow switch
 ;     - forward/back/left/right value tranitions
 ;     - switch ai on/off
+;     - explicit start game option
 ;  - stabilize framerate
 ;  - remove extra scanline glitch due to player
 ;  - add power track
@@ -1310,23 +1339,10 @@ waitOnVBlank_loop
 ;  - shot glitches
 ;     - not calculated off on ball center
 ;  - remove color change glitches
+;  - frame rate glitch at certain positions / lasers weird at certain positions 
+;      - just limit laser range
+;  - clean up current sounds (turn off pulse)
 ; MVP TODO
-;  - graphical glitches
-;     - frame rate glitch at certain positions / lasers weird at certain positions 
-;       - can make lasers refract off ball
-;       - or just limit laser range
-;     - remove / mitigate vdelay glitch on ball update
-;  - clean up menus 
-;     - explicit start game option
-;     - instructions?
-;     - show level 
-;     - disable unused game modes
-;     - gradient color
-;  - game start / end logic
-;     - end game at specific score...
-;     - game timer?
-;     - alternating player gets to "serve"
-;     - alternately - some way to cancel back to lobby?
 ;  - clean up play screen 
 ;     - add score or timer
 ;     - free up scanlines around power tracks
@@ -1334,6 +1350,14 @@ waitOnVBlank_loop
 ;     - adjust background / foreground color
 ;     - adjust shot color
 ;     - free up player/missile/ball for grid background?
+;  - game start / end logic
+;     - game timer var
+;  - clean up menus 
+;     - player descriptions
+;     - disable unused game modes
+;     - instructions?
+;     - show level 
+;     - gradient color
 ;  - power glitches
 ;     - accidental drain when game starts
 ;  - basic special attacks
@@ -1341,11 +1365,12 @@ waitOnVBlank_loop
 ;     - emp (affect foreground)
 ;     - gamma laser 
 ;  - sounds MVP
-;    - remove / replace bg music
 ;    - audio queues
 ;      - menu l/r (fugue arpeggio bits)
 ;      - menu u/d (fugue other bits)
 ;      - game start (fugue pause)
+;      - game end warning (countdown)
+;      - game end (fugue pause)
 ;      - ball drop / get ready ()
 ;      - shot sound (blast)
 ;      - bounce sound (adjust tempo)
@@ -1353,19 +1378,10 @@ waitOnVBlank_loop
 ;      - cooldown occurred (power down)
 ;      - power restored (tune)
 ;      - goal sound (pulses)
-;  - weapon effects
-;       - make lasers refract off ball
 ;  - shot mechanics MVP
 ;     - recharge if don't fire
 ;     - arc shield needs less drain but maybe less power
 ;     - arc shield range adjust mode
-;  - physics glitches
-;     - spin calc
-;     - doesn't reflect bounce on normal well enough?
-;     - ball can still get stuck
-;  - code
-;     - massive number of cycles used drawing
-;     - review bugbugs
 ;  - power grid sprinkles
 ;    - get lasers starting from players
 ;    - visual cues
@@ -1382,7 +1398,23 @@ waitOnVBlank_loop
 ;    - ladder (maze-like)
 ;    - chute (tracks)
 ;    - pachinko (pins)
-;  SOON
+;  DELAY
+;  - graphical glitches
+;     - remove / mitigate vdelay glitch on ball update
+;     - lo laser wonky at extreme positions
+;         - refraction could mitigate
+;  - weapon effects
+;       - make lasers refract off ball
+;  - physics glitches
+;     - spin calc
+;     - doesn't reflect bounce on normal well enough?
+;     - ball can still get stuck
+;  - code
+;     - massive number of cycles used drawing
+;     - cleanup unused strings
+;     - cleanup unused graphics
+;     - compress blank sections
+;     - review bugbugs
 ;  - basic quest mode (could be good for testing)
 ;  - alternative goals
 ;  - different height levels
@@ -1398,6 +1430,9 @@ waitOnVBlank_loop
 ;     - combat
 ;     - castle
 ;  THINK ABOUT
+;  - end game mechanics
+;     - alternating player gets to "serve"
+;     - alternately - some way to cancel back to lobby?
 ;  - power grid shot mechanics
 ;      - shot power (capacitance) (per player)
 ;      - choosable hi/lo power 

@@ -21,7 +21,7 @@ MENU_JUMP_TABLE
     word kernel_menu_game
     word kernel_menu_equip
     word kernel_menu_stage
-    word kernel_menu_track
+    word kernel_menu_accept
 
 
 ;------------------
@@ -54,7 +54,7 @@ kernel_title
 kernel_menu_game
 kernel_menu_equip
 kernel_menu_stage
-kernel_menu_track
+kernel_menu_accept
             ; load game
             lda game_state
             lsr
@@ -82,10 +82,9 @@ kernel_menu_track
             ldy STAGE_NAMES,x
             ldx #STRING_BUFFER_6
             jsr strfmt
-            ; load track
+            ; load accept
             lda #8
-            ldx track_select
-            ldy TRACK_NAMES,x
+            ldy #STRING_READY
             ldx #STRING_BUFFER_A
             jsr strfmt
 
@@ -147,14 +146,14 @@ _not_stage
             ldx #STRING_BUFFER_6
             jsr text_kernel_4
 
-            ; track
+            ; accept
             ldy #02
             lda game_state
             and #$0f
-            cmp #GS_MENU_TRACK
-            bne _not_track
+            cmp #GS_MENU_ACCEPT
+            bne _not_accept
             ldy #30
-_not_track
+_not_accept
             ldx #STRING_BUFFER_A
             jsr text_kernel_4
 
@@ -893,8 +892,8 @@ STRING_TABLA = . - STRING_CONSTANTS
     byte 161, 88, 89, 129, 88, 0
 STRING_GLITCH = . - STRING_CONSTANTS
     byte 112, 129, 120, 161, 96, 113, 0
-STRING_GET_READY = . - STRING_CONSTANTS
-    byte 112, 104, 161, 1, 153, 104, 88, 97, 184, 0
+STRING_READY = . - STRING_CONSTANTS
+    byte 153, 104, 88, 97, 184, 0
 STRING_GATE = . - STRING_CONSTANTS
     byte 112, 88, 161, 104, 0
 STRING_CLEAR = . - STRING_CONSTANTS

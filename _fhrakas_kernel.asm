@@ -107,23 +107,17 @@ _lt_hi_resp_loop
             tay                     ;2  11+
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMP0                ;3  18+
-            SLEEP 3                 ;2  21+ ; BUGBUG: shim
+            SLEEP 3                 ;3  21+ ; BUGBUG: shim
             sta RESP0               ;3  24+ ; 
 
-            ; top line
             sta WSYNC
             sta HMOVE                    ;3   3
-            lda #$30                     ;2  --
-            sta PF0                      ;3  --      
-            ldx #$0b                     ;2  --
-
-            sta WSYNC
-            stx COLUBK                   ;3   6
-            stx COLUPF                   ;3   9
-            lda #$00                     ;2  11
-            sta HMP0                     ;3  14
-            sta HMM0                     ;3  17
-            ldy #PLAYER_HEIGHT - 1       ;2  19
+            lda #$0b                     ;2   5
+            sta COLUBK                   ;3   8
+            sta COLUPF                   ;3  11
+            lda #$30                     ;2  13
+            sta PF0                      ;3  16
+            ldy #PLAYER_HEIGHT - 1       ;2  18
 
 _lt_hi_draw_loop_2
             lda (player_sprite+2),y      ;5  16
@@ -223,13 +217,15 @@ _lt_hi_draw_loop_0
             dey                          ;2  16
             bpl _lt_hi_draw_loop_0       ;2  20
 
-            ; activate laser beam width
+            ; activate laser beam width 
             lda frame
             and #$01
             tax
             lda player_state,x           ;3   6
             and #$30                     ;2   8
             sta NUSIZ0                   ;3   9
+            lda #0
+            sta HMM0
 
 ;---------------------
 ; arena
