@@ -895,7 +895,7 @@ _menu_stage_on_move_down
             jmp jx_on_move_return
 _menu_stage_on_move_lr    
             beq _menu_stage_on_move_end      
-            SWITCH_JX formation_select, 4
+            SWITCH_JX formation_select, 3 ; limit
             tya ; y will be the formation
             jsr select_formation
 _menu_stage_on_move_end
@@ -923,11 +923,13 @@ _menu_accept_on_move_down
             jmp jx_on_move_return
 
 gs_menu_game_setup
-            ; setup game mode 
-            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
-            sta game_state ; set default game mode
-            ; jmp tables
-            SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
+            ; BUGBUG: TODO: skip this
+            jsr gs_menu_equip_setup
+            ; ; setup game mode 
+            ; lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
+            ; sta game_state ; set default game mode
+            ; ; jmp tables
+            ; SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
 
 menu_game_on_press_down
@@ -1345,6 +1347,9 @@ waitOnVBlank_loop
 ;  - frame rate glitch at certain positions / lasers weird at certain positions 
 ;      - just limit laser range
 ;  - clean up current sounds (turn off pulse)
+;  - game start / end logic
+;     - game timer var
+;  - disable unused game modes
 ; MVP TODO
 ;  - clean up play screen 
 ;     - add score or timer
@@ -1353,14 +1358,6 @@ waitOnVBlank_loop
 ;     - adjust background / foreground color
 ;     - adjust shot color
 ;     - free up player/missile/ball for grid background?
-;  - game start / end logic
-;     - game timer var
-;  - clean up menus 
-;     - player descriptions
-;     - disable unused game modes
-;     - instructions?
-;     - show level 
-;     - gradient color
 ;  - power glitches
 ;     - accidental drain when game starts
 ;  - basic special attacks
@@ -1402,6 +1399,11 @@ waitOnVBlank_loop
 ;    - chute (tracks)
 ;    - pachinko (pins)
 ;  DELAY
+;  - clean up menus 
+;     - player descriptions
+;     - instructions?
+;     - show level 
+;     - gradient color
 ;  - graphical glitches
 ;     - remove / mitigate vdelay glitch on ball update
 ;     - lo laser wonky at extreme positions

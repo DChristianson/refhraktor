@@ -1121,12 +1121,7 @@ STAGE_NAMES
     byte STRING_VOID
     byte STRING_CHUTE
     byte STRING_DIAMONDS
-    byte STRING_WINGS
-
-TRACK_NAMES
-    byte STRING_CLICK
-    byte STRING_TABLA
-    byte STRING_GLITCH
+    ;byte STRING_WINGS
 
 ;---------------------------
 ; title graphics
