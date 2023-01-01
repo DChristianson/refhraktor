@@ -1,6 +1,6 @@
 # Refhraktor
 
-Play the game on [Javatari.org!](https://javatari.org/?ROM=https://github.com/DChristianson/refhraktor/releases/download/20220722/refhraktor_NTSC_20220722.bin)
+Play the game on [Javatari.org!](https://javatari.org/?ROM=https://github.com/DChristianson/refhraktor/releases/download/20221231/refhraktor_NTSC_20221231.bin)
 
 WIP for a two player pinball-style game inspired by games like Ballistix (Amiga), Shufflepuck Cafe (various platforms).. and a little bit of Laser Blast
 
