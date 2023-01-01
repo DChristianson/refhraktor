@@ -345,6 +345,150 @@ _grid_nextGridLine
             bne _grid_loop
             rts
 
+
+;--------------------------
+; number blitter routine
+; y = number to write
+; x = graphics buffer offset
+
+bcdfmt
+            ; will write one char to x 
+            txa 
+            clc
+            adc #7
+            tax
+            ; get hi/lo nibble addresses
+            tya
+            clc
+            adc #$11 ; 0-9 numbers start at 
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            sta local_bcdfmt_hi
+            bcc _bcdfmt_hi_X
+            asl
+            asl
+            asl
+            adc #7
+            sta local_bcdfmt_hi
+_bcdfmt_lo_X
+            tya 
+            and #$0f
+            lsr
+            sta local_bcdfmt_lo
+            bcc _bcdfmt_lo_hi
+_bcdfmt_lo_lo
+            asl
+            asl
+            asl
+            adc #7
+            sta local_bcdfmt_lo
+_bcdfmt_lo_lo_loop
+            ldy local_bcdfmt_hi
+            lda FONT_0,y
+            asl
+            asl
+            asl
+            asl
+            sta STRING_WRITE,x 
+            ldy local_bcdfmt_lo
+            lda FONT_0,y
+            and #$0f
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            beq _bcdfmt_exit ; BUGBUG: could exit early
+            dec local_bcdfmt_hi
+            dec local_bcdfmt_lo
+            dex
+            jmp _bcdfmt_lo_lo_loop
+_bcdfmt_lo_hi
+            asl
+            asl
+            asl
+            adc #7
+            sta local_bcdfmt_lo
+_bcdfmt_lo_hi_loop
+            ldy local_bcdfmt_hi
+            lda FONT_0,y
+            asl
+            asl
+            asl
+            asl
+            sta STRING_WRITE,x 
+            ldy local_bcdfmt_lo
+            lda FONT_0,y
+            lsr
+            lsr
+            lsr
+            lsr
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            beq _bcdfmt_exit; BUGBUG: could exit early
+            dec local_bcdfmt_hi
+            dec local_bcdfmt_lo
+            dex
+            jmp _bcdfmt_lo_hi_loop
+_bcdfmt_exit
+            rts  ; located in the middle to avoid branch out of bounds
+_bcdfmt_hi_X
+            asl
+            asl
+            asl
+            adc #7
+            sta local_bcdfmt_hi
+            tya 
+            and #$0f
+            lsr
+            sta local_bcdfmt_lo
+            bcc _bcdfmt_hi_hi
+_bcdfmt_hi_lo
+            asl
+            asl
+            asl
+            adc #7
+_bcdfmt_hi_lo_loop
+            sta local_bcdfmt_lo
+            ldy local_bcdfmt_hi
+            lda FONT_0,y
+            and #$f0
+            sta STRING_WRITE,x 
+            ldy local_bcdfmt_lo
+            lda FONT_0,y
+            and #$0f
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            beq _bcdfmt_exit; BUGBUG: could exit early
+            dec local_bcdfmt_hi
+            dec local_bcdfmt_lo
+            dex
+            jmp _bcdfmt_hi_lo_loop
+_bcdfmt_hi_hi
+            asl
+            asl
+            asl
+            adc #7
+            sta local_bcdfmt_lo
+_bcdfmt_hi_hi_loop
+            ldy local_bcdfmt_hi
+            lda FONT_0,y
+            and #$f0
+            sta STRING_WRITE,x 
+            ldy local_bcdfmt_lo
+            lda FONT_0,y
+            lsr
+            lsr
+            lsr
+            lsr
+            ora STRING_READ,x
+            sta STRING_WRITE,x 
+            beq _bcdfmt_exit; BUGBUG: could exit early
+            dec local_bcdfmt_hi
+            dec local_bcdfmt_lo
+            dex
+            jmp _bcdfmt_hi_hi_loop
+            
 ;--------------------------
 ; text blitter routine
 ; a = chars to write
@@ -594,6 +738,43 @@ _strfmt_end
             ldx local_strfmt_stack
             txs
             rts
+
+; -------------
+; summary screen
+
+    DEF_LBL game_summary_kernel
+            ldy #STRING_GAME_OVER
+            lda #10
+            ldx #STRING_BUFFER_0
+            jsr strfmt
+            ; ldy player_score
+            ; ldx #STRING_BUFFER_5            
+            ; jsr bcdfmt
+            ; ldy player_score + 1
+            ; ldx #STRING_BUFFER_7
+            ; jsr bcdfmt
+
+            jsr waitOnVBlank_2 ; SL 34
+            
+            ldx #40
+            jsr sky_kernel
+            
+            ; game over text
+            ldy #30
+            ldx #STRING_BUFFER_0
+            jsr text_kernel
+            ; ldy #30
+            ; ldx #STRING_BUFFER_5
+            ; jsr text_kernel
+
+            ldx #(192 - 49) ; shim to end of screen
+            jsr sky_kernel
+
+            ; jump back
+            JMP_LBL waitOnOverscan    
+
+; ------------ 
+; title screen
 
 	ALIGN 256
 

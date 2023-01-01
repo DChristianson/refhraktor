@@ -197,6 +197,10 @@ local_strfmt_index_lo = LOCAL_OVERLAY + 2
 local_strfmt_index_offset = LOCAL_OVERLAY + 3
 local_strfmt_tail = LOCAL_OVERLAY + 4
 
+; -- bcdfmt locals
+local_bcdfmt_hi = LOCAL_OVERLAY
+local_bcdfmt_lo = LOCAL_OVERLAY + 1
+
 ; -- grid kernel locals
 local_grid_gap = LOCAL_OVERLAY      
 local_grid_inc = LOCAL_OVERLAY + 1
@@ -368,13 +372,6 @@ GAME_JUMP_TABLE
     word kernel_gameOver
     word kernel_startGame
 
-
-;--------------------
-; game summary kernel
-
-kernel_gameOver
-            ; TODO: something
-            jmp scroll_update
 
 ;--------------------
 ; gameplay update kernel
@@ -591,7 +588,7 @@ player_fire_aim
             ; no firing until ball drops
             lda game_state
             and #__GAME_MODE_MASK
-            bne _player_no_fire ; in gameplay
+            bne _player_no_fire ; only fire in gameplay
             lda player_state,x 
             ; check auto fire ($80)
             bpl _player_update_skip_auto_fire
@@ -711,6 +708,12 @@ waitOnOverscan_loop
             dex
             bne waitOnOverscan_loop
             jmp newFrame
+
+;-------------------------------------
+; game over - jump to summary kernel 
+
+kernel_gameOver
+          JMP_LBL game_summary_kernel
 
 ;---------------------
 ; beam effect drawing
