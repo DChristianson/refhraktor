@@ -1351,6 +1351,7 @@ waitOnVBlank_loop
 ;     - game timer var
 ;  - disable unused game modes
 ; MVP TODO
+;  - basic quest mode (could be good for testing)
 ;  - clean up play screen 
 ;     - add score or timer
 ;     - free up scanlines around power tracks
@@ -1358,12 +1359,25 @@ waitOnVBlank_loop
 ;     - adjust background / foreground color
 ;     - adjust shot color
 ;     - free up player/missile/ball for grid background?
-;  - power glitches
-;     - accidental drain when game starts
 ;  - basic special attacks
 ;     - gravity wave (affect background)
 ;     - emp (affect foreground)
 ;     - gamma laser 
+;  - alternative goals
+;  - playfields MVP
+;    - void (empty)
+;    - diamonds (obstacles)
+;    - ladder (maze-like)
+;    - chute (tracks)
+;    - pachinko (pins)
+;  - graphical glitches
+;     - remove / mitigate vdelay glitch on ball update
+;     - lo laser wonky at extreme positions
+;         - refraction could mitigate
+;  - weapon effects
+;       - make lasers refract off ball
+;  - power glitches
+;     - accidental drain when game starts
 ;  - sounds MVP
 ;    - audio queues
 ;      - menu l/r (fugue arpeggio bits)
@@ -1392,24 +1406,14 @@ waitOnVBlank_loop
 ;         - pull rate (flow in from next to player)
 ;          - draw (remove from under player)
 ;          - width (area drained)
-;  - playfields MVP
-;    - void (empty)
-;    - diamonds (obstacles)
-;    - ladder (maze-like)
-;    - chute (tracks)
-;    - pachinko (pins)
-;  DELAY
 ;  - clean up menus 
 ;     - player descriptions
 ;     - instructions?
 ;     - show level 
-;     - gradient color
-;  - graphical glitches
-;     - remove / mitigate vdelay glitch on ball update
-;     - lo laser wonky at extreme positions
-;         - refraction could mitigate
-;  - weapon effects
-;       - make lasers refract off ball
+;     - gradient colors
+;     - sugar skull colors
+;     - aztec colors
+;  DELAY
 ;  - physics glitches
 ;     - spin calc
 ;     - doesn't reflect bounce on normal well enough?
@@ -1420,8 +1424,6 @@ waitOnVBlank_loop
 ;     - cleanup unused graphics
 ;     - compress blank sections
 ;     - review bugbugs
-;  - basic quest mode (could be good for testing)
-;  - alternative goals
 ;  - different height levels
 ;  - more levels themes
 ;     - locking rings (dynamic)
