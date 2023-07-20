@@ -71,6 +71,7 @@ GS_GAME_VERSUS         = $80;
 GS_GAME_QUEST          = $90;
 GS_GAME_TOURNAMENT     = $a0;
 ; game types
+__GAME_TYPE_MASK       = $f0
 __GAME_MODE_MASK       = $0f
 __GAME_MODE_PLAY       = $00
 __GAME_MODE_CELEBRATE  = $01
@@ -106,7 +107,7 @@ LOOKUP_STD_HMOVE_B2 = STD_HMOVE_END_B2 - 256
 
 PLAYER_STATE_HAS_POWER        = $01 ; power grid has power
 PLAYER_STATE_FIRING           = $02 ; player is firing
-PLAYER_STATE_BEAM_MASK        = $0e 
+PLAYER_STATE_BEAM_MASK        = $0c ; beam type mask
 PLAYER_STATE_BEAM_PULSE       = $04 ; 
 PLAYER_STATE_BEAM_ARC         = $08 ; 
 PLAYER_STATE_BEAM_GAMMA       = $0c ; 
@@ -636,19 +637,29 @@ _player_power_skip_restore
 _player_save_fire
             sta player_state,x
             ; jump to beam drawing
-            and #PLAYER_STATE_BEAM_MASK
-            lsr
-            lsr 
+            and #(PLAYER_STATE_BEAM_MASK + PLAYER_STATE_FIRING)
+            lsr ; lsr power bit
+            lsr ; lsr fire bit 
             bcs _player_call_wx
             jmp wx_clear_beam
 _player_call_wx
             asl
             tay
+            txa
+            beq _player_fire_wx
+            lda game_state
+            and #__GAME_TYPE_MASK
+            cmp #GS_GAME_QUEST
+            beq _player_power_transfer
+_player_fire_wx            
             lda TABLE_BEAM_JUMP + 1,y
-            sta local_wx_beam_proc_ptr + 1
+            sta local_wx_beam_proc_ptr + 1 ; bug bug use reverse RTS
             lda TABLE_BEAM_JUMP,y
             sta local_wx_beam_proc_ptr
             jmp (local_wx_beam_proc_ptr)
+_player_power_transfer
+            ; BUGBUG: TODO: grid transfer   
+            jmp wx_clear_beam         
             ; by the time we hit wx_player_return we've set up 
             ; the dl's for beam, colupf and colubk
 wx_player_return
@@ -923,13 +934,11 @@ _menu_accept_on_move_down
             jmp jx_on_move_return
 
 gs_menu_game_setup
-            ; BUGBUG: TODO: skip this
-            jsr gs_menu_equip_setup
-            ; ; setup game mode 
-            ; lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
-            ; sta game_state ; set default game mode
-            ; ; jmp tables
-            ; SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
+            ; setup game mode 
+            lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
+            sta game_state ; set default game mode
+            ; jmp tables
+            SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
 
 menu_game_on_press_down
@@ -944,7 +953,6 @@ menu_game_on_move
             jsr gs_menu_equip_setup
             jmp jx_on_move_return
 _menu_game_on_move_lr
-            ; TODO: we only really support one mode right now
             lda game_state
             clc
             adc #$10
@@ -1352,6 +1360,17 @@ waitOnVBlank_loop
 ;  - disable unused game modes
 ; MVP TODO
 ;  - basic quest mode (could be good for testing)
+;  - basic special attacks
+;     - gravity wave (affect background)
+;     - emp (affect foreground)
+;     - gamma laser 
+;  - playfields MVP
+;    - void (empty)
+;    - diamonds (obstacles)
+;    - ladder (maze-like)
+;    - chute (tracks)
+;    - pachinko (pins)
+;  - alternative goals
 ;  - clean up play screen 
 ;     - add score or timer
 ;     - free up scanlines around power tracks
@@ -1359,17 +1378,6 @@ waitOnVBlank_loop
 ;     - adjust background / foreground color
 ;     - adjust shot color
 ;     - free up player/missile/ball for grid background?
-;  - basic special attacks
-;     - gravity wave (affect background)
-;     - emp (affect foreground)
-;     - gamma laser 
-;  - alternative goals
-;  - playfields MVP
-;    - void (empty)
-;    - diamonds (obstacles)
-;    - ladder (maze-like)
-;    - chute (tracks)
-;    - pachinko (pins)
 ;  - graphical glitches
 ;     - remove / mitigate vdelay glitch on ball update
 ;     - lo laser wonky at extreme positions
@@ -1399,6 +1407,7 @@ waitOnVBlank_loop
 ;  - power grid sprinkles
 ;    - get lasers starting from players
 ;    - visual cues
+;      - laser beams weaken with power drain
 ;      - some sort of rolling effect
 ;      - grid color shows power level
 ;      - waveform (flow pattern)

@@ -82,9 +82,9 @@
     DEF_LBL fhrakas_kernel
 
 ;---------------------
-; laser track (hi)
+; upper score area
 
-            ; resp lower beam
+           ; resp lower beam
             sta WSYNC
             lda laser_lo_x          ;3   3
             sec                     ;2   5
@@ -97,6 +97,26 @@ _lo_resp_loop
             SLEEP 6                 ;3  24+ ; BUGBUG: line glitch
             sta RESM0               ;3  27+ ; BUGBUG: GLITCH: goes over
 
+            sta WSYNC
+            sta HMOVE               ;3   3
+            lda frame               ;3   6
+            and #$01                ;2   8
+            tax                     ;2  10
+            lda player_state,x      ;4  14
+            and #$30                ;2  16
+            sta NUSIZ0              ;3  19
+            lda #0                  ;2  21
+            sta HMM0                ;3  24
+            lda game_state          ;3  27  ; check game type
+            and #__GAME_TYPE_MASK   ;2  29  ; .
+            cmp #GS_GAME_QUEST      ;2  31  ; .
+            bne laser_track_hi      ;2  33  ; no upper track for quest
+            jmp arena               ;3  36  ; .
+
+;---------------------
+; laser track (hi)
+
+laser_track_hi
              ; resp top player
             sta WSYNC               ;3   0
             lda player_x + 1        ;3   3
@@ -217,19 +237,10 @@ _lt_hi_draw_loop_0
             dey                          ;2  16
             bpl _lt_hi_draw_loop_0       ;2  20
 
-            ; activate laser beam width 
-            lda frame
-            and #$01
-            tax
-            lda player_state,x           ;3   6
-            and #$30                     ;2   8
-            sta NUSIZ0                   ;3   9
-            lda #0
-            sta HMM0
-
 ;---------------------
 ; arena
-           
+
+arena
             ; resp ball, shadow 
             sta WSYNC
             lda ball_x              ;3   3
@@ -469,18 +480,164 @@ _lt_lo_draw_loop_2
             cpy #PLAYER_HEIGHT           ;2  18
             bcc _lt_lo_draw_loop_2       ;2  20
 
-            lda #$0b
-            ldx #$00
+
+            lda game_state               ;3  23  ; check game type
+            and #__GAME_TYPE_MASK        ;2  25  ; .
+            cmp #GS_GAME_QUEST           ;2  27  ; .
+            beq laser_track_coop         ;2  29  ; no upper track for quest
+            jmp kernel_exit              ;3  32  ; .            
+
+laser_track_coop
+           ; resp lo player
+            sta WSYNC               ;3   0
+            lda player_x + 1        ;3   3
+            sec                     ;2   5
+_lt_co_resp_loop
+            sbc #15                 ;2   7
+            sbcs _lt_co_resp_loop   ;2   9
+            tay                     ;2  11+
+            lda LOOKUP_STD_HMOVE,y  ;4  15+
+            sta HMP0                ;3  18+
+            sta HMM0                ;3  21+ ; just for timing shim
+            sta RESP0               ;3  24+ ; 
+
+            ; top line
             sta WSYNC
-            sta COLUBK
-            stx GRP0
-            stx PF0
-            stx PF1
-            stx PF2
-            stx COLUPF
+            sta HMOVE               ;3   3
+            ldy #$00                ;3   6
+            lda (player_sprite+2),y ;6   9
+            sta GRP0                ;3  12
+            lda TARGET_COLOR_0,y    ;4  16
+            sta COLUP0              ;3  19
+            lda #$00                ;2  21
+            sta COLUPF              ;3  24
+            sta COLUBK              ;3  27
+            sta HMP0                ;3  30
+            sta PF0                 ;3  35
+            sta PF1                 ;3  38
+            sta PF2                 ;3  41
+            sta CTRLPF              ;3  44
+            iny                     ;2  46
+
+_lt_co_draw_loop_0
+            lda (player_sprite+2),y ;5  51
+            ldx TARGET_COLOR_0,y    ;4  55
+            sta WSYNC
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda TARGET_BG_0,y       ;5  11
+            sta COLUBK              ;3  14
+            iny                     ;2  16
+            cpy #3                  ;2  18
+            bcc _lt_co_draw_loop_0  ;2  20
+            lda (player_sprite+2),y ;5  25
+            ldx TARGET_COLOR_0,y    ;4  29
+            sta WSYNC
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #$0b                ;2   8
+            sta COLUBK              ;3  11
+            iny                     ;2  13
+
+            lda SC_READ_POWER_GRID_COLOR ;3  16
+            sta COLUPF                   ;3  19
+            lda (player_sprite+2),y      ;5  24
+            ldx TARGET_COLOR_0,y         ;4  28
+            sta CXCLR                    ;3  31 ; start power collision check
+
+            sta WSYNC
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda #$00                        ;2   8
+            sta COLUBK                      ;3  11
+            lda SC_READ_POWER_GRID_PF0 + 1  ;4  15
+            sta PF0                         ;3  18
+            lda SC_READ_POWER_GRID_PF1 + 1  ;4  22
+            sta PF1                         ;3  25
+            lda SC_READ_POWER_GRID_PF2 + 1  ;4  29
+            sta PF2                         ;3  32
+            iny                             ;2  34
+            lda SC_READ_POWER_GRID_PF3 + 1  ;4  38
+            sta PF0                         ;3  41
+            lda SC_READ_POWER_GRID_PF4 + 1  ;4  45
+            sta PF1                         ;3  48
+            lda SC_READ_POWER_GRID_PF5 + 1  ;4  52
+            sta PF2                         ;3  55
+        
+            lda (player_sprite+2),y         ;5  -- 
+            ldx TARGET_COLOR_0,y            ;4  --
+            sta WSYNC
+            sta GRP0                        ;3   3
+            stx COLUP0                      ;3   6
+            lda SC_READ_POWER_GRID_PF0 + 1  ;4  10
+            sta PF0                         ;3  13
+            lda SC_READ_POWER_GRID_PF1 + 1  ;4  17
+            sta PF1                         ;3  20
+            lda SC_READ_POWER_GRID_PF2 + 1  ;4  24
+            sta PF2                         ;3  27
+            iny                             ;2  29
+
+            lda SC_READ_POWER_GRID_PF3 + 1  ;4  33
+            sta PF0                         ;3  36
+            lda SC_READ_POWER_GRID_PF4 + 1  ;4  40
+            sta PF1                         ;3  43
+            ldx SC_READ_POWER_GRID_PF5 + 1  ;4  47
+
+            ; power collision test
+            lda player_state + 1            ;3  50
+            and #$fe                        ;2  52
+            stx PF2                         ;3  55
+            bit CXP0FB                      ;3  58
+            bpl _co_skip_power              ;2  60
+            ora #PLAYER_STATE_HAS_POWER     ;2  62
+_co_skip_power
+            sta player_state + 1            ;3  64/65
+
+
+            lda (player_sprite+2),y ;5  --
+            sta WSYNC
+            ldx TARGET_COLOR_0,y    ;4   4
+            sta GRP0                ;3   7
+            stx COLUP0              ;3  10
+            lda #$0a                ;2  12
+            sta COLUPF              ;3  15
+            lda #$ff                ;2  17
+            sta PF0                 ;3  20
+            sta PF1                 ;3  23
+            sta PF2                 ;3  26
+            iny                     ;2  28
+            lda #$01                ;2  30
+            sta CTRLPF              ;3  33
+    
+            lda TARGET_BG_0,y       ;5  38
+            sta COLUBK              ;3  41
+            lda (player_sprite+2),y ;5  46
+            ldx TARGET_COLOR_0,y    ;4  50
+            sta WSYNC
+            sta GRP0                ;3   3
+            stx COLUP0              ;3   6
+            lda #$30                ;2   8   
+            sta PF0                 ;3  11
+            lda #$00                ;2  13
+            sta PF1                 ;3  16
+            sta PF2                 ;3  19
+            iny                     ;2  20
+
+_lt_co_draw_loop_2
+            lda (player_sprite+2),y      ;5  56
+            ldx TARGET_COLOR_0,y         ;4  60
+
+            sta WSYNC
+            sta GRP0                     ;3   3
+            stx COLUP0                   ;3   6
+            lda TARGET_BG_0,y            ;5  11
+            sta COLUBK                   ;3  14
+            iny                          ;2  16
+            cpy #PLAYER_HEIGHT           ;2  18
+            bcc _lt_co_draw_loop_2       ;2  20
 
 ; kernel exit
-
+kernel_exit
             sta WSYNC
             lda #$00
             sta PF0
@@ -559,21 +716,21 @@ PF0_WALLS
 	; .byte %10000000
 	; .byte %11000000
 
+	.byte %11100000
 	.byte %11000000
-	.byte %11000000
-	.byte %11000000
+	.byte %11100000
 	.byte %01000000
+	.byte %11100000
 	.byte %11000000
-	.byte %11000000
-	.byte %11000000
+	.byte %11100000
 	.byte %10000000
+	.byte %11100000
 	.byte %11000000
-	.byte %11000000
-	.byte %11000000
+	.byte %11100000
 	.byte %01000000
+	.byte %11100000
 	.byte %11000000
-	.byte %11000000
-	.byte %11000000
+	.byte %11100000
 	.byte %10000000
 
 	; .byte %11000000
@@ -778,8 +935,8 @@ BALL_GRAPHICS_END
 
 BEAM_ON_HMOV_0
 COLUBK_COLORS_1 ; compression, enam0 always on and 16 bytes of color 2 are the same
-    byte $02,$02,$02,$02,$02,$02,$02,$02
-    byte $02,$02,$02,$02,$02,$02,$02,$02
+    byte $40,$40,$40,$40,$40,$40,$40,$40
+    byte $40,$40,$40,$40,$40,$40,$40,$40
 
 COLUPF_COLORS_0
     byte $06,$06,$08,$08,$0a,$0a,$0c,$0c
