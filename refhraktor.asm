@@ -147,7 +147,6 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-formation_up      ds 2   ; formation update ptr 
 formation_pf0_ptr ds 2   ; playfield ptr pf0
 formation_pf1_dl  ds 12  ; playfield dl pf1
 formation_pf2_dl  ds 12  ; playfield dl pf2
@@ -160,7 +159,7 @@ player_x          ds NUM_PLAYERS      ; player x position
 
 power_grid_reserve ds NUM_PLAYERS
 power_grid_timer   ds NUM_PLAYERS
-;power_grid_recover ds NUM_PLAYERS
+power_grid_recover ds NUM_PLAYERS
 
 laser_lo_x        ds 1  ; start x for the low laser
 
@@ -393,6 +392,16 @@ kernel_dropBall
             lda #POWER_RESERVE_MAX
             sta power_grid_reserve
             sta power_grid_reserve + 1
+            ; game specific state
+            ldy #1 ; TODO: make constant
+            sty power_grid_recover + 1
+            lda game_state
+            and #__GAME_TYPE_MASK
+            cmp #GS_GAME_QUEST
+            bne _kernel_drop_skip_recover
+            ldy #0 ; zero for p0
+_kernel_drop_skip_recover
+            sty power_grid_recover
             ; animate ball drop
             lda frame
             and #$01
@@ -505,7 +514,13 @@ _scroll_update_store
             sta ball_voffset          
 
 formation_update
-            jmp (formation_up)
+            lda formation_select
+            tay
+            lda TABLE_FORMATION_JUMP_HI,y
+            pha
+            lda TABLE_FORMATION_JUMP_LO,y
+            pha
+            rts
 formation_update_return 
             lda scroll
             and #$0f
@@ -623,7 +638,7 @@ _player_no_fire
             ; cmp #POWER_RESERVE_MAX
             ; beq _player_power_skip_restore
             clc
-            adc #$01 ; BUGBUG make variable
+            adc power_grid_recover,x
             bmi _player_power_save_restore
             lda #POWER_RESERVE_MAX
 _player_power_save_restore
@@ -884,8 +899,6 @@ gs_menu_stage_setup
             and #$f0
             ora #GS_MENU_STAGE
             sta game_state ; goto stage menu
-            lda formation_select
-            jsr select_formation
             ; jmp tables
             SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
             rts
@@ -907,8 +920,6 @@ _menu_stage_on_move_down
 _menu_stage_on_move_lr    
             beq _menu_stage_on_move_end      
             SWITCH_JX formation_select, 3 ; limit
-            tya ; y will be the formation
-            jsr select_formation
 _menu_stage_on_move_end
             jmp jx_on_move_return
 
@@ -1062,20 +1073,10 @@ jx_menu_end
 ;--------------------------
 ; formation select subroutines
 
-select_formation 
-            asl
-            tay
-            lda FORMATION_UP_TABLE,y
-            sta formation_up
-            lda FORMATION_UP_TABLE + 1,y
-            sta formation_up + 1
-            rts
-
-FORMATION_UP_TABLE
-    word #FORMATION_VOID_UP
-    word #FORMATION_CHUTE_UP
-    word #FORMATION_DIAMONDS_UP
-    word #FORMATION_WINGS_UP
+TABLE_FORMATION_JUMP_LO
+    byte <(FORMATION_VOID_UP-1),<(FORMATION_CHUTE_UP-1),<(FORMATION_DIAMONDS_UP-1),<(FORMATION_WINGS_UP-1)
+TABLE_FORMATION_JUMP_HI
+    byte >(FORMATION_VOID_UP-1),>(FORMATION_CHUTE_UP-1),>(FORMATION_DIAMONDS_UP-1),>(FORMATION_WINGS_UP-1)
 
     ALIGN 256
 
