@@ -370,11 +370,10 @@ TABLE_BEAM_ARC_POWER
     byte $80
     byte $7f
 
-TABLE_BEAM_JUMP
-    word #wx_auto_aim_beam
-    word #wx_auto_aim_beam
-    word #wx_arc_beam
-    word #wx_gamma_beam
+TABLE_BEAM_JUMP_LO
+    byte <(wx_auto_aim_beam-1),<(wx_auto_aim_beam-1),<(wx_arc_beam-1),<(wx_gamma_beam-1)
+TABLE_BEAM_JUMP_HI
+    byte >(wx_auto_aim_beam-1),>(wx_auto_aim_beam-1),>(wx_arc_beam-1),>(wx_gamma_beam-1)
 
 TABLE_BEAM_POWER
     byte $40

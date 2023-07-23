@@ -3,26 +3,19 @@
     DEF_LBL attract_menu_kernels
             lda game_state
             and #$0f
-            asl
             tax
-            lda MENU_JUMP_TABLE,x
-            sta local_jmp_addr
-            lda MENU_JUMP_TABLE + 1,x
-            sta local_jmp_addr + 1
-            jmp (local_jmp_addr)
+            lda MENU_JUMP_TABLE_HI,x
+            pha
+            lda MENU_JUMP_TABLE_LO,x
+            pha
+            rts
 
-    align 2
-
-MENU_JUMP_TABLE
-    word kernel_showSplash
-    word kernel_showSplash
-    word kernel_showSplash
-    word kernel_title
-    word kernel_menu_game
-    word kernel_menu_equip
-    word kernel_menu_stage
-    word kernel_menu_accept
-
+MENU_JUMP_TABLE_LO
+    byte <(kernel_showSplash-1),<(kernel_showSplash-1),<(kernel_showSplash-1),<(kernel_title-1)
+    byte <(kernel_menu_game-1),<(kernel_menu_equip-1),<(kernel_menu_stage-1),<(kernel_menu_accept-1)
+MENU_JUMP_TABLE_HI
+    byte >(kernel_showSplash-1),>(kernel_showSplash-1),>(kernel_showSplash-1),>(kernel_title-1)
+    byte >(kernel_menu_game-1),>(kernel_menu_equip-1),>(kernel_menu_stage-1),>(kernel_menu_accept-1)
 
 ;------------------
 ; title

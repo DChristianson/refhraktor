@@ -160,6 +160,7 @@ player_x          ds NUM_PLAYERS      ; player x position
 
 power_grid_reserve ds NUM_PLAYERS
 power_grid_timer   ds NUM_PLAYERS
+;power_grid_recover ds NUM_PLAYERS
 
 laser_lo_x        ds 1  ; start x for the low laser
 
@@ -179,13 +180,13 @@ scroll         ds 1 ; y value to start showing playfield
 display_playfield_limit ds 1 ; BUGBUG see if need
 
 LOCAL_OVERLAY           ds 50
+LOCAL_OVERLAY_END       = .
+
+; BUGBUG protect against overflowing zeropage
 
 ; -- joystick kernel locals
 local_jx_player_input = LOCAL_OVERLAY
 local_jx_player_count = LOCAL_OVERLAY + 1
-
-; -- jmp table
-local_jmp_addr = LOCAL_OVERLAY ; (ds 2)
 
 ; -- formation load args
 local_formation_load_pf1 = LOCAL_OVERLAY ; (ds 2)
@@ -209,8 +210,6 @@ local_grid_inc = LOCAL_OVERLAY + 1
 ; -- player update kernel locals
 local_player_sprite_lobyte = LOCAL_OVERLAY ; (ds 1)
 
-; -- used to jump to wx processing
-local_wx_beam_proc_ptr        = LOCAL_OVERLAY
 
 ; -- beam drawing kernel locals
 local_beam_draw_cx          = LOCAL_OVERLAY     ; collision distance
@@ -230,6 +229,8 @@ local_fk_m0_dl      = LOCAL_OVERLAY      ; pattern for missile 0
 local_fk_colupf_dl  = LOCAL_OVERLAY + 12
 local_fk_colubk_dl  = LOCAL_OVERLAY + 24
 local_fk_p0_dl      = LOCAL_OVERLAY + 36 ; pattern for p0 
+
+
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 
@@ -356,23 +357,19 @@ _end_switches
             lda game_state
             bpl _jmp_attract_menu_kernels
             and #$0f
-            asl
             tax
-            lda GAME_JUMP_TABLE,x
-            sta local_jmp_addr
-            lda GAME_JUMP_TABLE + 1,x
-            sta local_jmp_addr + 1
-            jmp (local_jmp_addr)
+            lda TABLE_GAME_JUMP_HI,x
+            pha
+            lda TABLE_GAME_JUMP_LO,x
+            pha
+            rts
 _jmp_attract_menu_kernels
             JMP_LBL attract_menu_kernels
 
-GAME_JUMP_TABLE
-    word kernel_playGame
-    word kernel_celebrateScore
-    word kernel_dropBall
-    word kernel_gameOver
-    word kernel_startGame
-
+TABLE_GAME_JUMP_LO
+    byte <(kernel_playGame-1),<(kernel_celebrateScore-1),<(kernel_dropBall-1),<(kernel_gameOver-1),<(kernel_startGame-1)
+TABLE_GAME_JUMP_HI
+    byte >(kernel_playGame-1),>(kernel_celebrateScore-1),>(kernel_dropBall-1),>(kernel_gameOver-1),>(kernel_startGame-1)
 
 ;--------------------
 ; gameplay update kernel
@@ -626,7 +623,7 @@ _player_no_fire
             ; cmp #POWER_RESERVE_MAX
             ; beq _player_power_skip_restore
             clc
-            adc #$01
+            adc #$01 ; BUGBUG make variable
             bmi _player_power_save_restore
             lda #POWER_RESERVE_MAX
 _player_power_save_restore
@@ -643,7 +640,6 @@ _player_save_fire
             bcs _player_call_wx
             jmp wx_clear_beam
 _player_call_wx
-            asl
             tay
             txa
             beq _player_fire_wx
@@ -652,13 +648,17 @@ _player_call_wx
             cmp #GS_GAME_QUEST
             beq _player_power_transfer
 _player_fire_wx            
-            lda TABLE_BEAM_JUMP + 1,y
-            sta local_wx_beam_proc_ptr + 1 ; bug bug use reverse RTS
-            lda TABLE_BEAM_JUMP,y
-            sta local_wx_beam_proc_ptr
-            jmp (local_wx_beam_proc_ptr)
+            lda TABLE_BEAM_JUMP_HI,y
+            pha
+            lda TABLE_BEAM_JUMP_LO,y
+            pha
+            rts
 _player_power_transfer
             ; BUGBUG: TODO: grid transfer   
+            lda power_grid_reserve
+            clc
+            adc #POWER_RESERVE_SHOT_DRAIN
+            sta power_grid_reserve
             jmp wx_clear_beam         
             ; by the time we hit wx_player_return we've set up 
             ; the dl's for beam, colupf and colubk
