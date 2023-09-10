@@ -31,6 +31,7 @@
     ENDM
 
     ; write a dl
+    ; BUGBUG: space inefficient, and overwrites stack pointer
     MAC WRITE_DL 
             ldx #<({1} + 11) ;2
             txs              ;2
@@ -58,9 +59,6 @@ wx_clear_beam
             sta ball_ay
             sta laser_lo_x
             TSY
-            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
             WRITE_DL local_fk_m0_dl, BEAM_OFF_HMOV_0
             TYS
             jmp wx_player_return
@@ -153,9 +151,6 @@ _player_aim_refract_no_invert
 _player_aim_save_laser_x
             sta laser_lo_x
             TSY
-            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
             WRITE_DL local_fk_m0_dl, SC_READ_LASER_HMOV_1
             TYS
             jmp wx_player_return
@@ -186,8 +181,7 @@ _player_arc_save_accel
             sec
             sbc #8
             sta laser_lo_x
-            ; BUGBUG: TODO: make dl
-            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
+            ; write missile dl
             WRITE_ADDR local_fk_m0_dl + 4, SHIELD_ANIM_0_CTRL_LO ; hack
             WRITE_ADDR local_fk_m0_dl + 6, SHIELD_ANIM_0_CTRL_LO ; hack
             ; sweep back and forth
@@ -232,11 +226,6 @@ _player_arc_skip_shim_hi
             WRITE_ADDR local_fk_m0_dl + 0, SHIELD_ANIM_0_CTRL_LO ; hack
             WRITE_ADDR local_fk_m0_dl + 2, SHIELD_ANIM_0_CTRL_LO ; hack
 _player_arc_done
-            ; BUGBUG: TODO: make dl
-            TSY
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
-            TYS
             jmp wx_player_return
 
 wx_gamma_beam
@@ -248,9 +237,6 @@ wx_gamma_beam
             lda player_x,x
             sta laser_lo_x
             TSY
-            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
             WRITE_DL local_fk_m0_dl, BEAM_ON_HMOV_0
             TYS
             jmp wx_player_return

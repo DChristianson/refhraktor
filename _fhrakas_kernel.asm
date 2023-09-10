@@ -716,21 +716,21 @@ PF0_WALLS
 	; .byte %10000000
 	; .byte %11000000
 
-	.byte %11100000
 	.byte %11000000
-	.byte %11100000
+	.byte %11000000
+	.byte %11000000
 	.byte %01000000
-	.byte %11100000
 	.byte %11000000
-	.byte %11100000
+	.byte %11000000
+	.byte %11000000
 	.byte %10000000
-	.byte %11100000
 	.byte %11000000
-	.byte %11100000
+	.byte %11000000
+	.byte %11000000
 	.byte %01000000
-	.byte %11100000
 	.byte %11000000
-	.byte %11100000
+	.byte %11000000
+	.byte %11000000
 	.byte %10000000
 
 	; .byte %11000000
@@ -935,12 +935,14 @@ BALL_GRAPHICS_END
 
 BEAM_ON_HMOV_0
 COLUBK_COLORS_1 ; compression, enam0 always on and 16 bytes of color 2 are the same
-    byte $40,$40,$40,$40,$40,$40,$40,$40
-    byte $40,$40,$40,$40,$40,$40,$40,$40
+    byte $b4,$b4,$b6,$b6,$b8,$b8,$ba,$ba
+    byte $bc,$bc,$bb,$bb,$b8,$b8,$b6,$b6
+    byte $b4,$b4,$b6,$b6,$b8,$b8,$ba,$ba
+    byte $bc,$bc,$bb,$bb,$b8,$b8,$b6,$b6
 
 COLUPF_COLORS_0
-    byte $06,$06,$08,$08,$0a,$0a,$0c,$0c
-    byte $0e,$0e,$0c,$0c,$0a,$0a,$08,$08
+    byte $a6,$a6,$a8,$a8,$aa,$aa,$ac,$ac
+    byte $ad,$ad,$ac,$ac,$aa,$aa,$a8,$a8
 
     ; standard lookup for hmoves
 STD_HMOVE_BEGIN

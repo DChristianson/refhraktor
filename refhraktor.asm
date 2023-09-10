@@ -18,13 +18,15 @@ SYSTEM = NTSC
 ; ----------------------------------
 ; constants
 
+;['a6', 'a0', '16', '40', 'b0', '07']
+
 #if SYSTEM = NTSC
 ; NTSC Colors
 WHITE = $0f
 BLACK = 0
-BALL_COLOR = $2C
-LOGO_COLOR = $C4
-POWER_COLOR = $C0
+BALL_COLOR = $40
+LOGO_COLOR = $B4
+POWER_COLOR = $B0
 SCANLINES = 262
 #else
 ; PAL Colors
@@ -190,6 +192,9 @@ local_jx_player_count = LOCAL_OVERLAY + 1
 ; -- formation load args
 local_formation_load_pf1 = LOCAL_OVERLAY ; (ds 2)
 local_formation_load_pf2 = LOCAL_OVERLAY + 2 ; (ds 2)
+local_formation_offset   = LOCAL_OVERLAY + 4
+local_formation_start    = LOCAL_OVERLAY + 5
+local_formation_end      = LOCAL_OVERLAY + 6
 
 ; -- strfmt locals
 local_strfmt_stack    = LOCAL_OVERLAY 
@@ -392,16 +397,22 @@ kernel_dropBall
             lda #POWER_RESERVE_MAX
             sta power_grid_reserve
             sta power_grid_reserve + 1
-            ; game specific state
             ldy #1 ; TODO: make constant
             sty power_grid_recover + 1
+            sty power_grid_recover
+            ; game specific state
             lda game_state
             and #__GAME_TYPE_MASK
             cmp #GS_GAME_QUEST
-            bne _kernel_drop_skip_recover
-            ldy #0 ; zero for p0
-_kernel_drop_skip_recover
-            sty power_grid_recover
+            bne _kernel_drop_skip_quest
+            ; BUGBUG: if this changes much, make a jump table
+            lda #96 - BALL_HEIGHT / 2
+            sta ball_y
+            lda #PLAYFIELD_WIDTH / 2 - BALL_HEIGHT / 2
+            sta ball_x
+            lda #0 ; zero for p0
+            sta power_grid_recover
+_kernel_drop_skip_quest
             ; animate ball drop
             lda frame
             and #$01
@@ -416,7 +427,59 @@ _drop_save_ball_color
 
 kernel_celebrateScore
             inc ball_color
+            ; check for quest scroll
+            lda game_state
+            and #__GAME_TYPE_MASK
+            cmp #GS_GAME_QUEST
+            beq _kernel_celebrate_quest_scroll
             jmp scroll_update ; skip ball update
+_kernel_celebrate_quest_scroll
+            ; at t = 0, ball_voffset = - ball_y, scroll = 16, 
+            ;           next formation in first dl
+            ;           
+
+            ; scroll to the next formation
+            ;;
+            lda #-4
+            sta ball_voffset
+            lda #12                  ; do last first
+            sta local_formation_end  ; always to end
+            lda #$8f
+            sec
+            sbc game_timer  ; counting down from 127
+            cmp #$60
+            bmi _quest_scroll_up
+            lda #6
+            sta local_formation_offset
+            lda #0
+            jmp _quest_scroll_next_formation
+_quest_scroll_up
+            lsr             ; div 8 
+            lsr             ; .
+            lsr             ; .
+            and #$fe 
+            sta local_formation_start
+            lda #$00
+            sta local_formation_offset
+            ldx formation_select
+            jsr sub_formation_update
+            ; move up
+            lda local_formation_start
+            sta local_formation_end
+            lda #$10
+            sec
+            sbc local_formation_start
+            sta local_formation_offset
+            lda game_timer
+            and #$0f
+_quest_scroll_next_formation
+            sta display_scroll
+            lda #$00
+            sta local_formation_start
+            ldy formation_select
+            ldx TABLE_QUEST_FORMATION_NEXT,y  ; BUGBUG: not interesting logic
+            jsr sub_formation_update
+            jmp power_grid_update ; skip ball update
 
 kernel_playGame
 
@@ -511,17 +574,24 @@ _scroll_update_store
             ; calc ball offset
             sec             
             sbc ball_y  
-            sta ball_voffset          
+            sta ball_voffset  
 
-formation_update
-            lda formation_select
-            tay
-            lda TABLE_FORMATION_JUMP_HI,y
-            pha
-            lda TABLE_FORMATION_JUMP_LO,y
-            pha
-            rts
-formation_update_return 
+            ; scroll offset
+            ; figure out which formation block is first
+            ; and where it starts
+            ; BUGBUG: be able to splice into a window 
+            lda scroll
+            lsr       ; div 8
+            lsr       ; .
+            lsr       ; .
+            and #$fe  ; 2x addresses
+            sta local_formation_offset
+            lda #0 
+            sta local_formation_start
+            lda #12
+            sta local_formation_end  
+            ldx formation_select
+            jsr sub_formation_update
             lda scroll
             and #$0f
             sta display_scroll
@@ -676,8 +746,13 @@ _player_power_transfer
             sta power_grid_reserve
             jmp wx_clear_beam         
             ; by the time we hit wx_player_return we've set up 
-            ; the dl's for beam, colupf and colubk
+            ; the dl's for beam
 wx_player_return
+            ; handle colupf and colubk
+            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
+            ; WARNING: need to store stack    
+            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
+            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
 
             ; final dl - for p0 / p1
             ; notes: 
@@ -803,6 +878,15 @@ game_drop_timer
 
 game_celebrate_timer
             SET_TX_CALLBACK game_drop_timer, DROP_DELAY
+            ; check game mode ()
+            lda game_state
+            and #__GAME_TYPE_MASK
+            cmp #GS_GAME_QUEST
+            bne _game_celebrate_drop
+            ldy formation_select
+            lda TABLE_QUEST_FORMATION_NEXT,y  ; BUGBUG: not interesting logic
+            sta formation_select
+_game_celebrate_drop
             lda game_state
             and #$f0
             ora #__GAME_MODE_DROP
@@ -1070,13 +1154,26 @@ jx_on_move_return
 jx_menu_end
             rts
 
+            
 ;--------------------------
 ; formation select subroutines
+
+sub_formation_update
+            lda TABLE_FORMATION_JUMP_HI,x
+            pha
+            lda TABLE_FORMATION_JUMP_LO,x
+            pha
+            rts
+formation_update_return 
+            rts
 
 TABLE_FORMATION_JUMP_LO
     byte <(FORMATION_VOID_UP-1),<(FORMATION_CHUTE_UP-1),<(FORMATION_DIAMONDS_UP-1),<(FORMATION_WINGS_UP-1)
 TABLE_FORMATION_JUMP_HI
     byte >(FORMATION_VOID_UP-1),>(FORMATION_CHUTE_UP-1),>(FORMATION_DIAMONDS_UP-1),>(FORMATION_WINGS_UP-1)
+
+TABLE_QUEST_FORMATION_NEXT
+    byte 1,2,3,0
 
     ALIGN 256
 
@@ -1130,16 +1227,9 @@ FORMATION_WINGS_UP
 
             ; routing to load a static formation into the dl
 formation_load
-            ; figure out which formation block is first
-            ; and where it starts
-            lda scroll
-            lsr
-            lsr
-            lsr
-            and #$fe
-            tay
             ; copy the list
-            ldx #0
+            ldy local_formation_offset
+            ldx local_formation_start
 _formation_load_loop
             lda (local_formation_load_pf1),y
             sta formation_pf1_dl,x
@@ -1147,8 +1237,8 @@ _formation_load_loop
             sta formation_pf2_dl,x
             iny
             inx
-            cpx #12 ; BUGBUG: TODO: go backwards
-            bcc _formation_load_loop
+            cpx local_formation_end
+            bne _formation_load_loop
             rts
 
 FORMATION_VOID_PF1
@@ -1276,309 +1366,5 @@ waitOnVBlank_loop
     START_BANK 3
 
     include "_audio_kernel.asm"
-
-; game notes
-;
-; DONE
-;  - make fire buttons work
-;  - make lasers not be chained to ball 
-;  - make ball move when fired on
-;  - add goal area
-;  - make ball score when reaching goal
-;  - replace ball in center after score
-;  - alternate playfields
-;  - bank switching
-;  - different ships
-;  - different weapons
-;     - need way to organize player options
-;     - need way to turn beam on/off per line
-;  - menu system
-;    - choose game mode
-;       - versus
-;       - quest
-;    - choose pod
-;         - show player 1 pod and allow switch
-;         - show player 2 pod and allow switch
-;    - choose stage
-;         - show stage and allow switch
-;    - choose track
-;         - show track and allow switch
-;     - forward/back/left/right value tranitions
-;     - switch ai on/off
-;     - explicit start game option
-;  - stabilize framerate
-;  - remove extra scanline glitch due to player
-;  - add power track
-;  - power grid controls firing
-;  - adjust players to change sprite
-;  - remove player cutoff glitch
-;  - no changing of values on startup  for menu
-;  - basic opposing ai
-;    - auto move ability
-;    - auto fire ability
-;  - physics bugs
-;     - ball score not in goal
-;       - one factor is when ball_voffset starts at 1
-;     - collision bugs (stuck)
-;     - no power at certain angles
-;       - at least partially due to collision glitch fixes (if you miss bottom)
-;     - stuck vertical
-;     - ununtuitive reaction to shots
-;     - incorrect for hi/lo player
-;     - relatively low power - can't knock out of sideways motion easily
-;        - spin could be good
-;  - switch controls to shared code
-;  - shot mechanics 
-;      - shot range affects power
-;  - power grid mechanics
-;    - variables (per player?)
-;      - max power 
-;      - shot drain per shot
-;      - cooldown recovery per frame
-;      - normal recovery per frame
-;  - code
-;     - split up by bank
-;     - organize superchip ram
-;     - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
-;     - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
-;  - input glitches
-;     - accidental firing when game starts
-;  - shield (arc) weapon (would be good to test if possible)
-;     - need way to turn beam on/off based on zone
-;     - need alternate aiming systems to get shield effect
-;  - laser weapons
-;     - different patterns for different ships..
-;     - arc shield mechanic
-;     - improve arc shield anim 
-;  - shot glitches
-;     - not calculated off on ball center
-;  - remove color change glitches
-;  - frame rate glitch at certain positions / lasers weird at certain positions 
-;      - just limit laser range
-;  - clean up current sounds (turn off pulse)
-;  - game start / end logic
-;     - game timer var
-;  - disable unused game modes
-; MVP TODO
-;  - basic quest mode (could be good for testing)
-;  - basic special attacks
-;     - gravity wave (affect background)
-;     - emp (affect foreground)
-;     - gamma laser 
-;  - playfields MVP
-;    - void (empty)
-;    - diamonds (obstacles)
-;    - ladder (maze-like)
-;    - chute (tracks)
-;    - pachinko (pins)
-;  - alternative goals
-;  - clean up play screen 
-;     - add score or timer
-;     - free up scanlines around power tracks
-;     - get rid of crap on side
-;     - adjust background / foreground color
-;     - adjust shot color
-;     - free up player/missile/ball for grid background?
-;  - graphical glitches
-;     - remove / mitigate vdelay glitch on ball update
-;     - lo laser wonky at extreme positions
-;         - refraction could mitigate
-;  - weapon effects
-;       - make lasers refract off ball
-;  - power glitches
-;     - accidental drain when game starts
-;  - sounds MVP
-;    - audio queues
-;      - menu l/r (fugue arpeggio bits)
-;      - menu u/d (fugue other bits)
-;      - game start (fugue pause)
-;      - game end warning (countdown)
-;      - game end (fugue pause)
-;      - ball drop / get ready ()
-;      - shot sound (blast)
-;      - bounce sound (adjust tempo)
-;      - cooldown warning (alarm)
-;      - cooldown occurred (power down)
-;      - power restored (tune)
-;      - goal sound (pulses)
-;  - shot mechanics MVP
-;     - recharge if don't fire
-;     - arc shield needs less drain but maybe less power
-;     - arc shield range adjust mode
-;  - power grid sprinkles
-;    - get lasers starting from players
-;    - visual cues
-;      - laser beams weaken with power drain
-;      - some sort of rolling effect
-;      - grid color shows power level
-;      - waveform (flow pattern)
-;         - recovery (from sides)
-;         - pull rate (flow in from next to player)
-;          - draw (remove from under player)
-;          - width (area drained)
-;  - clean up menus 
-;     - player descriptions
-;     - instructions?
-;     - show level 
-;     - gradient colors
-;     - sugar skull colors
-;     - aztec colors
-;  DELAY
-;  - physics glitches
-;     - spin calc
-;     - doesn't reflect bounce on normal well enough?
-;     - ball can still get stuck
-;  - code
-;     - massive number of cycles used drawing
-;     - cleanup unused strings
-;     - cleanup unused graphics
-;     - compress blank sections
-;     - review bugbugs
-;  - different height levels
-;  - more levels themes
-;     - locking rings (dynamic)
-;     - breakfall (dynamic, destructable)
-;     - blocks (dynamic)
-;     - crescent wings (dynamic)
-;     - conway (dynamic)
-;     - mandala (spinning symmmetrics)
-;     - chakra (circular rotating maze)
-;     - pinball (diagonal banks, active targets
-;     - combat
-;     - castle
-;  THINK ABOUT
-;  - end game mechanics
-;     - alternating player gets to "serve"
-;     - alternately - some way to cancel back to lobby?
-;  - power grid shot mechanics
-;      - shot power (capacitance) (per player)
-;      - choosable hi/lo power 
-;  - alternate target
-;    - multiball (shadowball...)
-;    - being able to attack other player
-;  - menu system
-;    - choose game mode
-;         - tournament
-;    - choose equipment
-;         - show pod capabilities
-;         - player 1 opt in (whoever pressed go/or)
-;         - second player opt in (whoever pressed go/or)
-;         - double press - on both press go to stage
-;    - choose stage
-;         - double press - on both press go to track
-;         - show stage
-;    - choose defenses
-;         - each player configures their defence
-;    - choose track
-;         - play track
-;         - double press - on both press go to game
-;    - join fhaktion 
-;         - build pod / more combinations
-;    - secret code
-;         - extra special weapons
-;  - physics
-;    - friction
-;    - gradient fields
-;    - boost zones
-;    - speed limit
-;  - dynamic playfield
-;    - can we do breakout 
-;    - animated levels
-;    - gradient fields 
-;    - cellular automata
-;    - dark levels
-;    - different goal setups
-;      - alternate goals
-;      - standard
-;      - wide
-;      - 3x
-;      - pockets
-;  - sprinkles
-;    - play with grid design
-;    - intro screen
-;    - start / end game transitions
-;    - cracktro
-;  - co-op play
-;        - MVP: available in quest mode
-;        - two rails on same side of screen (up to 4 total with quadtari?)
-;          - front rail for shooting, no power recovery is possible
-;          - back rail for power banking, no shooting possible
-;          - players can hop rails by double tap up/down
-;          - players block each other, they must jump back/forward if they want to switch sides
-;          - players in the tandem position can switch places if they push up/down simultaneously
-;        - tandem firing
-;          - a player on the back rail can transmit power to a player on the front rail
-;          - the two pods must be on top of each other or there will be a power drop
-;          - essentially, back rail player "fires" into the front player
-;        - beam bros
-;          - players can both sit on the front rail and fire simultaneously
-;        - bank buddies
-;          - players can both sit on the back rail and draw power
-;  - versus mode : battle fracas combat
-;  - quest mode : gateway peril hazard 
-;        - time attack
-;        - no opposing player (or maybe... sometimes ai), but continuous gravity down
-;        - playfield extends up infinitely through a series of gates
-;        - player(s) must guide ball up the field as far as possible
-;        - players must reach each gate in time or game ends
-;        - second player can join any time (can choose during play?)
-;  - tournament mode : vendetta facing against  
-;        - versus battle where players choose the defenses starting with their goals
-;        - after the players lock in their choices for goal, they choose the next level up / down
-;        - can play from 2 to 6 levels each (not counting midfield)
-;        - game begins when the players have locked in their choices behind midfield
-; button mash avoidance
-;   continuous fire with button down
-;   instead of continuous fire, have button down charge
-;   heat meter / cooldown
-;   golf shot pendulum
-;   music rhythm shot
-;   change color / color matters in shot power 
-;;
-;
-; specials 
-    ;  - button masher weapon
-    ;  - continuous fire weapon
-    ;  - charge weapon
-    ;  - rhythm weapon
-    ;  - golf shot weapon
-    ;  - defensive weapon
-;   moving playfield
-;   refhrakting laser
-;   gamma laser
-;   gravity wave
-;   meson bomb
-;
-; NOT DO
-;  - add in game logo?
-;  - manual aim ability
-;;
-;; F600 - FB00
-;; need - say 1536 bytes for current kernel scheme (256 bytes x 6)
-;; each formation has
-;;   6 + n  byte update routine (2 byte pointer + n bytes code + 3 byte jmp/rts)
-;;   16     byte display list
-;;   t * 32 bytes for tiles
-;; if each formation uses 256 bytes
-;;   will get ~30 update instructions and 4 unique tiles
-;; a 1k block can hold 4 formations
-;; a 2k block can hold 8 formations
-;; a 4k block with no kernel can hold 16 formations
-;; a 4k block with kernel can hold 10 formations
-;; with 4k banks
-;;     - assume one bank for game stuff, the rest for formations and kernel copies
-;;     - 8k game has 10 formations
-;;     - 16k game has 30 formations
-;;     - 32k game has 70 formations
-;; with 2k banks
-;;     - assume one bank for the kernel, two banks for other game stuff
-;;     - 8k game has 8 formations
-;;     - 16k game has 40 formations
-;;     - 32k game has 104 formations
-;; if kernel can reduce to 1k
-;;     - 4k banks = 12@8k, 36@16k, 84@32k
-;;     - 2k banks = 12@8k, 44@16k, 108@32k
-;;     - 1k banks = 12@8k, 44@16k, 108@32k
-
 
     END_BANK

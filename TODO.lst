@@ -1,0 +1,333 @@
+
+game notes
+;
+DONE
+ - make fire buttons work
+ - make lasers not be chained to ball 
+ - make ball move when fired on
+ - add goal area
+ - make ball score when reaching goal
+ - replace ball in center after score
+ - alternate playfields
+ - bank switching
+ - different ships
+ - different weapons
+    - need way to organize player options
+    - need way to turn beam on/off per line
+ - menu system
+   - choose game mode
+      - versus
+      - quest
+   - choose pod
+        - show player 1 pod and allow switch
+        - show player 2 pod and allow switch
+   - choose stage
+        - show stage and allow switch
+   - choose track
+        - show track and allow switch
+    - forward/back/left/right value tranitions
+    - switch ai on/off
+    - explicit start game option
+ - stabilize framerate
+ - remove extra scanline glitch due to player
+ - add power track
+ - power grid controls firing
+ - adjust players to change sprite
+ - remove player cutoff glitch
+ - no changing of values on startup  for menu
+ - basic opposing ai
+   - auto move ability
+   - auto fire ability
+ - physics bugs
+    - ball score not in goal
+      - one factor is when ball_voffset starts at 1
+    - collision bugs (stuck)
+    - no power at certain angles
+      - at least partially due to collision glitch fixes (if you miss bottom)
+    - stuck vertical
+    - ununtuitive reaction to shots
+    - incorrect for hi/lo player
+    - relatively low power - can't knock out of sideways motion easily
+       - spin could be good
+ - switch controls to shared code
+ - shot mechanics 
+     - shot range affects power
+ - power grid mechanics
+   - variables (per player?)
+     - max power 
+     - shot drain per shot
+     - cooldown recovery per frame
+     - normal recovery per frame
+ - code
+    - split up by bank
+    - organize superchip ram
+    - replace ball_cx vector with rol bitmap (will free up a chunk of ZPR)
+    - use DL for ball (heavy ZPR but will free a ton of cycles, allow anims)
+ - input glitches
+    - accidental firing when game starts
+ - shield (arc) weapon (would be good to test if possible)
+    - need way to turn beam on/off based on zone
+    - need alternate aiming systems to get shield effect
+ - laser weapons
+    - different patterns for different ships..
+    - arc shield mechanic
+    - improve arc shield anim 
+ - shot glitches
+    - not calculated off on ball center
+ - remove color change glitches
+ - frame rate glitch at certain positions / lasers weird at certain positions 
+     - just limit laser range
+ - clean up current sounds (turn off pulse)
+ - game start / end logic
+    - game timer var
+ - disable unused game modes
+ - basic quest mode (could be good for testing)
+    - select quest mode
+    - bottom track visual
+    - bottom track power
+    - on score up scroll to next screen
+ - fhrakas kernel
+    - consider HMOVE rails
+MVP TODO
+ - basic quest mode (could be good for testing)
+    - on score down penalize
+    - on final goal
+ - fhrakas kernel
+    - use mask approach in kernel to try and get basic asymmetry
+    - consider no flicker beams
+    - consider parallax floor      
+    - use both missiles at once for beams?
+    - free up player/missile/ball for grid background?
+ - physics bugs
+    - way to detect "stuck" ball and unstick / nudge
+ - code
+    - replace DL macros with subs
+    - massive number of cycles used drawing
+    - review bugbug
+ - weapon effects
+      - make lasers refract off ball
+ - basic special attacks
+    - gravity wave (affect background)
+    - emp (affect foreground)
+    - gamma laser 
+ - playfields MVP
+   - void (empty)
+   - diamonds (obstacles)
+   - ladder (maze-like)
+   - chute (tracks)
+   - pachinko (pins)
+ - alternative goals
+    - double
+    - triple
+ - clean up play screen 
+    - more distinctive color palette
+      - https://en.wikipedia.org/wiki/Coyolx%C4%81uhqui
+      - https://en.wikipedia.org/wiki/C%C5%8D%C4%81tl%C4%ABcue
+    - make power levels more obvious wrt beam
+    - make power levels more obvious wrt rails
+    - adjust background / foreground color
+    - adjust shot color
+    - free up scanlines around power tracks
+    - add score or timer
+ - graphical glitches
+    - beam sometimes fires to side of player
+    - remove / mitigate vdelay glitch on ball update
+    - lo laser wonky at extreme positions
+        - refraction could mitigate
+ - power glitches
+    - accidental drain when game starts
+ - sounds MVP
+   - audio queues
+     - menu l/r (fugue arpeggio bits)
+     - menu u/d (fugue other bits)
+     - game start (fugue pause)
+     - game end warning (countdown)
+     - game end (fugue pause)
+     - ball drop / get ready ()
+     - shot sound (blast)
+     - bounce sound (adjust tempo)
+     - cooldown warning (alarm)
+     - cooldown occurred (power down)
+     - power restored (tune)
+     - goal sound (pulses)
+ - shot mechanics MVP
+    - recharge if don't fire
+    - arc shield needs less drain but maybe less power
+    - arc shield range adjust mode
+    - arc shield aim and hold shot
+    - refhraktor beam more power to spin
+    - gamma beam more power direction
+ - power grid sprinkles
+   - get lasers starting from players
+   - visual cues
+     - laser beams weaken with power drain
+     - some sort of rolling effect
+     - grid color shows power level
+     - waveform (flow pattern)
+        - recovery (from sides)
+        - pull rate (flow in from next to player)
+         - draw (remove from under player)
+         - width (area drained)
+ - clean up menus 
+    - player descriptions
+    - instructions?
+    - show level 
+    - gradient colors
+    - sugar skull colors
+    - aztec colors
+ - ABB editor
+    - integrate editor with javatari for live update?
+DELAY
+ - physics glitches
+    - spin calc
+    - doesn't reflect bounce on normal well enough?
+ - code
+    - cleanup unused strings
+    - cleanup unused graphics
+    - compress blank sections
+ - different height levels
+ - more levels themes
+    - locking rings (dynamic)
+    - breakfall (dynamic, destructable)
+    - blocks (dynamic)
+    - crescent wings (dynamic)
+    - conway (dynamic)
+    - mandala (spinning symmmetrics)
+    - chakra (circular rotating maze)
+    - pinball (diagonal banks, active targets
+    - combat
+    - castle
+ THINK ABOUT
+ - end game mechanics
+    - alternating player gets to "serve"
+    - alternately - some way to cancel back to lobby?
+ - power grid shot mechanics
+     - shot power (capacitance) (per player)
+     - choosable hi/lo power 
+ - alternate target
+   - multiball (shadowball...)
+   - being able to attack other player
+ - menu system
+   - choose game mode
+        - tournament
+   - choose equipment
+        - show pod capabilities
+        - player 1 opt in (whoever pressed go/or)
+        - second player opt in (whoever pressed go/or)
+        - double press - on both press go to stage
+   - choose stage
+        - double press - on both press go to track
+        - show stage
+   - choose defenses
+        - each player configures their defence
+   - choose track
+        - play track
+        - double press - on both press go to game
+   - join fhaktion 
+        - build pod / more combinations
+   - secret code
+        - extra special weapons
+ - physics
+   - friction
+   - gradient fields
+   - boost zones
+   - speed limit
+ - dynamic playfield
+   - can we do breakout 
+   - animated levels
+   - gradient fields 
+   - varied side graphics / animated side graphics
+   - cellular automata
+   - dark levels
+   - different goal setups
+     - alternate goals
+     - standard
+     - wide
+     - 3x
+     - pockets
+ - sprinkles
+   - play with grid design
+   - intro screen
+   - start / end game transitions
+   - cracktro
+ - co-op play
+       - MVP: available in quest mode
+       - two rails on same side of screen (up to 4 total with quadtari?)
+         - front rail for shooting, no power recovery is possible
+         - back rail for power banking, no shooting possible
+         - players can hop rails by double tap up/down
+         - players block each other, they must jump back/forward if they want to switch sides
+         - players in the tandem position can switch places if they push up/down simultaneously
+       - tandem firing
+         - a player on the back rail can transmit power to a player on the front rail
+         - the two pods must be on top of each other or there will be a power drop
+         - essentially, back rail player "fires" into the front player
+       - beam bros
+         - players can both sit on the front rail and fire simultaneously
+       - bank buddies
+         - players can both sit on the back rail and draw power
+ - versus mode : battle fracas combat
+ - quest mode : gateway peril hazard 
+       - time attack
+       - no opposing player (or maybe... sometimes ai), but continuous gravity down
+       - playfield extends up infinitely through a series of gates
+       - player(s) must guide ball up the field as far as possible
+       - players must reach each gate in time or game ends
+       - second player can join any time (can choose during play?)
+ - tournament mode : vendetta facing against  
+       - versus battle where players choose the defenses starting with their goals
+       - after the players lock in their choices for goal, they choose the next level up / down
+       - can play from 2 to 6 levels each (not counting midfield)
+       - game begins when the players have locked in their choices behind midfield
+button mash avoidance
+  continuous fire with button down
+  instead of continuous fire, have button down charge
+  heat meter / cooldown
+  golf shot pendulum
+  music rhythm shot
+  change color / color matters in shot power 
+;;
+;
+specials 
+    ;  - button masher weapon
+    ;  - continuous fire weapon
+    ;  - charge weapon
+    ;  - rhythm weapon
+    ;  - golf shot weapon
+    ;  - defensive weapon
+  moving playfield
+  refhrakting laser
+  gamma laser
+  gravity wave
+  meson bomb
+;
+NOT DO
+ - add in game logo?
+ - manual aim ability
+;;
+;; F600 - FB00
+;; need - say 1536 bytes for current kernel scheme (256 bytes x 6)
+;; each formation has
+;;   6 + n  byte update routine (2 byte pointer + n bytes code + 3 byte jmp/rts)
+;;   16     byte display list
+;;   t * 32 bytes for tiles
+;; if each formation uses 256 bytes
+;;   will get ~30 update instructions and 4 unique tiles
+;; a 1k block can hold 4 formations
+;; a 2k block can hold 8 formations
+;; a 4k block with no kernel can hold 16 formations
+;; a 4k block with kernel can hold 10 formations
+;; with 4k banks
+;;     - assume one bank for game stuff, the rest for formations and kernel copies
+;;     - 8k game has 10 formations
+;;     - 16k game has 30 formations
+;;     - 32k game has 70 formations
+;; with 2k banks
+;;     - assume one bank for the kernel, two banks for other game stuff
+;;     - 8k game has 8 formations
+;;     - 16k game has 40 formations
+;;     - 32k game has 104 formations
+;; if kernel can reduce to 1k
+;;     - 4k banks = 12@8k, 36@16k, 84@32k
+;;     - 2k banks = 12@8k, 44@16k, 108@32k
+;;     - 1k banks = 12@8k, 44@16k, 108@32k

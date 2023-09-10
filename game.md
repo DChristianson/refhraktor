@@ -10,7 +10,7 @@ while simultaneously defending your own gate.
 levels of radiation in the arena - meaning you don't want to get anyhwere near the action. So instead 
 you'll play from an elevated track and use a high powered laser to push the Spheres around."
 
-## Spheres
+## The Fhrakasphere
 
 Fhrakaspheres are made of a light reactive material of unknown origin. 
 
@@ -30,8 +30,7 @@ Tournament - Each player selects the Gates and obstacles in their half of the ar
 
 ## Mobile Targeting Pods
 
-"First things first you'll need a ride. You take a high powered laser, fit it to whatever chassis you can find then 
-and get the whole thing to run on arena power track. If you want to make it easy on yourself just salvage an 
+"First things first you'll need a ride. You take a high powered laser, fit it to whatever chassis you can find then and get the whole thing to run on arena power track. If you want to make it easy on yourself just salvage an 
 old AG-008 space-to-ground fighter, they have everything you need and thanks to the Galactic War there's no 
 shortage of them here."
 
