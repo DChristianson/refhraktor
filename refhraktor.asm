@@ -80,6 +80,7 @@ __GAME_MODE_CELEBRATE  = $01
 __GAME_MODE_DROP       = $02
 __GAME_MODE_GAME_OVER  = $03
 __GAME_MODE_START      = $04
+__GAME_MODE_SCROLL_UP  = $05
 
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
@@ -93,10 +94,10 @@ PLAYFIELD_WIDTH = 154
 PLAYFIELD_VIEWPORT_HEIGHT = 80
 PLAYFIELD_BEAM_RES = 16
 
-PLAYER_MIN_X = 6
+PLAYER_MIN_X = 0
 PLAYER_MAX_X = 140
 BALL_MIN_X = 12
-BALL_MAX_X = 130
+BALL_MAX_X = 132
 
 GOAL_SCORE_DEPTH = 4
 GOAL_HEIGHT = 16
@@ -137,7 +138,9 @@ DEFAULT_TIME_LIMIT = 64
 frame            ds 1  ; frame counter
 game_timer       ds 1  ; countdown
 
-audio_tracker    ds 2  ; next track
+audio_tracker 
+audio_track_0    ds 1  ; channel 0 track
+audio_track_1    ds 1  ; channel 1 track
 audio_timer      ds 2  ; time left on audio
 
 game_state       ds 1  ; current game state
@@ -371,9 +374,9 @@ _jmp_attract_menu_kernels
             JMP_LBL attract_menu_kernels
 
 TABLE_GAME_JUMP_LO
-    byte <(kernel_playGame-1),<(kernel_celebrateScore-1),<(kernel_dropBall-1),<(kernel_gameOver-1),<(kernel_startGame-1)
+    byte <(kernel_playGame-1),<(kernel_celebrateScore-1),<(kernel_dropBall-1),<(kernel_gameOver-1),<(kernel_startGame-1),<(kernel_scrollUp-1)
 TABLE_GAME_JUMP_HI
-    byte >(kernel_playGame-1),>(kernel_celebrateScore-1),>(kernel_dropBall-1),>(kernel_gameOver-1),>(kernel_startGame-1)
+    byte >(kernel_playGame-1),>(kernel_celebrateScore-1),>(kernel_dropBall-1),>(kernel_gameOver-1),>(kernel_startGame-1),>(kernel_scrollUp-1)
 
 ;--------------------
 ; gameplay update kernel
@@ -427,21 +430,30 @@ _drop_save_ball_color
 
 kernel_celebrateScore
             inc ball_color
-            ; check for quest scroll
-            lda game_state
-            and #__GAME_TYPE_MASK
-            cmp #GS_GAME_QUEST
-            beq _kernel_celebrate_quest_scroll
             jmp scroll_update ; skip ball update
-_kernel_celebrate_quest_scroll
+
+kernel_scrollUp
+            inc ball_color
             ; at t = 0, ball_voffset = - ball_y, scroll = 16, 
             ;           next formation in first dl
             ;           
-
             ; scroll to the next formation
             ;;
-            lda #-4
-            sta ball_voffset
+            lda game_timer
+            cmp #$58  ; BUGBUG: magic number
+            bpl _quest_scroll_vdelay
+            cmp #$2f
+            bmi _quest_scroll_vdelay
+            lda ball_y
+            clc 
+            adc #1
+            sta ball_y
+_quest_scroll_vdelay
+            lda ball_y
+            eor #$ff
+            clc
+            adc #1
+            sta ball_voffset    
             lda #12                  ; do last first
             sta local_formation_end  ; always to end
             lda #$8f
@@ -487,18 +499,33 @@ ball_score_check
             lda ball_y
             cmp #GOAL_SCORE_DEPTH
             bcs _ball_score_lo_check
-            jmp _ball_score_celebrate
             inc player_score
+            lda game_state
+            ; check if we are questing
+            and #__GAME_TYPE_MASK
+            cmp #GS_GAME_QUEST
+            bne _ball_score_celebrate
+            ; play score
+            SET_AX_TRACK TRACK_QUEST_ADVANCE, 0
+            ; next screen will be score celebration
+            SET_TX_CALLBACK game_quest_timer, CELEBRATE_DELAY
+            lda game_state
+            and #$f0
+            ora #__GAME_MODE_SCROLL_UP
+            jmp _ball_score_save_state
 _ball_score_lo_check
             cmp #127 - GOAL_SCORE_DEPTH - BALL_HEIGHT
             bcc _ball_score_end
             inc player_score + 1
 _ball_score_celebrate
+            ; play score
+            SET_AX_TRACK TRACK_SCORE, 0
             ; next screen will be score celebration
             SET_TX_CALLBACK game_celebrate_timer, CELEBRATE_DELAY
             lda game_state
             and #$f0
             ora #__GAME_MODE_CELEBRATE
+_ball_score_save_state
             sta game_state ; goto celebrate
 _ball_score_end
 
@@ -537,13 +564,18 @@ _ball_update_cx_horiz_inv
             jmp _ball_update_cx_end
 _ball_update_cx_end_acc
             dey
-            bpl _ball_update_cx_end
+            bmi _ball_update_cx_acc
+            ; play a sound if we bounced
+            SET_AX_TRACK TRACK_BOUNCE, 1
+            jmp _ball_update_cx_end
+_ball_update_cx_acc
             ; apply acceleration if no collision
             ADD16_8x ball_dx, ball_ax
             CLAMP16 ball_dx, -4, 4
             ADD16_8x ball_dy, ball_ay
             CLAMP16 ball_dy, -4, 4
 _ball_update_cx_end
+
 
 ball_update_hpos
             ADD16 ball_x, ball_dx
@@ -694,6 +726,7 @@ _player_fire
             sec
             sbc #POWER_RESERVE_SHOT_DRAIN
             bcs _player_power_save
+            SET_AX_TRACK_PLAYER TRACK_POWER_SHUTDOWN
             lda #POWER_RESERVE_COOLDOWN
 _player_power_save
             sta power_grid_reserve,x
@@ -702,6 +735,7 @@ _player_power_save
             jmp _player_save_fire
 _player_misfire
            ; BUGBUG penalize power
+            SET_AX_TRACK_PLAYER TRACK_POWER_MISFIRE
 _player_no_fire
             lda power_grid_reserve,x ; restore power reserve
             bpl _player_power_skip_restore
@@ -713,6 +747,7 @@ _player_no_fire
             lda #POWER_RESERVE_MAX
 _player_power_save_restore
             sta power_grid_reserve,x
+            SET_AX_TRACK_PLAYER TRACK_POWER_RESTORE
 _player_power_skip_restore
             lda player_state,x
             and #$fd
@@ -744,6 +779,7 @@ _player_power_transfer
             clc
             adc #POWER_RESERVE_SHOT_DRAIN
             sta power_grid_reserve
+            SET_AX_TRACK_PLAYER TRACK_TRANSFER
             jmp wx_clear_beam         
             ; by the time we hit wx_player_return we've set up 
             ; the dl's for beam
@@ -792,8 +828,6 @@ _ball_dl_end
 
             jsr waitOnVBlank ; SL 34
             sta WSYNC ; SL 35
-            lda #1
-            sta CTRLPF ; reflect playfield
 
             ; jump out to draw screen and back
             JMP_LBL fhrakas_kernel
@@ -841,12 +875,11 @@ game_on_timer
             jmp _game_on_timer_repeat
 _game_on_time_8left
             ; play a sound
-            lda #TRACK_0      
-            sta audio_tracker
-            sta audio_tracker + 1
+            SET_AX_TRACK TRACK_CHIME, 1
             ; continue
             jmp _game_on_timer_repeat
 _game_on_time_up
+            SET_AX_TRACK TRACK_GAME_OVER, 0
             SET_TX_CALLBACK game_over_timer, DROP_DELAY
             lda game_state
             and #$f0
@@ -860,7 +893,6 @@ _game_on_timer_repeat
 
 game_drop_timer
             ; drop complete
-            ; TODO: start audio track
             ; power up
             lda #POWER_RESERVE_MAX
             sta power_grid_reserve
@@ -872,21 +904,20 @@ game_drop_timer
             and #$f0
             ora #__GAME_MODE_PLAY
             sta game_state ; goto game play
+            ; play sound
+            SET_AX_TRACK TRACK_DROP, 0
             ; set play callback
             SET_TX_CALLBACK game_on_timer, GAME_PULSE
             jmp tx_on_timer_return
 
-game_celebrate_timer
-            SET_TX_CALLBACK game_drop_timer, DROP_DELAY
-            ; check game mode ()
-            lda game_state
-            and #__GAME_TYPE_MASK
-            cmp #GS_GAME_QUEST
-            bne _game_celebrate_drop
+game_quest_timer
             ldy formation_select
             lda TABLE_QUEST_FORMATION_NEXT,y  ; BUGBUG: not interesting logic
             sta formation_select
-_game_celebrate_drop
+            ; intentional fallthrough to game drop
+
+game_celebrate_timer
+            SET_TX_CALLBACK game_drop_timer, DROP_DELAY
             lda game_state
             and #$f0
             ora #__GAME_MODE_DROP
@@ -928,10 +959,8 @@ _splash_timer_repeat
 gs_title_setup
             lda #GS_ATTRACT_TITLE 
             sta game_state ; goto title display
-            ; start sound
-            lda #TRACK_0      
-            sta audio_tracker
-            sta audio_tracker + 1
+            ; play title
+            SET_AX_TRACK TRACK_TITLE, 0
             ; stop_timer
             SET_TX_CALLBACK noop_on_timer, 0
             ; input jump tables
@@ -953,6 +982,8 @@ gs_menu_equip_setup
             and #$f0
             ora #GS_MENU_EQUIP
             sta game_state ; goto equip menu
+            ; play note
+            SET_AX_TRACK TRACK_MENU_MAJOR_1, 0
             ; jmp tables
             SET_JX_CALLBACKS menu_equip_on_press_down, menu_equip_on_move
             ; done
@@ -983,6 +1014,8 @@ gs_menu_stage_setup
             and #$f0
             ora #GS_MENU_STAGE
             sta game_state ; goto stage menu
+            ; play note
+            SET_AX_TRACK TRACK_MENU_MAJOR_2, 0
             ; jmp tables
             SET_JX_CALLBACKS menu_stage_on_press_down, menu_stage_on_move
             rts
@@ -1012,6 +1045,9 @@ gs_menu_accept_setup
             and #$f0
             ora #GS_MENU_ACCEPT
             sta game_state ; goto accept menu
+            ; play note
+            SET_AX_TRACK TRACK_MENU_MAJOR_3, 0
+            ; jmp tables
             SET_JX_CALLBACKS menu_accept_on_press_down, menu_accept_on_move
             rts
 
@@ -1032,6 +1068,8 @@ gs_menu_game_setup
             ; setup game mode 
             lda #(GS_MENU_GAME + __MENU_GAME_VERSUS)
             sta game_state ; set default game mode
+            ; play note
+            SET_AX_TRACK TRACK_MENU_MAJOR_0, 0
             ; jmp tables
             SET_JX_CALLBACKS menu_game_on_press_down, menu_game_on_move
             rts
@@ -1084,6 +1122,8 @@ _player_setup_loop
             sta player_x,x
             dex
             bpl _player_setup_loop
+            ; play setup
+            SET_AX_TRACK TRACK_GAME_SETUP, 0
             ; disable JX callbacks (will use inputs from JX though)
             SET_JX_CALLBACKS noop_on_press_down, noop_on_move 
             SET_TX_CALLBACK game_drop_timer, DROP_DELAY

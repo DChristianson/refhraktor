@@ -9,6 +9,20 @@
             sta jx_on_move
     ENDM
 
+
+    MAC SET_AX_TRACK; given sound seq
+        lda #{1}      
+        sta audio_track_{2}
+    ENDM
+
+    MAC SET_AX_TRACK_PLAYER; given sound seq
+        lda audio_tracker,x
+        bne ._skip_track_player
+        lda #{1}      
+        sta audio_tracker,x
+._skip_track_player
+    ENDM
+
     MAC SET_TX_CALLBACK ; given timer callback + time
             lda #{2}
             sta game_timer

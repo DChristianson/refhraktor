@@ -88,37 +88,64 @@ DONE
     - on score up scroll to next screen
  - fhrakas kernel
     - consider HMOVE rails
+ - sounds MVP
+    - audio queue stubs
+ - power track graphics
+    - more obvious power charge
+    - free up scanlines around power tracks
 MVP TODO
- - basic quest mode (could be good for testing)
-    - on score down penalize
-    - on final goal
  - fhrakas kernel
     - use mask approach in kernel to try and get basic asymmetry
     - consider no flicker beams
     - consider parallax floor      
     - use both missiles at once for beams?
     - free up player/missile/ball for grid background?
- - physics bugs
-    - way to detect "stuck" ball and unstick / nudge
- - code
-    - replace DL macros with subs
-    - massive number of cycles used drawing
-    - review bugbug
- - weapon effects
-      - make lasers refract off ball
- - basic special attacks
-    - gravity wave (affect background)
-    - emp (affect foreground)
-    - gamma laser 
+ - graphical glitches
+    - beam sometimes fires to side of player
+    - remove / mitigate vdelay glitch on ball update
+    - lo laser wonky at extreme positions
+        - refraction could mitigate
+ - power glitches
+    - accidental drain when game starts
+ - power track graphics
+    - make same 
+    - add score or timer
+    - way to show specials
+ - basic quest mode (could be good for testing)
+    - on score down penalize
+    - on final goal complete
+    - AI tracks the player
+    - ability to swap equipment / controls
+    - no level select on menu
+    - 16 quest levels
+ - sounds MVP
+   - audio queue tracks
+     - menu l/r (fugue arpeggio bits)
+     - menu u/d (fugue other bits)
+     - game start (fugue pause)
+     - game end warning (countdown)
+     - game end (fugue pause)
+     - ball drop / get ready (weird noises)
+     - shot sound (blast)
+     - bounce sound (adjust tempo)
+     - cooldown warning (alarm)
+     - cooldown occurred (power down)
+     - power restored (tune)
+     - goal sound (pulses)
  - playfields MVP
    - void (empty)
    - diamonds (obstacles)
    - ladder (maze-like)
    - chute (tracks)
    - pachinko (pins)
- - alternative goals
-    - double
-    - triple
+ - physics bugs
+    - way to detect "stuck" ball and unstick / nudge
+ - weapon effects
+    - make lasers refract off ball
+ - basic special attacks
+    - gravity wave (affect background)
+    - emp (affect foreground)
+    - gamma laser 
  - clean up play screen 
     - more distinctive color palette
       - https://en.wikipedia.org/wiki/Coyolx%C4%81uhqui
@@ -127,29 +154,18 @@ MVP TODO
     - make power levels more obvious wrt rails
     - adjust background / foreground color
     - adjust shot color
-    - free up scanlines around power tracks
-    - add score or timer
- - graphical glitches
-    - beam sometimes fires to side of player
-    - remove / mitigate vdelay glitch on ball update
-    - lo laser wonky at extreme positions
-        - refraction could mitigate
- - power glitches
-    - accidental drain when game starts
- - sounds MVP
-   - audio queues
-     - menu l/r (fugue arpeggio bits)
-     - menu u/d (fugue other bits)
-     - game start (fugue pause)
-     - game end warning (countdown)
-     - game end (fugue pause)
-     - ball drop / get ready ()
-     - shot sound (blast)
-     - bounce sound (adjust tempo)
-     - cooldown warning (alarm)
-     - cooldown occurred (power down)
-     - power restored (tune)
-     - goal sound (pulses)
+DELAY
+ - startup sprinkles 
+    - startup VCS OS
+    - loading logos (randomize?)
+    - alternative title (full screen PF + 48 px symbol + reflection)
+ - code
+    - replace DL macros with subs
+    - massive number of cycles used drawing
+    - review bugbug
+ - alternative goals
+    - double
+    - triple
  - shot mechanics MVP
     - recharge if don't fire
     - arc shield needs less drain but maybe less power
@@ -169,15 +185,15 @@ MVP TODO
          - draw (remove from under player)
          - width (area drained)
  - clean up menus 
+    - disable level select for quest
     - player descriptions
     - instructions?
-    - show level 
+    - show level during level select
     - gradient colors
     - sugar skull colors
     - aztec colors
  - ABB editor
     - integrate editor with javatari for live update?
-DELAY
  - physics glitches
     - spin calc
     - doesn't reflect bounce on normal well enough?

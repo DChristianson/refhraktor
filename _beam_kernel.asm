@@ -65,6 +65,7 @@ wx_clear_beam
 
             ; firing - "regular" beam-style weapons
 wx_auto_aim_beam
+            SET_AX_TRACK_PLAYER TRACK_PULSE_BEAM
             ; calc distance between player and aim point
             jsr sub_calc_beam_parameters
             ; interpolate beam BUGBUG: needed?
@@ -156,6 +157,7 @@ _player_aim_save_laser_x
             jmp wx_player_return
 
 wx_arc_beam
+            SET_AX_TRACK_PLAYER TRACK_ARC_BEAM
             ; calc distance between player and aim point
             jsr sub_calc_beam_parameters
             lda local_beam_draw_dy
@@ -229,6 +231,7 @@ _player_arc_done
             jmp wx_player_return
 
 wx_gamma_beam
+            SET_AX_TRACK_PLAYER TRACK_GAMMA_BEAM
             ; BUGBUG: TODO: check collision
             lda #0
             sta ball_ax 

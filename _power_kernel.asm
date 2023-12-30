@@ -4,12 +4,12 @@
 ; grid helpers          
 
 sub_fill_grid ; x = player, a = value
-            sta SC_WRITE_POWER_GRID_PF0,x
+            sta SC_WRITE_POWER_GRID_PF0,x ; BUGBUG: WILL NOT USE
             sta SC_WRITE_POWER_GRID_PF1,x
             sta SC_WRITE_POWER_GRID_PF2,x
-            sta SC_WRITE_POWER_GRID_PF3,x
+            sta SC_WRITE_POWER_GRID_PF3,x ; BUGBUG: ONLY USE HALF
             sta SC_WRITE_POWER_GRID_PF4,x
-            sta SC_WRITE_POWER_GRID_PF5,x
+            sta SC_WRITE_POWER_GRID_PF5,x ; BUGBUG: ONLY USE HALF
             rts
 
 sub_x2pf ; a=coord, x=player => a=bit, y=blockptr
