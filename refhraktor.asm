@@ -85,6 +85,8 @@ __GAME_MODE_SCROLL_UP  = $05
 NUM_PLAYERS        = 2
 NUM_AUDIO_CHANNELS = 2
 
+FORMATION_COUNT = 6
+
 GAME_PULSE            = 127
 DROP_DELAY            = 63
 SPLASH_DELAY          = 7
@@ -153,8 +155,8 @@ jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
 formation_pf0_ptr ds 2   ; playfield ptr pf0
-formation_pf1_dl  ds 12  ; playfield dl pf1
-formation_pf2_dl  ds 12  ; playfield dl pf2
+formation_pf1_dl  ds FORMATION_COUNT * 2 ; playfield dl pf1
+formation_pf2_dl  ds FORMATION_COUNT * 2 ; playfield dl pf2
 
 player_score      ds NUM_PLAYERS      ; score
 player_input      ds NUM_PLAYERS      ; player input buffer
@@ -183,59 +185,73 @@ scroll         ds 1 ; y value to start showing playfield
 
 display_playfield_limit ds 1 ; BUGBUG see if need
 
-LOCAL_OVERLAY           ds 50
-LOCAL_OVERLAY_END       = .
+local_overlay = .
 
-; BUGBUG protect against overflowing zeropage
+    ORG local_overlay
 
 ; -- joystick kernel locals
-local_jx_player_input = LOCAL_OVERLAY
-local_jx_player_count = LOCAL_OVERLAY + 1
+local_jx_player_input ds 1
+local_jx_player_count ds 1
+
+    ORG local_overlay
 
 ; -- formation load args
-local_formation_load_pf1 = LOCAL_OVERLAY ; (ds 2)
-local_formation_load_pf2 = LOCAL_OVERLAY + 2 ; (ds 2)
-local_formation_offset   = LOCAL_OVERLAY + 4
-local_formation_start    = LOCAL_OVERLAY + 5
-local_formation_end      = LOCAL_OVERLAY + 6
+local_formation_load_pf1 ds 2 ; (ds 2)
+local_formation_load_pf2 ds 2  ; (ds 2)
+local_formation_offset   ds 1
+local_formation_start    ds 1
+local_formation_end      ds 1
 
-; -- strfmt locals
-local_strfmt_stack    = LOCAL_OVERLAY 
-local_strfmt_index_hi = LOCAL_OVERLAY + 1
-local_strfmt_index_lo = LOCAL_OVERLAY + 2
-local_strfmt_index_offset = LOCAL_OVERLAY + 3
-local_strfmt_tail = LOCAL_OVERLAY + 4
+    ORG local_overlay
+
+; -- strfmt locals 
+local_strfmt_stack        ds 1
+local_strfmt_index_hi     ds 1
+local_strfmt_index_lo     ds 1
+local_strfmt_index_offset ds 1
+local_strfmt_tail         ds 1
+
+    ORG local_overlay
 
 ; -- bcdfmt locals
-local_bcdfmt_hi = LOCAL_OVERLAY
-local_bcdfmt_lo = LOCAL_OVERLAY + 1
+local_bcdfmt_hi ds 1
+local_bcdfmt_lo ds 1
+
+    ORG local_overlay
 
 ; -- grid kernel locals
-local_grid_gap = LOCAL_OVERLAY      
-local_grid_inc = LOCAL_OVERLAY + 1
+local_grid_gap ds 1  
+local_grid_inc ds 1
+
+    ORG local_overlay
 
 ; -- player update kernel locals
-local_player_sprite_lobyte = LOCAL_OVERLAY ; (ds 1)
+local_player_sprite_lobyte  ds 1
 
+    ORG local_overlay
 
 ; -- beam drawing kernel locals
-local_beam_draw_cx          = LOCAL_OVERLAY     ; collision distance
-local_beam_draw_dy          = LOCAL_OVERLAY + 1 ; y distance (positive)
-local_beam_draw_dx          = LOCAL_OVERLAY + 2 ; x distance (positive)
-local_beam_draw_hmove       = LOCAL_OVERLAY + 3 ; hmove direction
-local_beam_draw_pattern     = LOCAL_OVERLAY + 4 ; pattern for drawing
-local_beam_draw_D           = LOCAL_OVERLAY + 5
-local_beam_draw_x_travel    = LOCAL_OVERLAY + 6
+local_beam_draw_cx          ds 1  ; collision distance
+local_beam_draw_dy          ds 1  ; y distance (positive)
+local_beam_draw_dx          ds 1  ; x distance (positive)
+local_beam_draw_hmove       ds 1  ; hmove direction
+local_beam_draw_pattern     ds 1  ; pattern for drawing
+local_beam_draw_D           ds 1
+local_beam_draw_x_travel    ds 1
+
+    ORG local_overlay
 
 ; -- text kernel locals
-local_tk_stack = LOCAL_OVERLAY      ; hold stack ptr during text
-local_tk_y_min = LOCAL_OVERLAY + 1  ; hold y min during text kernel
+local_tk_stack ds 1      ; hold stack ptr during text
+local_tk_y_min ds 1  ; hold y min during text kernel
+
+    ORG local_overlay
 
 ; -- fhrakas kernel locals
-local_fk_m0_dl      = LOCAL_OVERLAY      ; pattern for missile 0
-local_fk_colupf_dl  = LOCAL_OVERLAY + 12
-local_fk_colubk_dl  = LOCAL_OVERLAY + 24
-local_fk_p0_dl      = LOCAL_OVERLAY + 36 ; pattern for p0 
+local_fk_m0_dl      ds (FORMATION_COUNT * 2)   ; pattern for missile 0
+local_fk_colupf_dl  ds (FORMATION_COUNT * 2) 
+local_fk_colubk_dl  ds (FORMATION_COUNT * 2) 
+local_fk_p0_dl      ds (FORMATION_COUNT * 2)  ; pattern for p0 
 
 
 
@@ -454,14 +470,14 @@ _quest_scroll_vdelay
             clc
             adc #1
             sta ball_voffset    
-            lda #12                  ; do last first
+            lda #(FORMATION_COUNT * 2)    ; do last first 
             sta local_formation_end  ; always to end
             lda #$8f
             sec
             sbc game_timer  ; counting down from 127
             cmp #$60
             bmi _quest_scroll_up
-            lda #6
+            lda #FORMATION_COUNT
             sta local_formation_offset
             lda #0
             jmp _quest_scroll_next_formation
@@ -620,7 +636,7 @@ _scroll_update_store
             sta local_formation_offset
             lda #0 
             sta local_formation_start
-            lda #12
+            lda #(FORMATION_COUNT * 2)
             sta local_formation_end  
             ldx formation_select
             jsr sub_formation_update

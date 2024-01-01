@@ -772,7 +772,7 @@ _strfmt_end
 	ALIGN 256
 
 title_kernel    
-            lda #3      ;3=Player and Missile are drawn twice 32 clocks apart 
+            lda #$33      ;3=Player and Missile are drawn twice 32 clocks apart 
             sta NUSIZ0    
             sta NUSIZ1    
             lda #LOGO_COLOR

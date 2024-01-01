@@ -1,5 +1,76 @@
 
-    MAC FORMATION ; given p0, p1, p2, c, w, mask, addr, m0, p0
+    MAC FORMATION ; given pf0, pf1, pf2, c, w, mask, addr, m0, p0
+._pl0_loop_0_hm
+            ;; ball graphics
+            lda ({9}),y                  ;5   5
+            sta GRP0                     ;3   8
+            adc #$ff                     ;2  10 ; force carry if not zero
+            ; load left side of screen
+            lda PF0_WALLS,y              ;4  14
+            sta PF0                      ;3  17
+            lda ({2}),y                  ;5  22
+            sta PF1                      ;3  25 
+            lax ({3}),y                  ;5  30
+            stx PF2                      ;3  33
+            ; right side of screen
+            lda #0                       ;2  35
+            SLEEP 3                      ;3  38 ; BUGBUG ASYM SHIM
+            sta PF0                      ;3  41
+            lda #0                       ;2  43
+            SLEEP 3                      ;3  46 ; BUGBUG ASYM SHIM
+            sta PF1                      ;3  49
+            lda PF2_WALLS,y              ;4  53
+            sta PF2                      ;3  56
+            lda PF0_WALLS,y              ;4  60
+            sta PF0                      ;3  63
+            ;; set beam hmov       
+            lda ({8}),y                  ;5  68
+            sta HMM0                     ;3  71
+            ; PF1
+            lda ({2}),y                  ;5  76
+            ;; 2nd line
+            sta HMOVE                    ;3   3
+            sta PF1                      ;3   6
+            stx PF2                      ;3   9
+            ; laser pattern
+            lda ({8}),y                  ;5  14
+            sta ENAM0                    ;3  17
+            ; right side of screen
+            ldx #0                       ;2  19
+            SLEEP 3                      ;3  22 ; BUGBUG ASYM SHIM
+            lda #0                       ;2  24
+            SLEEP 3                      ;3  27 ; BUGBUG ASYM SHIM
+            sta PF0                      ;3  30
+            ; check collision
+            bcc ._pl0_skip_collide       ;2  32
+            lda #$80                     ;2  34
+            adc CXP0FB                   ;3  37 
+            sta CXCLR                    ;3  40
+            lda ball_cx                  ;3  43
+            ror                          ;2  45
+            sta ball_cx                  ;3  48
+._pl0_continue
+            stx PF1                      ;3  51
+            lda PF2_WALLS,y              ;4  55
+            sta PF2                      ;3  58
+            dec display_playfield_limit  ;5  63
+            bmi ._pl0_end                ;2  65 ; sbpl
+            dey                          ;2  67
+            bpl ._pl0_advance_formation  ;2  69 ; sbeq
+            SLEEP 2                      ;2  71
+            ldy #{6}                     ;2  73
+            jmp {7}                      ;3  --
+._pl0_advance_formation
+            SLEEP 3                      ;3  73
+            jmp ._pl0_loop_0_hm          ;3  --
+._pl0_end
+            jmp formation_end            ;3  70
+._pl0_skip_collide
+            SLEEP 12                     ;12 45
+            jmp ._pl0_continue           ;3  48
+    ENDM
+
+   MAC FORMATION_SYM ; given p0, p1, p2, c, w, mask, addr, m0, p0
 ._pl0_loop_0_hm
             lda ({1}),y                  ;5   5 - 1
             sta PF0                      ;3   8
@@ -83,7 +154,7 @@
     DEF_LBL fhrakas_kernel
 
 ;---------------------
-; upper score area
+; upper score area and P1M1 mask
 
            ; resp lower beam
             sta WSYNC
@@ -99,20 +170,29 @@ _lo_resp_loop
             sta RESM0               ;3  27+ ; BUGBUG: GLITCH: goes over
 
             sta WSYNC
-            sta HMOVE               ;3   3
-            lda frame               ;3   6
-            and #$01                ;2   8
-            tax                     ;2  10
-            lda player_state,x      ;4  14
-            and #$30                ;2  16
-            sta NUSIZ0              ;3  19
-            lda #0                  ;2  21
-            sta HMM0                ;3  24
-            lda game_state          ;3  27  ; check game type
-            and #__GAME_TYPE_MASK   ;2  29  ; .
-            cmp #GS_GAME_QUEST      ;2  31  ; .
-            bne laser_track_hi      ;2  33  ; no upper track for quest
-            jmp arena               ;3  36  ; .
+            lda frame               ;3   3
+            and #$01                ;2   5
+            tax                     ;2   7
+            lda player_state,x      ;4  11
+            and #$30                ;2  13
+            sta NUSIZ0              ;3  16
+            ; resp P1
+            lda #136
+            ldx #1
+            jsr sub_respx           ;-   9
+            lda #$07                ;2  11 ; . quad player
+            sta NUSIZ1              ;3  14 ; .
+            ldx #$00                ;2  16 ; black P1
+            stx COLUP1              ;3  19 ; . 
+            ; check exit
+            lda game_state          ;3  21  ; check game type
+            and #__GAME_TYPE_MASK   ;2  23  ; .
+            stx HMP1                ;3  26 ; .
+            stx HMM1                ;3  29 ; .
+            stx HMM0                ;3  31
+            cmp #GS_GAME_QUEST      ;2  33  ; .
+            bne laser_track_hi      ;2  35  ; no upper track for quest
+            jmp arena               ;3  38  ; .
 
 ;---------------------
 ; laser track (hi)
@@ -224,7 +304,7 @@ _hi_skip_power
             sta PF1                 ;3  31
             sta PF2                 ;3  34
             dey                     ;2  36
-            lda #$01                ;2  37
+            lda #$00                ;2  37 ; BUGBUG: testing asymmetric
             sta CTRLPF              ;3  40 ; BUGBUG: need?
 
 _lt_hi_draw_loop_0
@@ -242,51 +322,41 @@ _lt_hi_draw_loop_0
 ; arena
 
 arena
-            ; resp ball, shadow 
-            sta WSYNC
-            lda ball_x              ;3   3
-            sec                     ;2   5
-_ball_resp_loop
-            sbc #15                 ;2   7
-            sbcs _ball_resp_loop    ;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMP0                ;3  18+
-            sta HMP1                ;3  21+
-            sta RESP0               ;3  24+
-            sta RESP1               ;3  27+
 
-            ; hmove ball, shadow 
-            sta WSYNC                    ;3   0
-            sta HMOVE                    ;3   3
-            lda ball_color               ;3   6
-            sta COLUP0                   ;3   9
+            ; scoop M1 Mask HMOVE
+            lda #$20
+            sta HMM1
+
+            ldx #0
+            lda ball_x
+            jsr sub_respx
+            ; return after hmove + rts
+            lda ball_color               ;3  12
+            sta COLUP0                   ;3  15
             ; clear collision register
-            sta CXCLR                    ;3  12
+            sta CXCLR                    ;3  18
             ; start prepping playfield 
-            lda display_scroll           ;3  15
-            eor #$ff                     ;2  17 ; invert as we will count down
-            and #$0f                     ;2  19
-            tay                          ;2  21
+            lda display_scroll           ;3  21
+            eor #$ff                     ;2  23 ; invert as we will count down
+            and #$0f                     ;2  25
+            tay                          ;2  27
             ; zero out hmoves what need zeros
-            lda #$00                     ;2  23
-            sta HMP0                     ;3  26
-            lda #$70                     ;2  28 ; shift P1/M0 back 7 clocks
-            sta HMP1                     ;3  32
+            lda #$00                     ;2  29
+            sta HMP0                     ;3  31
 
             ; hmove ++ and prep for playfield next line
             sta WSYNC                    ;0   0
-            sta HMOVE                    ;3   3
-            lda #80                      ;2   5
-            sta display_playfield_limit  ;3   8
-            lda #$01                     ;2  10
-            sta VDELP1                   ;3  13
-            lda #$05                     ;2  15
-            sta CTRLPF                   ;3  18
-            lda #$00                     ;2  20 
-            sta COLUP1                   ;3  23
-            sta HMP1                     ;3  26
-            jmp formation_0              ;3  29
+            lda #80                      ;2   2
+            sta display_playfield_limit  ;3   5
+            lda #$01                     ;2   7
+            sta VDELP1                   ;3  10
+            lda #$04                     ;2  12 : BUGBUG: testing reflect
+            sta CTRLPF                   ;3  15
+            lda #$ff                     ;2  17 activate missile mask
+            sta GRP1                     ;3  23 .
+            lda #$00                     ;2  25 .
+            sta HMM1                     ;3  28 . clear hmove
+            jmp formation_0              ;3  31
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -322,7 +392,6 @@ formation_end
             SLEEP 6                         ;6  66
             lda #$00                        ;2  68
             sta COLUBK                      ;3  71
-            ; BUGBUG: missile mask
             sta WSYNC                       ;3   0
 formation_end_jmp
 
@@ -340,6 +409,7 @@ _lt_lo_resp_loop
             lda LOOKUP_STD_HMOVE,y          ;4  20+
             sta HMP0                        ;3  23+
             sta RESP0                       ;3  26+
+
 
 
             ; stx PF1                 ;3   3
@@ -360,6 +430,12 @@ _lt_lo_resp_loop
             sta PF2                 ;3  29
             sty CTRLPF              ;2  31 ; CODE: take advantage of y = 1
             iny                     ;2  33
+
+            ; BUGBUG: right place to end missile mask?
+            lda #$00                     ;2  20 activate missile mask
+            sta ENAM1                    ;3  23 .
+            sta GRP1                     ;3  26 .
+
 
 _lt_lo_draw_loop_0
             sta WSYNC
@@ -631,8 +707,10 @@ kernel_exit
             sta GRP0
             sta GRP1
             sta ENAM0
-            sta ENAM1
+            ;sta ENAM1
             sta COLUBK
+            lda #$30
+            sta NUSIZ1
 
             ldx #4
 playfield_shim_loop
@@ -641,6 +719,24 @@ playfield_shim_loop
             bne playfield_shim_loop
 
     JMP_LBL return_main_kernel
+
+; generic resp
+; a is position, x is object (0 = P0, 1 = P1, ...)
+sub_respx
+            ; resp P0,x 
+            sta WSYNC
+            sec                     ;2   2
+_ball_resp_loop
+            sbc #15                 ;2   4
+            sbcs _ball_resp_loop    ;2   6
+            tay                     ;2   8
+            lda LOOKUP_STD_HMOVE,y  ;4  12
+            sta.w HMP0,x            ;5  17
+            sta.w RESP0,x           ;5  23
+            ; first hmove 
+            sta WSYNC                    ;3   0
+            sta HMOVE                    ;3   3
+            rts
 
 ;------------------------
 ; equip sub
@@ -701,22 +797,41 @@ PF0_WALLS
 	; .byte %10000000
 	; .byte %11000000
 
-	.byte %11000000
-	.byte %11000000
-	.byte %11000000
-	.byte %01000000
-	.byte %11000000
-	.byte %11000000
-	.byte %11000000
-	.byte %10000000
-	.byte %11000000
-	.byte %11000000
-	.byte %11000000
-	.byte %01000000
-	.byte %11000000
-	.byte %11000000
-	.byte %11000000
-	.byte %10000000
+	.byte %11000011
+	.byte %11000011
+	.byte %11000011
+	.byte %01000010
+	.byte %11000011
+	.byte %11000011
+	.byte %11000011
+	.byte %10000001
+	.byte %11000011
+	.byte %11000011
+	.byte %11000011
+	.byte %01000010
+	.byte %11000011
+	.byte %11000011
+	.byte %11000011
+	.byte %10000001
+
+PF2_WALLS
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000010
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000001
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000010
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000001
+
 
 	; .byte %11000000
 	; .byte %11000000
@@ -920,10 +1035,8 @@ BALL_GRAPHICS_END
 
 BEAM_ON_HMOV_0
 COLUBK_COLORS_1 ; compression, enam0 always on and 16 bytes of color 2 are the same
-    byte $b4,$b4,$b6,$b6,$b8,$b8,$ba,$ba
-    byte $bc,$bc,$bb,$bb,$b8,$b8,$b6,$b6
-    byte $b4,$b4,$b6,$b6,$b8,$b8,$ba,$ba
-    byte $bc,$bc,$bb,$bb,$b8,$b8,$b6,$b6
+    byte $00,$00,$00,$00,$00,$00,$00,$00
+    byte $00,$00,$00,$00,$00,$00,$00,$00
 
 COLUPF_COLORS_0
     byte $a6,$a6,$a8,$a8,$aa,$aa,$ac,$ac

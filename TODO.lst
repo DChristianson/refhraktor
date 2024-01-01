@@ -97,9 +97,7 @@ MVP TODO
  - fhrakas kernel
     - use mask approach in kernel to try and get basic asymmetry
     - consider no flicker beams
-    - consider parallax floor      
     - use both missiles at once for beams?
-    - free up player/missile/ball for grid background?
  - graphical glitches
     - beam sometimes fires to side of player
     - remove / mitigate vdelay glitch on ball update
@@ -138,6 +136,7 @@ MVP TODO
    - ladder (maze-like)
    - chute (tracks)
    - pachinko (pins)
+   - breakout (destructable)
  - physics bugs
     - way to detect "stuck" ball and unstick / nudge
  - weapon effects
@@ -166,6 +165,9 @@ DELAY
  - alternative goals
     - double
     - triple
+ - sprinkles
+     - consider parallax floor      
+    - free up player/missile/ball for grid background?
  - shot mechanics MVP
     - recharge if don't fire
     - arc shield needs less drain but maybe less power
