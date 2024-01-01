@@ -154,9 +154,10 @@ tx_on_timer      ds 2  ; timed event sub ptr
 jx_on_press_down ds 2  ; on press sub ptr
 jx_on_move       ds 2  ; on move sub ptr
 
-formation_pf0_ptr ds 2   ; playfield ptr pf0
-formation_pf1_dl  ds FORMATION_COUNT * 2 ; playfield dl pf1
-formation_pf2_dl  ds FORMATION_COUNT * 2 ; playfield dl pf2
+formation_pf1_dl  ds FORMATION_COUNT * 2 ; playfield df pf1 - left
+formation_pf2_dl  ds FORMATION_COUNT * 2 ; playfield dl pf2 - left
+formation_pf3_dl  ds FORMATION_COUNT * 2 ; playfield dl pf0 - right
+formation_pf4_dl  ds FORMATION_COUNT * 2 ; playfield dl pf1 - right
 
 player_score      ds NUM_PLAYERS      ; score
 player_input      ds NUM_PLAYERS      ; player input buffer
@@ -197,7 +198,9 @@ local_jx_player_count ds 1
 
 ; -- formation load args
 local_formation_load_pf1 ds 2 ; (ds 2)
-local_formation_load_pf2 ds 2  ; (ds 2)
+local_formation_load_pf2 ds 2 ; (ds 2)
+local_formation_load_pf3 ds 2 ; (ds 2)
+local_formation_load_pf4 ds 2 ; (ds 2)
 local_formation_offset   ds 1
 local_formation_start    ds 1
 local_formation_end      ds 1
@@ -248,9 +251,7 @@ local_tk_y_min ds 1  ; hold y min during text kernel
     ORG local_overlay
 
 ; -- fhrakas kernel locals
-local_fk_m0_dl      ds (FORMATION_COUNT * 2)   ; pattern for missile 0
-local_fk_colupf_dl  ds (FORMATION_COUNT * 2) 
-local_fk_colubk_dl  ds (FORMATION_COUNT * 2) 
+local_fk_m0_dl      ds (FORMATION_COUNT * 2)  ; pattern for missile 0
 local_fk_p0_dl      ds (FORMATION_COUNT * 2)  ; pattern for p0 
 
 
@@ -800,12 +801,6 @@ _player_power_transfer
             ; by the time we hit wx_player_return we've set up 
             ; the dl's for beam
 wx_player_return
-            ; handle colupf and colubk
-            WRITE_ADDR formation_pf0_ptr, PF0_WALLS
-            ; WARNING: need to store stack    
-            WRITE_DL local_fk_colupf_dl, COLUPF_COLORS_0
-            WRITE_DL local_fk_colubk_dl, COLUBK_COLORS_1
-
             ; final dl - for p0 / p1
             ; notes: 
             ;  -36 ball_voffset
@@ -1242,6 +1237,14 @@ FORMATION_VOID_UP
             sta local_formation_load_pf2
             lda #>FORMATION_VOID_PF2
             sta local_formation_load_pf2 + 1
+            lda #<FORMATION_VOID_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_VOID_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_VOID_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_VOID_PF4
+            sta local_formation_load_pf4 + 1
             jsr formation_load
             jmp formation_update_return
 
@@ -1254,6 +1257,14 @@ FORMATION_CHUTE_UP
             sta local_formation_load_pf2
             lda #>FORMATION_CHUTE_PF2
             sta local_formation_load_pf2 + 1
+            lda #<FORMATION_CHUTE_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_CHUTE_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_CHUTE_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_CHUTE_PF4
+            sta local_formation_load_pf4 + 1
             jsr formation_load
             jmp formation_update_return
 
@@ -1266,6 +1277,14 @@ FORMATION_DIAMONDS_UP
             sta local_formation_load_pf2
             lda #>FORMATION_DIAMONDS_PF2
             sta local_formation_load_pf2 + 1
+            lda #<FORMATION_DIAMONDS_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_DIAMONDS_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_DIAMONDS_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_DIAMONDS_PF4
+            sta local_formation_load_pf4 + 1
             jsr formation_load
             jmp formation_update_return
 
@@ -1278,6 +1297,14 @@ FORMATION_WINGS_UP
             sta local_formation_load_pf2
             lda #>FORMATION_WINGS_PF2
             sta local_formation_load_pf2 + 1
+            lda #<FORMATION_WINGS_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_WINGS_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_WINGS_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_WINGS_PF4
+            sta local_formation_load_pf4 + 1
             jsr formation_load
             jmp formation_update_return
 
@@ -1291,6 +1318,10 @@ _formation_load_loop
             sta formation_pf1_dl,x
             lda (local_formation_load_pf2),y
             sta formation_pf2_dl,x
+            lda (local_formation_load_pf3),y ; KLUDGE
+            sta formation_pf3_dl,x
+            lda (local_formation_load_pf4),y ; KLUDGE
+            sta formation_pf4_dl,x
             iny
             inx
             cpx local_formation_end
@@ -1318,6 +1349,27 @@ FORMATION_CHUTE_PF2
     word #PFX_WALLS_BLANK
     word #PF2_GOAL_BOTTOM
 
+FORMATION_VOID_PF3
+FORMATION_CHUTE_PF3
+    word #PF3_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF3_GOAL_BOTTOM
+
+FORMATION_VOID_PF4
+    word #PF4_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PFX_WALLS_BLANK
+    word #PF4_GOAL_BOTTOM
+
 FORMATION_CHUTE_PF1
     word #PF1_GOAL_TOP
     word #PFX_WALLS_BLANK
@@ -1328,7 +1380,18 @@ FORMATION_CHUTE_PF1
     word #PFX_WALLS_BLANK
     word #PF1_GOAL_BOTTOM
 
+FORMATION_CHUTE_PF4
+    word #PF4_GOAL_TOP
+    word #PFX_WALLS_BLANK
+    word #PF4_WALLS_CHUTE
+    word #PF4_WALLS_CHUTE
+    word #PF4_WALLS_CHUTE
+    word #PF4_WALLS_CHUTE
+    word #PFX_WALLS_BLANK
+    word #PF4_GOAL_BOTTOM
+
 FORMATION_DIAMONDS_PF1
+FORMATION_DIAMONDS_PF3
     word #PF1_GOAL_TOP
     word #PFX_WALLS_BLANK
     word #PF1_WALLS_DIAMONDS
@@ -1339,6 +1402,7 @@ FORMATION_DIAMONDS_PF1
     word #PF1_GOAL_BOTTOM
 
 FORMATION_DIAMONDS_PF2
+FORMATION_DIAMONDS_PF4
     word #PF2_GOAL_TOP
     word #PF2_WALLS_CUBES_TOP
     word #PFX_WALLS_BLANK
@@ -1349,6 +1413,7 @@ FORMATION_DIAMONDS_PF2
     word #PF2_GOAL_BOTTOM
 
 FORMATION_WINGS_PF1
+FORMATION_WINGS_PF3
     word #PF1_GOAL_TOP
     word #PFX_WALLS_BLANK
     word #PFX_WALLS_BLANK
@@ -1359,6 +1424,7 @@ FORMATION_WINGS_PF1
     word #PF1_GOAL_BOTTOM
 
 FORMATION_WINGS_PF2
+FORMATION_WINGS_PF4
     word #PF2_GOAL_TOP
     word #PFX_WALLS_BLANK
     word #PF2_WALLS_WINGS_TOP

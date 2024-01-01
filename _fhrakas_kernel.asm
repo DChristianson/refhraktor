@@ -1,151 +1,67 @@
 
-    MAC FORMATION ; given pf0, pf1, pf2, c, w, mask, addr, m0, p0
+    MAC FORMATION ; given pf1, pf2, pf3, pf4, formation height, jump addr, m0 pattern + hmove, p0
 ._pl0_loop_0_hm
             ;; ball graphics
-            lda ({9}),y                  ;5   5
+            lda ({8}),y                  ;5   5
             sta GRP0                     ;3   8
             adc #$ff                     ;2  10 ; force carry if not zero
             ; load left side of screen
             lda PF0_WALLS,y              ;4  14
             sta PF0                      ;3  17
-            lda ({2}),y                  ;5  22
+            lda ({1}),y                  ;5  22
             sta PF1                      ;3  25 
-            lax ({3}),y                  ;5  30
+            lax ({2}),y                  ;5  30
             stx PF2                      ;3  33
             ; right side of screen
-            lda #0                       ;2  35
-            SLEEP 3                      ;3  38 ; BUGBUG ASYM SHIM
-            sta PF0                      ;3  41
-            lda #0                       ;2  43
-            SLEEP 3                      ;3  46 ; BUGBUG ASYM SHIM
+            lda ({3}),y                  ;5  38 ; PF3
+            sta PF0                      ;3  41 ; PF4
+            lda ({4}),y                  ;5  46
             sta PF1                      ;3  49
             lda PF2_WALLS,y              ;4  53
             sta PF2                      ;3  56
             lda PF0_WALLS,y              ;4  60
             sta PF0                      ;3  63
-            ;; set beam hmov       
-            lda ({8}),y                  ;5  68
+            ;; set beam hmov and laser pattern
+            lda ({7}),y                  ;5  68
             sta HMM0                     ;3  71
-            ; PF1
-            lda ({2}),y                  ;5  76
+            sta ENAM0                    ;3  74
             ;; 2nd line
-            sta HMOVE                    ;3   3
-            sta PF1                      ;3   6
-            stx PF2                      ;3   9
-            ; laser pattern
-            lda ({8}),y                  ;5  14
-            sta ENAM0                    ;3  17
-            ; right side of screen
-            ldx #0                       ;2  19
-            SLEEP 3                      ;3  22 ; BUGBUG ASYM SHIM
-            lda #0                       ;2  24
-            SLEEP 3                      ;3  27 ; BUGBUG ASYM SHIM
-            sta PF0                      ;3  30
+            sta HMOVE                    ;3   1
+            ; PF1
+            lda ({1}),y                  ;5   6
+            sta PF1                      ;3   9
+            stx PF2                      ;3  12
             ; check collision
-            bcc ._pl0_skip_collide       ;2  32
-            lda #$80                     ;2  34
-            adc CXP0FB                   ;3  37 
-            sta CXCLR                    ;3  40
-            lda ball_cx                  ;3  43
-            ror                          ;2  45
-            sta ball_cx                  ;3  48
+            bcc ._pl0_skip_collide       ;2  14
+            lda #$80                     ;2  16
+            adc CXP0FB                   ;3  19 
+            sta CXCLR                    ;3  22
+            lda ball_cx                  ;3  25
+            ror                          ;2  27
+            sta ball_cx                  ;3  30
 ._pl0_continue
-            stx PF1                      ;3  51
-            lda PF2_WALLS,y              ;4  55
-            sta PF2                      ;3  58
-            dec display_playfield_limit  ;5  63
-            bmi ._pl0_end                ;2  65 ; sbpl
-            dey                          ;2  67
-            bpl ._pl0_advance_formation  ;2  69 ; sbeq
-            SLEEP 2                      ;2  71
-            ldy #{6}                     ;2  73
-            jmp {7}                      ;3  --
+            ; right side of screen
+            lda ({3}),y                  ;5  35 ; PF3
+            sta PF0                      ;3  38 ; 
+            lda ({4}),y                  ;5  43 ; PF4
+            sta PF1                      ;3  46
+            lda PF2_WALLS,y              ;4  50
+            sta PF2                      ;3  53
+            dec display_playfield_limit  ;5  58
+            bmi ._pl0_end                ;2  60 ; sbpl
+            dey                          ;2  62
+            bpl ._pl0_advance_formation  ;2  64 ; sbeq
+            SLEEP 7                      ;7  71
+            ldy #{5}                     ;2  73
+            jmp {6}                      ;3  --
 ._pl0_advance_formation
-            SLEEP 3                      ;3  73
+            SLEEP 8                      ;8  73
             jmp ._pl0_loop_0_hm          ;3  --
 ._pl0_end
             jmp formation_end            ;3  70
 ._pl0_skip_collide
-            SLEEP 12                     ;12 45
-            jmp ._pl0_continue           ;3  48
-    ENDM
-
-   MAC FORMATION_SYM ; given p0, p1, p2, c, w, mask, addr, m0, p0
-._pl0_loop_0_hm
-            lda ({1}),y                  ;5   5 - 1
-            sta PF0                      ;3   8
-            lda ({2}),y                  ;5  13
-            sta PF1                      ;3  16 
-            ;; adjust playfield color
-            lda ({4}),y                  ;5  21
-            SLEEP 4                      ;4  25 - 4
-       
-            sta COLUBK                   ;3  28 - 5
-            lda ({3}),y                  ;5  33 - 3
-            sta PF2                      ;3  36
-            ;; set beam hmov
-            lda ({8}),y                  ;5  41 
-            sta HMM0                     ;3  44
-            SLEEP 3                      ;3  47 - 3
-            ;; ball graphics
-            lda ({9}),y                  ;5  52 - 1
-            sta GRP0                     ;3  55 - 2
-            sta GRP1                     ;3  58 - 1
-            lda ({5}),y                  ;5  63 ; load pf color 
-            tax                          ;2  65
-            lda #0                       ;2  67
-            ;; EOL
-            sta.w COLUBK                 ;4  71
-            lda #$80                     ;2  73 ; use to set up collision
-            stx COLUPF                   ;3  76
-            ;; 2nd line
-            sta HMOVE                    ;3   3
-            ;; get C set for checking collision
-            adc CXP0FB                   ;3   6 ; push into carry bit
-            sta CXCLR                    ;3   9
-            lda ({8}),y                  ;5  14
-            sta ENAM0                    ;3  17
-            lda ({4}),y                  ;5  22
-            ldx ball_voffset             ;3  25
-            sta COLUBK                   ;3  28
-            ;; ball offsets
-            bmi ._pl0_inc_ball_offset    ;2  30 ; sbmi
-            lda ball_cx                  ;3  33
-            ror                          ;2  35
-            sta ball_cx                  ;3  38
-            dex                          ;2  40
-            bmi ._pl0_ball_end           ;2  42 ; sbmi
-            SLEEP 3                      ;3  45
-            jmp ._pl0_save_ball_offset   ;3  48 
-._pl0_ball_end
-            ldx #128                     ;2  45
-            jmp ._pl0_save_ball_offset   ;3  48
-._pl0_inc_ball_offset 
-            SLEEP 10                     ;10 41
-            inx                          ;2  43
-            beq ._pl0_ball_start         ;2  45 ; sbeq
-            jmp ._pl0_save_ball_offset   ;3  48
-._pl0_ball_start 
-            ldx #BALL_HEIGHT - 1         ;2  48
-._pl0_save_ball_offset
-            stx ball_voffset             ;3  51
-            dec display_playfield_limit  ;5  56
-            bpl ._pl0_continue           ;2  58 ; sbpl
-            jmp formation_end            ;3  61
-._pl0_continue
-            ldx #0                       ;2  61 ; get a 0
-            dey                          ;2  63 ; getting ready for later
-            bmi ._pl0_advance_formation  ;2  65 ; sbeq
-            SLEEP 3                      ;3  68
-            stx COLUBK                   ;3  71
-            ;; EOL
-            SLEEP 2                      ;2  73
-            jmp ._pl0_loop_0_hm          ;3  --
-._pl0_advance_formation
-            SLEEP 2                      ;2  68
-            stx COLUBK                   ;3  71
-            ldy #{6}                     ;2  73
-            jmp {7}                      ;3  --
+            SLEEP 12                     ;12 27
+            jmp ._pl0_continue           ;3  30
     ENDM
 
 ;-------------------------------
@@ -348,30 +264,28 @@ arena
             sta WSYNC                    ;0   0
             lda #80                      ;2   2
             sta display_playfield_limit  ;3   5
-            lda #$01                     ;2   7
-            sta VDELP1                   ;3  10
-            lda #$04                     ;2  12 : BUGBUG: testing reflect
-            sta CTRLPF                   ;3  15
-            lda #$ff                     ;2  17 activate missile mask
-            sta GRP1                     ;3  23 .
-            lda #$00                     ;2  25 .
-            sta HMM1                     ;3  28 . clear hmove
-            jmp formation_0              ;3  31
+            lda #$04                     ;2   7 : BUGBUG: testing reflect
+            sta CTRLPF                   ;3  10
+            lda #$ff                     ;2  12 activate missile mask
+            sta GRP1                     ;3  15 .
+            lda #$00                     ;2  17 .
+            sta HMM1                     ;3  20 . clear hmove
+            jmp formation_0              ;3  23
 
     ; try to avoid page branching problems
     ALIGN 256
 
 formation_0
     sta WSYNC
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 0, formation_pf2_dl + 0, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_1_jmp, local_fk_m0_dl + 0, local_fk_p0_dl + 0
+    FORMATION formation_pf1_dl + 0, formation_pf2_dl + 0, formation_pf3_dl + 0, formation_pf4_dl + 0, #$0f, formation_1_jmp, local_fk_m0_dl + 0, local_fk_p0_dl + 0
 formation_1
     sta WSYNC
 formation_1_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 2, formation_pf2_dl + 2, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_2_jmp, local_fk_m0_dl + 2, local_fk_p0_dl + 2
+    FORMATION formation_pf1_dl + 2, formation_pf2_dl + 2, formation_pf3_dl + 2, formation_pf4_dl + 2, #$0f, formation_2_jmp, local_fk_m0_dl + 2, local_fk_p0_dl + 2
 formation_2
     sta WSYNC
 formation_2_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 4, formation_pf2_dl + 4, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_3_jmp, local_fk_m0_dl + 4, local_fk_p0_dl + 4
+    FORMATION formation_pf1_dl + 4, formation_pf2_dl + 4, formation_pf3_dl + 4, formation_pf4_dl + 4, #$0f, formation_3_jmp, local_fk_m0_dl + 4, local_fk_p0_dl + 4
 
     ; try to avoid page branching problems
     ALIGN 256
@@ -379,15 +293,15 @@ formation_2_jmp
 formation_3
     sta WSYNC
 formation_3_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 6, formation_pf2_dl + 6, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_4_jmp, local_fk_m0_dl + 6, local_fk_p0_dl + 6
+    FORMATION formation_pf1_dl + 6, formation_pf2_dl + 6, formation_pf3_dl + 6, formation_pf4_dl + 6, #$0f, formation_4_jmp, local_fk_m0_dl + 6, local_fk_p0_dl + 6
 formation_4
     sta WSYNC
 formation_4_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 8, formation_pf2_dl + 8, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_5_jmp, local_fk_m0_dl + 8, local_fk_p0_dl + 8
+    FORMATION formation_pf1_dl + 8, formation_pf2_dl + 8, formation_pf3_dl + 8, formation_pf4_dl + 8, #$0f, formation_5_jmp, local_fk_m0_dl + 8, local_fk_p0_dl + 8
 formation_5
     sta WSYNC
 formation_5_jmp
-    FORMATION formation_pf0_ptr, formation_pf1_dl + 10, formation_pf2_dl + 10, local_fk_colubk_dl, local_fk_colupf_dl, #$0f, formation_end_jmp, local_fk_m0_dl + 10, local_fk_p0_dl + 10
+    FORMATION formation_pf1_dl + 10, formation_pf2_dl + 10, formation_pf3_dl + 10, formation_pf4_dl + 10, #$0f, formation_end_jmp, local_fk_m0_dl + 10, local_fk_p0_dl + 10
 formation_end
             SLEEP 6                         ;6  66
             lda #$00                        ;2  68
@@ -870,33 +784,35 @@ PF2_WALLS
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
     ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
 
-PF2_GOAL_TOP
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
     byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
 
-PFX_WALLS_BLANK
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-
-PF2_GOAL_BOTTOM   
-    byte #$ff,#$ff,#$ff,#$ff,#$07,#$07,#$03,#$03
-    byte #$01,#$01,#$00,#$00,#$00,#$00,#$00,#$00
-
-
 PF1_GOAL_BOTTOM
+PF4_GOAL_BOTTOM
     byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
     byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
 
 PF1_GOAL_TOP
+PF4_GOAL_TOP
     byte #$00,#$00,#$01,#$01,#$7f,#$ff,#$ff,#$ff 
     byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
 
-
+PF2_GOAL_TOP
+PF2_GOAL_BOTTOM   
+PF3_GOAL_TOP
+PF3_GOAL_BOTTOM   
+PFX_WALLS_BLANK
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
 PF1_WALLS_CHUTE
-PF2_WALLS_CHUTE
+    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
-    byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
+
+PF4_WALLS_CHUTE
+    byte #$80,#$80,#$80,#$80,#$00,#$00,#$00,#$00
+    byte #$00,#$00,#$00,#$00,#$80,#$80,#$80,#$80
+
 
 PF1_WALLS_DIAMONDS
     byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
