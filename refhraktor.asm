@@ -1047,7 +1047,7 @@ _menu_stage_on_move_down
             jmp jx_on_move_return
 _menu_stage_on_move_lr    
             beq _menu_stage_on_move_end      
-            SWITCH_JX formation_select, 3 ; limit
+            SWITCH_JX formation_select, 6 ; limit
 _menu_stage_on_move_end
             jmp jx_on_move_return
 
@@ -1219,9 +1219,9 @@ formation_update_return
             rts
 
 TABLE_FORMATION_JUMP_LO
-    byte <(FORMATION_VOID_UP-1),<(FORMATION_CHUTE_UP-1),<(FORMATION_DIAMONDS_UP-1),<(FORMATION_WINGS_UP-1)
+    byte <(FORMATION_VOID_UP-1),<(FORMATION_CHUTE_UP-1),<(FORMATION_DIAMONDS_UP-1),<(FORMATION_PACHINKO_UP-1),<(FORMATION_LADDER_UP-1),<(FORMATION_BREAKOUT_UP-1)
 TABLE_FORMATION_JUMP_HI
-    byte >(FORMATION_VOID_UP-1),>(FORMATION_CHUTE_UP-1),>(FORMATION_DIAMONDS_UP-1),>(FORMATION_WINGS_UP-1)
+    byte >(FORMATION_VOID_UP-1),>(FORMATION_CHUTE_UP-1),>(FORMATION_DIAMONDS_UP-1),>(FORMATION_PACHINKO_UP-1),>(FORMATION_LADDER_UP-1),>(FORMATION_BREAKOUT_UP-1)
 
 TABLE_QUEST_FORMATION_NEXT
     byte 1,2,3,0
@@ -1288,22 +1288,62 @@ FORMATION_DIAMONDS_UP
             jsr formation_load
             jmp formation_update_return
 
-FORMATION_WINGS_UP
-            lda #<FORMATION_WINGS_PF1
+FORMATION_PACHINKO_UP
+            lda #<FORMATION_PACHINKO_PF1
             sta local_formation_load_pf1
-            lda #>FORMATION_WINGS_PF1
+            lda #>FORMATION_PACHINKO_PF1
             sta local_formation_load_pf1 + 1
-            lda #<FORMATION_WINGS_PF2
+            lda #<FORMATION_PACHINKO_PF2
             sta local_formation_load_pf2
-            lda #>FORMATION_WINGS_PF2
+            lda #>FORMATION_PACHINKO_PF2
             sta local_formation_load_pf2 + 1
-            lda #<FORMATION_WINGS_PF3
+            lda #<FORMATION_PACHINKO_PF3
             sta local_formation_load_pf3
-            lda #>FORMATION_WINGS_PF3
+            lda #>FORMATION_PACHINKO_PF3
             sta local_formation_load_pf3 + 1
-            lda #<FORMATION_WINGS_PF4
+            lda #<FORMATION_PACHINKO_PF4
             sta local_formation_load_pf4
-            lda #>FORMATION_WINGS_PF4
+            lda #>FORMATION_PACHINKO_PF4
+            sta local_formation_load_pf4 + 1
+            jsr formation_load
+            jmp formation_update_return
+
+FORMATION_LADDER_UP
+            lda #<FORMATION_LADDER_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_LADDER_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_LADDER_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_LADDER_PF2
+            sta local_formation_load_pf2 + 1
+            lda #<FORMATION_LADDER_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_LADDER_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_LADDER_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_LADDER_PF4
+            sta local_formation_load_pf4 + 1
+            jsr formation_load
+            jmp formation_update_return
+
+FORMATION_BREAKOUT_UP
+            lda #<FORMATION_BREAKOUT_PF1
+            sta local_formation_load_pf1
+            lda #>FORMATION_BREAKOUT_PF1
+            sta local_formation_load_pf1 + 1
+            lda #<FORMATION_BREAKOUT_PF2
+            sta local_formation_load_pf2
+            lda #>FORMATION_BREAKOUT_PF2
+            sta local_formation_load_pf2 + 1
+            lda #<FORMATION_BREAKOUT_PF3
+            sta local_formation_load_pf3
+            lda #>FORMATION_BREAKOUT_PF3
+            sta local_formation_load_pf3 + 1
+            lda #<FORMATION_BREAKOUT_PF4
+            sta local_formation_load_pf4
+            lda #>FORMATION_BREAKOUT_PF4
             sta local_formation_load_pf4 + 1
             jsr formation_load
             jmp formation_update_return
@@ -1339,7 +1379,6 @@ FORMATION_VOID_PF1
     word #PF1_GOAL_BOTTOM
 
 FORMATION_VOID_PF2
-FORMATION_CHUTE_PF2
     word #PF2_GOAL_TOP
     word #PFX_WALLS_BLANK
     word #PFX_WALLS_BLANK
@@ -1350,7 +1389,6 @@ FORMATION_CHUTE_PF2
     word #PF2_GOAL_BOTTOM
 
 FORMATION_VOID_PF3
-FORMATION_CHUTE_PF3
     word #PF3_GOAL_TOP
     word #PFX_WALLS_BLANK
     word #PFX_WALLS_BLANK
@@ -1371,68 +1409,204 @@ FORMATION_VOID_PF4
     word #PF4_GOAL_BOTTOM
 
 FORMATION_CHUTE_PF1
-    word #PF1_GOAL_TOP
-    word #PFX_WALLS_BLANK
-    word #PF1_WALLS_CHUTE
-    word #PF1_WALLS_CHUTE
-    word #PF1_WALLS_CHUTE
-    word #PF1_WALLS_CHUTE
-    word #PFX_WALLS_BLANK
-    word #PF1_GOAL_BOTTOM
+    word #PF1_CHUTE_0
+    word #PF1_CHUTE_1
+    word #PF1_CHUTE_2
+    word #PF1_CHUTE_3
+    word #PF1_CHUTE_4
+    word #PF1_CHUTE_5
+    word #PF1_CHUTE_6
+    word #PF1_CHUTE_7
+
+FORMATION_CHUTE_PF2
+    word #PF2_CHUTE_0
+    word #PF2_CHUTE_1
+    word #PF2_CHUTE_2
+    word #PF2_CHUTE_3
+    word #PF2_CHUTE_4
+    word #PF2_CHUTE_5
+    word #PF2_CHUTE_6
+    word #PF2_CHUTE_7
+
+FORMATION_CHUTE_PF3
+    word #PF3_CHUTE_0
+    word #PF3_CHUTE_1
+    word #PF3_CHUTE_2
+    word #PF3_CHUTE_3
+    word #PF3_CHUTE_4
+    word #PF3_CHUTE_5
+    word #PF3_CHUTE_6
+    word #PF3_CHUTE_7
 
 FORMATION_CHUTE_PF4
-    word #PF4_GOAL_TOP
-    word #PFX_WALLS_BLANK
-    word #PF4_WALLS_CHUTE
-    word #PF4_WALLS_CHUTE
-    word #PF4_WALLS_CHUTE
-    word #PF4_WALLS_CHUTE
-    word #PFX_WALLS_BLANK
-    word #PF4_GOAL_BOTTOM
+    word #PF4_CHUTE_0
+    word #PF4_CHUTE_1
+    word #PF4_CHUTE_2
+    word #PF4_CHUTE_3
+    word #PF4_CHUTE_4
+    word #PF4_CHUTE_5
+    word #PF4_CHUTE_6
+    word #PF4_CHUTE_7
 
 FORMATION_DIAMONDS_PF1
-FORMATION_DIAMONDS_PF3
-    word #PF1_GOAL_TOP
-    word #PFX_WALLS_BLANK
-    word #PF1_WALLS_DIAMONDS
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PF1_WALLS_DIAMONDS
-    word #PFX_WALLS_BLANK
-    word #PF1_GOAL_BOTTOM
+    word #PF1_DIAMONDS_0
+    word #PF1_DIAMONDS_1
+    word #PF1_DIAMONDS_2
+    word #PF1_DIAMONDS_3
+    word #PF1_DIAMONDS_4
+    word #PF1_DIAMONDS_5
+    word #PF1_DIAMONDS_6
+    word #PF1_DIAMONDS_7
 
 FORMATION_DIAMONDS_PF2
+    word #PF2_DIAMONDS_0
+    word #PF2_DIAMONDS_1
+    word #PF2_DIAMONDS_2
+    word #PF2_DIAMONDS_3
+    word #PF2_DIAMONDS_4
+    word #PF2_DIAMONDS_5
+    word #PF2_DIAMONDS_6
+    word #PF2_DIAMONDS_7
+
+FORMATION_DIAMONDS_PF3
+    word #PF3_DIAMONDS_0
+    word #PF3_DIAMONDS_1
+    word #PF3_DIAMONDS_2
+    word #PF3_DIAMONDS_3
+    word #PF3_DIAMONDS_4
+    word #PF3_DIAMONDS_5
+    word #PF3_DIAMONDS_6
+    word #PF3_DIAMONDS_7
+
 FORMATION_DIAMONDS_PF4
-    word #PF2_GOAL_TOP
-    word #PF2_WALLS_CUBES_TOP
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PF2_WALLS_CUBES_BOTTOM
-    word #PF2_GOAL_BOTTOM
+    word #PF4_DIAMONDS_0
+    word #PF4_DIAMONDS_1
+    word #PF4_DIAMONDS_2
+    word #PF4_DIAMONDS_3
+    word #PF4_DIAMONDS_4
+    word #PF4_DIAMONDS_5
+    word #PF4_DIAMONDS_6
+    word #PF4_DIAMONDS_7
 
-FORMATION_WINGS_PF1
-FORMATION_WINGS_PF3
-    word #PF1_GOAL_TOP
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PF1_WALLS_WINGS_TOP
-    word #PF1_WALLS_WINGS_BOTTOM
-    word #PF1_GOAL_BOTTOM
+FORMATION_PACHINKO_PF1
+    word #PF1_PACHINKO_0
+    word #PF1_PACHINKO_1
+    word #PF1_PACHINKO_2
+    word #PF1_PACHINKO_3
+    word #PF1_PACHINKO_4
+    word #PF1_PACHINKO_5
+    word #PF1_PACHINKO_6
+    word #PF1_PACHINKO_7
 
-FORMATION_WINGS_PF2
-FORMATION_WINGS_PF4
-    word #PF2_GOAL_TOP
-    word #PFX_WALLS_BLANK
-    word #PF2_WALLS_WINGS_TOP
-    word #PF2_WALLS_WINGS_BOTTOM
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PFX_WALLS_BLANK
-    word #PF2_GOAL_BOTTOM    
+FORMATION_PACHINKO_PF2
+    word #PF2_PACHINKO_0
+    word #PF2_PACHINKO_1
+    word #PF2_PACHINKO_2
+    word #PF2_PACHINKO_3
+    word #PF2_PACHINKO_4
+    word #PF2_PACHINKO_5
+    word #PF2_PACHINKO_6
+    word #PF2_PACHINKO_7
+
+FORMATION_PACHINKO_PF3
+    word #PF3_PACHINKO_0
+    word #PF3_PACHINKO_1
+    word #PF3_PACHINKO_2
+    word #PF3_PACHINKO_3
+    word #PF3_PACHINKO_4
+    word #PF3_PACHINKO_5
+    word #PF3_PACHINKO_6
+    word #PF3_PACHINKO_7
+
+FORMATION_PACHINKO_PF4
+    word #PF4_PACHINKO_0
+    word #PF4_PACHINKO_1
+    word #PF4_PACHINKO_2
+    word #PF4_PACHINKO_3
+    word #PF4_PACHINKO_4
+    word #PF4_PACHINKO_5
+    word #PF4_PACHINKO_6
+    word #PF4_PACHINKO_7
+
+FORMATION_LADDER_PF1
+    word #PF1_LADDER_0
+    word #PF1_LADDER_1
+    word #PF1_LADDER_2
+    word #PF1_LADDER_3
+    word #PF1_LADDER_4
+    word #PF1_LADDER_5
+    word #PF1_LADDER_6
+    word #PF1_LADDER_7
+
+FORMATION_LADDER_PF2
+    word #PF2_LADDER_0
+    word #PF2_LADDER_1
+    word #PF2_LADDER_2
+    word #PF2_LADDER_3
+    word #PF2_LADDER_4
+    word #PF2_LADDER_5
+    word #PF2_LADDER_6
+    word #PF2_LADDER_7
+
+FORMATION_LADDER_PF3
+    word #PF3_LADDER_0
+    word #PF3_LADDER_1
+    word #PF3_LADDER_2
+    word #PF3_LADDER_3
+    word #PF3_LADDER_4
+    word #PF3_LADDER_5
+    word #PF3_LADDER_6
+    word #PF3_LADDER_7
+
+FORMATION_LADDER_PF4
+    word #PF4_LADDER_0
+    word #PF4_LADDER_1
+    word #PF4_LADDER_2
+    word #PF4_LADDER_3
+    word #PF4_LADDER_4
+    word #PF4_LADDER_5
+    word #PF4_LADDER_6
+    word #PF4_LADDER_7
+
+FORMATION_BREAKOUT_PF1
+    word #PF1_BREAKOUT_0
+    word #PF1_BREAKOUT_1
+    word #PF1_BREAKOUT_2
+    word #PF1_BREAKOUT_3
+    word #PF1_BREAKOUT_4
+    word #PF1_BREAKOUT_5
+    word #PF1_BREAKOUT_6
+    word #PF1_BREAKOUT_7
+
+FORMATION_BREAKOUT_PF2
+    word #PF2_BREAKOUT_0
+    word #PF2_BREAKOUT_1
+    word #PF2_BREAKOUT_2
+    word #PF2_BREAKOUT_3
+    word #PF2_BREAKOUT_4
+    word #PF2_BREAKOUT_5
+    word #PF2_BREAKOUT_6
+    word #PF2_BREAKOUT_7
+
+FORMATION_BREAKOUT_PF3
+    word #PF3_BREAKOUT_0
+    word #PF3_BREAKOUT_1
+    word #PF3_BREAKOUT_2
+    word #PF3_BREAKOUT_3
+    word #PF3_BREAKOUT_4
+    word #PF3_BREAKOUT_5
+    word #PF3_BREAKOUT_6
+    word #PF3_BREAKOUT_7
+
+FORMATION_BREAKOUT_PF4
+    word #PF4_BREAKOUT_0
+    word #PF4_BREAKOUT_1
+    word #PF4_BREAKOUT_2
+    word #PF4_BREAKOUT_3
+    word #PF4_BREAKOUT_4
+    word #PF4_BREAKOUT_5
+    word #PF4_BREAKOUT_6
+    word #PF4_BREAKOUT_7
 
 ; BUGBUG; duplicate data
 PLAYER_SPRITES

@@ -694,22 +694,6 @@ P2_GRAPHICS_0
     ALIGN 256
 
 PF0_WALLS
-	; .byte %11000000
-	; .byte %10000000
-	; .byte %10000000
-	; .byte %01000000
-	; .byte %01000000
-	; .byte %11000000
-	; .byte %11000000
-	; .byte %01000000
-	; .byte %01000000
-	; .byte %00000000
-	; .byte %11000000
-	; .byte %10000000
-	; .byte %11000000
-	; .byte %00000000
-	; .byte %10000000
-	; .byte %11000000
 
 	.byte %11000011
 	.byte %11000011
@@ -746,56 +730,45 @@ PF2_WALLS
 	.byte %00000011
 	.byte %00000001
 
-
-	; .byte %11000000
-	; .byte %11000000
-	; .byte %01000000
-	; .byte %01000000
-	; .byte %11000000
-	; .byte %11000000
-	; .byte %10000000
-	; .byte %10000000
-	; .byte %11000000
-	; .byte %11000000
-	; .byte %01000000
-	; .byte %01000000
-	; .byte %11000000
-	; .byte %11000000
-	; .byte %10000000
-	; .byte %10000000
-
-	; .byte %10000000
-	; .byte %10110000
-	; .byte %01100000
-	; .byte %11010000
-	; .byte %00010000
-	; .byte %11010000
-	; .byte %01100000
-	; .byte %10110000
-	; .byte %10000000
-	; .byte %10110000
-	; .byte %01100000
-	; .byte %11010000
-	; .byte %00010000
-	; .byte %11010000
-	; .byte %01100000
-	; .byte %10110000
-
-    ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
-    ; byte #$50,#$20,#$50,#$A0,#$50,#$A0,#$50,#$A0
-
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$01,#$01
-    byte #$03,#$03,#$07,#$07,#$ff,#$ff,#$ff,#$ff
-
 PF1_GOAL_BOTTOM
 PF4_GOAL_BOTTOM
-    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
-    byte #$ff,#$ff,#$ff,#$7f,#$01,#$01,#$00,#$00
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
 
 PF1_GOAL_TOP
 PF4_GOAL_TOP
-    byte #$00,#$00,#$01,#$01,#$7f,#$ff,#$ff,#$ff 
-    byte #$ff,#$ff,#$ff,#$7f,#$ff,#$ff,#$ff,#$7f
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+	.byte %11111111
+
 
 PF2_GOAL_TOP
 PF2_GOAL_BOTTOM   
@@ -805,99 +778,12 @@ PFX_WALLS_BLANK
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
     byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
 
-PF1_WALLS_CHUTE
-    byte #$01,#$01,#$01,#$01,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$01,#$01,#$01,#$01
 
-PF4_WALLS_CHUTE
-    byte #$80,#$80,#$80,#$80,#$00,#$00,#$00,#$00
-    byte #$00,#$00,#$00,#$00,#$80,#$80,#$80,#$80
-
-
-PF1_WALLS_DIAMONDS
-    byte #$00,#$00,#$00,#$08,#$14,#$14,#$14,#$22
-    byte #$22,#$22,#$14,#$14,#$14,#$08,#$00,#$00
-
-PF2_WALLS_CUBES_TOP
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-PF2_WALLS_CUBES_BOTTOM
-    byte #$e0,#$e0,#$e0,#$20,#$20,#$e0,#$e0,#$e0
-    byte #$00,#$00,#$00,#$00,#$00,#$00,#$00,#$00
-    
-    ALIGN 256
-    
-PF1_WALLS_WINGS_TOP
-	.byte %00000000
-	.byte %00000000
-	.byte %00000000
-	.byte %00010000
-	.byte %00100000
-	.byte %01000000
-	.byte %00100000
-	.byte %01000000
-	.byte %00100000
-	.byte %01000000
-	.byte %00100000
-	.byte %00010000
-	.byte %00100000
-	.byte %00010000
-	.byte %00001000
-    .byte %00010000
-
-PF1_WALLS_WINGS_BOTTOM
-	.byte %00001000
-	.byte %00000100
-	.byte %00001000
-	.byte %00000100
-	.byte %00001000
-	.byte %00000100
-	.byte %00001000
-	.byte %00010000
-	.byte %00001000
-	.byte %00010000
-	.byte %00100000
-	.byte %00010000
-	.byte %00100000
-	.byte %01000000
-	.byte %00000000
-	.byte %00000000
-
-
-PF2_WALLS_WINGS_TOP
-	.byte %00000010
-	.byte %00000100
-	.byte %00001010
-	.byte %00000100
-	.byte %00001010
-	.byte %00010100
-	.byte %00001010
-	.byte %00010100
-	.byte %00001000
-	.byte %00010100
-	.byte %00101000
-	.byte %00010000
-	.byte %00101000
-	.byte %01010000
-	.byte %10100000
-	.byte %01010000
-
-PF2_WALLS_WINGS_BOTTOM
-	.byte %10100000
-	.byte %01000000
-	.byte %10100000
-	.byte %01000000
-	.byte %10000000
-	.byte %01000000
-	.byte %10000000
-	.byte %01000000
-	.byte %10100000
-	.byte %01000000
-	.byte %10100000
-	.byte %01010000
-	.byte %00100000
-	.byte %00010000
-	.byte %00001000
-	.byte %00000000
+    include "_chute.asm"
+    include "_ladder.asm"
+    include "_pachinko.asm"
+    include "_diamonds.asm"
+    include "_breakout.asm"
 
     ALIGN 256
     ; SHIELD LO animation (uses one whole page...) BUGBUG: can compress

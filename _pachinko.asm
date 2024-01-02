@@ -1,0 +1,296 @@
+  
+
+PF1_PACHINKO_0 = PF1_GOAL_TOP
+
+PF1_PACHINKO_1
+	.byte %00000001
+	.byte %00000001
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
+PF1_PACHINKO_2
+	.byte %00000001
+	.byte %00000001
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %11000000
+	.byte %11000000
+	.byte %11000000
+	.byte %11000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000001
+	.byte %00000001
+
+PF1_PACHINKO_3 = PF1_PACHINKO_2
+PF1_PACHINKO_4 = PF1_PACHINKO_2
+PF1_PACHINKO_5 = PF1_PACHINKO_2
+PF1_PACHINKO_6
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000001
+	.byte %00000001
+
+PF1_PACHINKO_7 = PF1_GOAL_BOTTOM
+
+
+PF2_PACHINKO_0
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+
+PF2_PACHINKO_1
+	.byte %00000001
+	.byte %00000001
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
+PF2_PACHINKO_2
+	.byte %00000001
+	.byte %00000001
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000001
+	.byte %00000001
+
+PF2_PACHINKO_3
+	.byte %00000001
+	.byte %00000001
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000001
+	.byte %00000001
+
+PF2_PACHINKO_4 = PF2_PACHINKO_3
+PF2_PACHINKO_5 = PF2_PACHINKO_2
+PF2_PACHINKO_6
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000001
+	.byte %00000001
+
+PF2_PACHINKO_7
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000111
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
+
+PF3_PACHINKO_0
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+
+PF3_PACHINKO_1
+	.byte %10000000
+	.byte %10000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
+PF3_PACHINKO_2
+	.byte %10000000
+	.byte %10000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %10000000
+	.byte %10000000
+
+PF3_PACHINKO_3 = PF3_PACHINKO_2
+PF3_PACHINKO_4 = PF3_PACHINKO_2
+PF3_PACHINKO_5 = PF3_PACHINKO_2
+PF3_PACHINKO_6
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %10000000
+	.byte %10000000
+
+PF3_PACHINKO_7
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+
+
+PF4_PACHINKO_0 = PF1_GOAL_TOP
+
+PF4_PACHINKO_1 = PF3_PACHINKO_1
+PF4_PACHINKO_2
+	.byte %10000000
+	.byte %10000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000011
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %10000000
+	.byte %10000000
+
+PF4_PACHINKO_3 = PF4_PACHINKO_2
+PF4_PACHINKO_4 = PF4_PACHINKO_2
+PF4_PACHINKO_5 = PF4_PACHINKO_2
+PF4_PACHINKO_6 = PF3_PACHINKO_6
+PF4_PACHINKO_7 = PF1_GOAL_BOTTOM
+

@@ -93,22 +93,31 @@ DONE
  - power track graphics
     - more obvious power charge
     - free up scanlines around power tracks
-MVP TODO
  - fhrakas kernel
     - use mask approach in kernel to try and get basic asymmetry
-    - consider no flicker beams
-    - use both missiles at once for beams?
  - graphical glitches
-    - beam sometimes fires to side of player
     - remove / mitigate vdelay glitch on ball update
+ - playfields MVP
+   - void (empty)
+   - chute (tracks)
+   - diamonds (obstacles)
+   - ladder (maze-like)
+   - pachinko (pins)
+   - breakout (destructable)
+MVP TODO
+ - power track graphics
+    - make same top and bottom
+    - line up with field
+    - add score or timer
+ - graphical glitches
+    - beam now always fires to side of player
     - lo laser wonky at extreme positions
         - refraction could mitigate
+ - fhrakas kernel
+    - consider no flicker beams
+    - use both missiles at once for beams?
  - power glitches
     - accidental drain when game starts
- - power track graphics
-    - make same 
-    - add score or timer
-    - way to show specials
  - basic quest mode (could be good for testing)
     - on score down penalize
     - on final goal complete
@@ -130,21 +139,11 @@ MVP TODO
      - cooldown occurred (power down)
      - power restored (tune)
      - goal sound (pulses)
- - playfields MVP
-   - void (empty)
-   - diamonds (obstacles)
-   - ladder (maze-like)
-   - chute (tracks)
-   - pachinko (pins)
-   - breakout (destructable)
  - physics bugs
+    - ball does not refract off horizontal surface correctly
     - way to detect "stuck" ball and unstick / nudge
  - weapon effects
     - make lasers refract off ball
- - basic special attacks
-    - gravity wave (affect background)
-    - emp (affect foreground)
-    - gamma laser 
  - clean up play screen 
     - more distinctive color palette
       - https://en.wikipedia.org/wiki/Coyolx%C4%81uhqui
@@ -153,11 +152,16 @@ MVP TODO
     - make power levels more obvious wrt rails
     - adjust background / foreground color
     - adjust shot color
-DELAY
  - startup sprinkles 
     - startup VCS OS
     - loading logos (randomize?)
     - alternative title (full screen PF + 48 px symbol + reflection)
+DELAY
+ - basic special attacks
+    - gravity wave (affect background)
+    - emp (affect foreground)
+    - gamma laser 
+    - way to show specials in power track
  - code
     - replace DL macros with subs
     - massive number of cycles used drawing
@@ -165,8 +169,8 @@ DELAY
  - alternative goals
     - double
     - triple
- - sprinkles
-     - consider parallax floor      
+ - playfield sprinkles
+   - consider parallax floor      
     - free up player/missile/ball for grid background?
  - shot mechanics MVP
     - recharge if don't fire
