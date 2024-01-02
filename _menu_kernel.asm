@@ -21,18 +21,39 @@ MENU_JUMP_TABLE_HI
 ; title
 
 kernel_title
+kernel_title_a
+            lda frame
+            bmi kernel_title_b
             jsr waitOnVBlank_2 ; SL 34
 
             sta WSYNC ; SL 35
             lda #0
             sta COLUBK
 
-            ldx #(192 / 2 - TITLE_HEIGHT * 2 - 8)
+            ldx #(192 / 2 - TITLE_HEIGHT_96PX * 2 - 8)
             jsr sky_kernel
 
-            jsr title_kernel
+            jsr title_kernel_96px
 
-            ldx #(SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42)
+            ldx #100; BUGBUG: magic number
+            jsr grid_kernel
+
+            ; jump back
+            JMP_LBL waitOnOverscan
+
+kernel_title_b
+            jsr waitOnVBlank_2 ; SL 34
+
+            sta WSYNC ; SL 35
+            lda #0
+            sta COLUBK
+
+            ldx #(192 - 100 - TITLE_HEIGHT_FULLSCREEN)
+            jsr sky_kernel
+
+            jsr title_kernel_fullscreen
+
+            ldx #100; BUGBUG: magic number
             jsr grid_kernel
 
             ; jump back
@@ -154,7 +175,7 @@ _not_accept
             jsr sky_kernel
 
             ; bottom grid
-            ldx #SCANLINES - 192/2 - TITLE_HEIGHT * 2 - 42
+            ldx #SCANLINES - 192/2 - TITLE_HEIGHT_96PX * 2 - 42
             jsr grid_kernel
             
             JMP_LBL waitOnOverscan            
@@ -771,14 +792,14 @@ _strfmt_end
 
 	ALIGN 256
 
-title_kernel    
+title_kernel_96px   
             lda #$33      ;3=Player and Missile are drawn twice 32 clocks apart 
             sta NUSIZ0    
             sta NUSIZ1    
             lda #LOGO_COLOR
             sta COLUP0        ;3
             sta COLUP1          ;3
-            ldy #TITLE_HEIGHT - 1
+            ldy #TITLE_HEIGHT_96PX - 1
             lda #$01
             and frame
             beq _jmp_title_96x2_resp_frame_0
@@ -918,6 +939,38 @@ title_96x2_frame_1 ; on entry HMP+0, on loop HMP+8
             sty GRP0
             sty GRP1
             rts  
+
+title_kernel_fullscreen    
+            ; ABB generated PF
+            lda #LOGO_COLOR                 ; 2    2
+            sta COLUPF                      ; 3    5
+            lda #0
+            sta CTRLPF
+            ldx #(TITLE_HEIGHT_FULLSCREEN - 1)
+_title_pf_loop
+            sta WSYNC                       ; 3   --
+            SLEEP 7                         ; 7    7 ; BUGBUG: SHIM for colors/effects
+            lda PF0_LOGO_A,x                ; 4   11
+            sta PF0                         ; 3   14
+            lda PF1_LOGO_A,x                ; 4   18
+            sta PF1                         ; 3   21
+            lda PF2_LOGO_A,x                ; 4   25
+            sta PF2                         ; 3   28
+            lda PF0_LOGO_B,x                ; 4   32
+            tay                             ; 2   34
+            lda PF1_LOGO_B,x                ; 4   38
+            sta PF1                         ; 3   41
+            sty PF0                         ; 3   44
+            lda PF2_LOGO_B,x                ; 4   48
+            sta PF2                         ; 3   51
+            dex                             ; 2   53
+            bpl _title_pf_loop              ; 2   55
+            sta WSYNC
+            lda #0
+            sta PF0
+            sta PF1
+            sta PF2
+            rts
 
 ;------------------------
 ; splash kernel
@@ -1127,6 +1180,8 @@ STAGE_NAMES
 
     ALIGN 256
 
+TITLE_HEIGHT_96PX = TITLE_96x2_01 - TITLE_96x2_00
+
 TITLE_96x2_00
     byte %00000000
     byte %00001000
@@ -1294,3 +1349,244 @@ TITLE_96x2_11
     byte %00111000
     byte %11111000
     byte %11110000
+
+
+TITLE_HEIGHT_FULLSCREEN = PF1_LOGO_A - PF0_LOGO_A
+
+PF0_LOGO_A
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10000000
+	.byte %10000000
+	.byte %10100000
+	.byte %11100000
+	.byte %01000000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %01100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %10100000
+	.byte %00100000
+	.byte %10000000
+	.byte %00000000
+	.byte %10000000
+	.byte %00000000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+	.byte %11100000
+
+
+PF1_LOGO_A
+	.byte %01101000
+	.byte %01101000
+	.byte %01101000
+	.byte %01101000
+	.byte %01101000
+	.byte %01101000
+	.byte %01001000
+	.byte %01001000
+	.byte %01001000
+	.byte %01001000
+	.byte %01001000
+	.byte %00001000
+	.byte %01001000
+	.byte %01001000
+	.byte %00001100
+	.byte %01101100
+	.byte %01101100
+	.byte %00001100
+	.byte %01101100
+	.byte %00001100
+	.byte %01101000
+	.byte %01001000
+	.byte %01001000
+	.byte %01000000
+	.byte %01001000
+	.byte %01000000
+	.byte %01001000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %00000000
+	.byte %01101110
+	.byte %01101110
+	.byte %01101110
+	.byte %01101110
+	.byte %01101110
+	.byte %01101110
+
+PF2_LOGO_A
+	.byte %00010101
+	.byte %00010101
+	.byte %00000101
+	.byte %00010101
+	.byte %00000101
+	.byte %00010101
+	.byte %00000101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010101
+	.byte %00010101
+	.byte %01010101
+	.byte %01010101
+	.byte %01010101
+	.byte %01010101
+	.byte %01010101
+	.byte %01000100
+	.byte %01000100
+	.byte %01000100
+	.byte %01000100
+	.byte %01110101
+	.byte %01110101
+	.byte %01110100
+	.byte %01110101
+	.byte %01110100
+	.byte %01110101
+
+PF0_LOGO_B
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01010000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01010000
+	.byte %01010000
+	.byte %01000000
+	.byte %01010000
+	.byte %01000000
+	.byte %01010000
+	.byte %01000000
+	.byte %01010000
+	.byte %01000000
+	.byte %01000000
+	.byte %01000000
+	.byte %01000000
+	.byte %01000000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+	.byte %01110000
+
+PF1_LOGO_B
+	.byte %10100100
+	.byte %10100100
+	.byte %00100100
+	.byte %10100100
+	.byte %00100100
+	.byte %10100100
+	.byte %00100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100000
+	.byte %10100100
+	.byte %10100100
+	.byte %11100000
+	.byte %11000100
+	.byte %11000000
+	.byte %11000100
+	.byte %11000000
+	.byte %11000100
+	.byte %11100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10100100
+	.byte %10000000
+	.byte %10000000
+	.byte %10000000
+	.byte %10000000
+	.byte %10101110
+	.byte %10101110
+	.byte %10001110
+	.byte %10101110
+	.byte %10001110
+	.byte %10101110
+
+PF2_LOGO_B
+
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010111
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010101
+	.byte %00010100
+	.byte %01010101
+	.byte %01010100
+	.byte %00010101
+	.byte %01010100
+	.byte %00010101
+	.byte %01000101
+	.byte %00000100
+	.byte %01000100
+	.byte %01000100
+	.byte %01000100
+	.byte %01110111
+	.byte %01110111
+	.byte %01110111
+	.byte %01110111
+	.byte %01110111
+	.byte %01110111
+
+    
