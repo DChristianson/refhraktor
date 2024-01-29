@@ -104,7 +104,25 @@ DONE
    - ladder (maze-like)
    - pachinko (pins)
    - breakout (destructable)
+ - sprinkles 
+   - alternative title (full screen PF + 48 px symbol + reflections)
 MVP TODO
+ - power glitches
+    - power is just super unclear when you have it or not
+      - visual indicator of reservoir
+      - have power "pull" from reservoir
+      - flow travels towards target based on firing pattern and draw
+        - pulse laser is pulse, med draw
+        - shield is continuous, low draw
+        - gamma is continuous, high draw
+      - in two player mode there is only one reservoir
+        - bottom player draws from reservoir, feeds to top
+        - flow rate of top is slow
+      - there is a cooldown to restore power
+      - if reservoir is close to empty you have a warning
+      - if reservoir drains completely it has to reset
+      - during reset player cannot move
+    - accidental drain when game starts
  - power track graphics
     - make same top and bottom
     - line up with field
@@ -113,18 +131,19 @@ MVP TODO
     - beam now always fires to side of player
     - lo laser wonky at extreme positions
         - refraction could mitigate
- - fhrakas kernel
-    - consider no flicker beams
-    - use both missiles at once for beams?
- - power glitches
-    - accidental drain when game starts
- - basic quest mode (could be good for testing)
-    - on score down penalize
-    - on final goal complete
-    - AI tracks the player
-    - ability to swap equipment / controls
-    - no level select on menu
-    - 16 quest levels
+ - weapon effects
+    - make lasers refract off ball
+ - physics bugs
+    - ball does not refract off horizontal surface correctly
+    - way to detect "stuck" ball and unstick / nudge
+ - clean up play screen 
+    - more distinctive color palette
+      - https://en.wikipedia.org/wiki/Coyolx%C4%81uhqui
+      - https://en.wikipedia.org/wiki/C%C5%8D%C4%81tl%C4%ABcue
+    - make power levels more obvious wrt beam
+    - make power levels more obvious wrt rails
+    - adjust background / foreground color
+    - adjust shot color
  - sounds MVP
    - audio queue tracks
      - menu l/r (fugue arpeggio bits)
@@ -135,33 +154,35 @@ MVP TODO
      - ball drop / get ready (weird noises)
      - shot sound (blast)
      - bounce sound (adjust tempo)
-     - cooldown warning (alarm)
-     - cooldown occurred (power down)
+     - minor power restore
+     - major power restore
+     - overheat warning (alarm)
+     - overheat occurred (power down)
      - power restored (tune)
      - goal sound (pulses)
- - physics bugs
-    - ball does not refract off horizontal surface correctly
-    - way to detect "stuck" ball and unstick / nudge
- - weapon effects
-    - make lasers refract off ball
- - clean up play screen 
-    - more distinctive color palette
-      - https://en.wikipedia.org/wiki/Coyolx%C4%81uhqui
-      - https://en.wikipedia.org/wiki/C%C5%8D%C4%81tl%C4%ABcue
-    - make power levels more obvious wrt beam
-    - make power levels more obvious wrt rails
-    - adjust background / foreground color
-    - adjust shot color
- - startup sprinkles 
+ - game sprinkles 
     - startup VCS OS
     - loading logos (randomize?)
-    - alternative title (full screen PF + 48 px symbol + reflection)
+    - title has some random patterns
+ - basic quest mode (could be good for testing)
+    - on score down penalize
+    - on final goal complete
+    - AI tracks the player
+    - ability to swap equipment / controls
+    - no level select on menu
+    - 16 quest levels
+ - basic dynamic playfield
+   - 1 breakout level
+   - 1 animated level
 DELAY
  - basic special attacks
     - gravity wave (affect background)
     - emp (affect foreground)
     - gamma laser 
     - way to show specials in power track
+ - fhrakas kernel
+    - consider no flicker beams
+    - use both missiles at once for beams?
  - code
     - replace DL macros with subs
     - massive number of cycles used drawing
@@ -194,7 +215,7 @@ DELAY
     - disable level select for quest
     - player descriptions
     - instructions?
-    - show level during level select
+    - display actual level during level select
     - gradient colors
     - sugar skull colors
     - aztec colors
@@ -207,19 +228,19 @@ DELAY
     - cleanup unused strings
     - cleanup unused graphics
     - compress blank sections
- - different height levels
  - more levels themes
     - locking rings (dynamic)
     - breakfall (dynamic, destructable)
-    - blocks (dynamic)
+    - moving blocks (dynamic)
     - crescent wings (dynamic)
     - conway (dynamic)
     - mandala (spinning symmmetrics)
     - chakra (circular rotating maze)
-    - pinball (diagonal banks, active targets
+    - pinball (diagonal banks, active targets)
     - combat
     - castle
  THINK ABOUT
+ - different height levels
  - end game mechanics
     - alternating player gets to "serve"
     - alternately - some way to cancel back to lobby?

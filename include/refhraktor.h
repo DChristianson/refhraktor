@@ -91,7 +91,7 @@ _power_grid_skip_power
             php
             ora power_grid_pf0,x
             rol 
-            sta SC_WRITE_POWER_GRID_PF0,x
+            sta power_grid_pf0,x
             dey
             bmi _power_grid_right
             ror power_grid_pf1,x
@@ -161,8 +161,115 @@ _power_grid_next
 
     ENDM
             
-        ; TREATMENT 2: (flow) flow in asymmetrically from sides based on power var, converge on player
-        
+    ; TREATMENT 2: (pull) pull towards player
+    MAC GRID_TREATMENT_2
+            ; roll in from sides
+            ;         5 <B   23> 27<2B  43> 47<4B 53>57<5B 73 77<7B
+            ;  | 4..7 | 7......0 | 0......7 | 4..7 | 7......0 | 0......7 |
+            ;  | 0      1   2      3   4      5      6   7     8
+            ;  
+            ; get playfield / 4 position for player 
+            lda player_x,x
+            lsr
+            lsr
+            pha ; save pinch bit
+            lsr
+            lsr
+            tay ; y is approx player location
+            lda TABLE_PF_COMPLEMENTARY_LOCATION,y
+            pha ; save opposing position
+            ; PF0 right
+            lda SC_READ_POWER_GRID_PF0,x
+            rol 
+            sta SC_WRITE_POWER_GRID_PF0,x   
+            dey
+            bmi _grid_continue_left
+            ; PF1 right
+            lda SC_READ_POWER_GRID_PF1,x
+            ror
+            sta SC_WRITE_POWER_GRID_PF1,x
+            dey 
+            dey 
+            bpl _grid_continue_left 
+            ; PF2 right
+            lda SC_READ_POWER_GRID_PF2,x
+            rol
+            sta SC_WRITE_POWER_GRID_PF2,x
+            dey
+            dey
+            bmi _grid_continue_left
+            ; PF3 right
+            lda SC_READ_POWER_GRID_PF3,x
+            bcc _grid_bridge_pf3_right
+            ora #$08
+_grid_bridge_pf3_right
+            asl
+            sta SC_WRITE_POWER_GRID_PF3,x
+            dey
+            bmi _grid_continue_left
+            ; PF4 right
+            lda SC_READ_POWER_GRID_PF4,x
+            ror
+            sta SC_WRITE_POWER_GRID_PF4,x
+_grid_continue_left
+            pla
+            tay
+            php ; save carry bit
+            ; PF5 left
+            bmi _grid_pinch_pf5
+            lda SC_READ_POWER_GRID_PF5,x
+            ror
+            sta SC_WRITE_POWER_GRID_PF5,x
+            ; PF4 left
+            dey
+            dey
+            bmi _grid_pinch_pf4
+            lda SC_READ_POWER_GRID_PF4,x
+            rol
+            sta SC_WRITE_POWER_GRID_PF4,x
+            ; PF3 left
+            dey
+            dey
+            bmi _grid_pinch_pf3
+            lda SC_READ_POWER_GRID_PF3,x
+            and #$f0 
+            ror
+            sta SC_WRITE_POWER_GRID_PF3,x
+            and #$08
+            beq _grid_bridge_pf3_left
+            sec
+_grid_bridge_pf3_left
+            ; PF2 left
+            dey
+            dey
+            bmi _grid_pinch_pf2
+            lda SC_READ_POWER_GRID_PF2,x
+            ror
+            sta SC_WRITE_POWER_GRID_PF2,x
+            ; PF1 left
+            dey
+            dey
+            bmi _grid_pinch_pf1
+            lda SC_READ_POWER_GRID_PF1,x
+            rol
+            sta SC_WRITE_POWER_GRID_PF1,x
+            ; PINCH PF0
+_grid_pinch_pf0
+            plp
+            pla
+            
+
+_grid_pinch_pf1
+_grid_pinch_pf2
+_grid_pinch_pf3
+_grid_pinch_pf4
+_grid_pinch_pf5
+_power_grid_skip_power
+_power_grid_next
+
+    ENDM
+
+
         ; TREATMENT 3: (clean) put in static gaps as power drains, rebuild when empty
    MAC GRID_TREATMENT_3
             lda power_grid_pf5,x

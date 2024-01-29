@@ -650,7 +650,7 @@ power_grid_update
             lda frame
             and #$01
             tax
-            GRID_TREATMENT_6
+            GRID_TREATMENT_2
 _power_grid_update_end
 
 player_update
@@ -724,7 +724,7 @@ player_fire_aim
             ; check auto fire ($80)
             bpl _player_update_skip_auto_fire
 _player_fire_auto
-            and #PLAYER_STATE_HAS_POWER
+            and #0; BUGBUG:testing PLAYER_STATE_HAS_POWER
             beq _player_no_fire 
             lda power_grid_reserve,x ; check power reserve
             bmi _player_no_fire ; 

@@ -9,7 +9,7 @@ sub_fill_grid ; x = player, a = value
             sta SC_WRITE_POWER_GRID_PF2,x
             sta SC_WRITE_POWER_GRID_PF3,x ; BUGBUG: ONLY USE HALF
             sta SC_WRITE_POWER_GRID_PF4,x
-            sta SC_WRITE_POWER_GRID_PF5,x ; BUGBUG: ONLY USE HALF
+            sta SC_WRITE_POWER_GRID_PF5,x ; will be reservoir
             rts
 
 sub_x2pf ; a=coord, x=player => a=bit, y=blockptr
@@ -29,6 +29,9 @@ sub_x2pf ; a=coord, x=player => a=bit, y=blockptr
             sta SC_WRITE_POWER_GRID_PF0,y
             rts
 
+TABLE_PF_COMPLEMENTARY_LOCATION
+ byte 8,7,6,5,4,3,2,1,0
+ 
 ;  | PF0  | PF1      | PF2      | PF3  | PF4      | PF5      |
 ;  | 4..7 | 7......0 | 0......7 | 4..7 | 7......0 | 0......7 |
 TABLE_PF_X_BITS

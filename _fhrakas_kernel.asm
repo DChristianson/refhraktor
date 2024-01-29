@@ -114,50 +114,42 @@ _lo_resp_loop
 ; laser track (hi)
 
 laser_track_hi
-             ; resp top player
-            sta WSYNC               ;3   0
-            lda player_x + 1        ;3   3
-            sec                     ;2   5
-_lt_hi_resp_loop
-            sbc #15                 ;2   7
-            sbcs _lt_hi_resp_loop   ;2   9
-            tay                     ;2  11+
-            lda LOOKUP_STD_HMOVE,y  ;4  15+
-            sta HMP0                ;3  18+
-            SLEEP 3                 ;3  21+ ; BUGBUG: shim
-            sta RESP0               ;3  24+ ; 
+            lda #$00                ;2  37 ; BUGBUG: testing asymmetric
+            sta CTRLPF              ;3  40 ; BUGBUG: need?
+            lda player_x + 1
+            ldx #0
+            jsr sub_respx           ;-   9 ; RESP P0
 
-            sta WSYNC
-            sta HMOVE                    ;3   3
-            lda #$0b                     ;2   5
-            sta COLUBK                   ;3   8
-            sta COLUPF                   ;3  11
-            lda #$30                     ;2  13
-            sta PF0                      ;3  16
-            ldy #PLAYER_HEIGHT - 1       ;2  18
+            ldy #PLAYER_HEIGHT - 1  ;2  11  
 
 _lt_hi_draw_loop_2
-            lda (player_sprite+2),y      ;5  16
-            ldx TARGET_COLOR_0,y         ;4  20
+            lda (player_sprite+2),y ;5  16/32
+            ldx #$e0                ;2  34
+            stx PF0                 ;3  35
+            ldx #$05                ;2  18/37
+            stx PF2                 
 
-            sta WSYNC
-            sta GRP0                         ;3   3
-            stx COLUP0                       ;3   6
-            lda TARGET_BG_0,y                ;5  11
-            sta COLUBK                       ;3  14
-            dey                              ;2  16
-            cpy #PLAYER_HEIGHT - 3           ;2  18
-            bcs _lt_hi_draw_loop_2           ;2  20
-            lda #$00                         ;2  22
-            sta PF0                          ;3  25
-            sta PF1                          ;3  28
-            sta PF2                          ;3  31
-            sta CTRLPF                       ;3  34
+            sta WSYNC               ;-----
+            sta GRP0                ;3   3
+            lda TARGET_COLOR_0,y    ;4   7
+            sta COLUP0              ;3  10
+            lda TARGET_RAIL_0,y     ;4  14
+            sta COLUPF              ;3  17
+            lda #$ff                ;2  19
+            sta PF1                 ;3  22
+            sta PF2                 ;3  25
+            dey                     ;2  27
+            cpy #PLAYER_HEIGHT - 3  ;2  29
+            bne _lt_hi_draw_loop_2  ;2  31
+
+
             lda SC_READ_POWER_GRID_COLOR + 1 ;3  37
             sta COLUPF                       ;3  40
             lda (player_sprite+2),y          ;5  45
             ldx TARGET_COLOR_0,y             ;4  49
-            sta CXCLR                        ;3  52 ; start collision
+            lda #$ff                         ;2  51
+            sta PF2                          ;3  54
+            sta CXCLR                        ;3  57 ; start collision
 
             sta WSYNC
             sta GRP0                        ;3   3
@@ -175,7 +167,7 @@ _lt_hi_draw_loop_2
             sta PF0                         ;3  41
             lda SC_READ_POWER_GRID_PF4 + 1  ;4  45
             sta PF1                         ;3  48 
-            lda SC_READ_POWER_GRID_PF5 + 1  ;4  52
+            lda #0                          ;4  52
             sta PF2                         ;3  55
     
             lda (player_sprite+2),y         ;5  60
@@ -194,7 +186,7 @@ _lt_hi_draw_loop_2
             sta PF0                         ;3  34
             lda SC_READ_POWER_GRID_PF4 + 1  ;4  38
             sta PF1                         ;3  41
-            ldx SC_READ_POWER_GRID_PF5 + 1  ;4  45
+            ldx #0                          ;4  45
 
             ; power collision test
             lda player_state + 1            ;3  48
@@ -220,8 +212,6 @@ _hi_skip_power
             sta PF1                 ;3  31
             sta PF2                 ;3  34
             dey                     ;2  36
-            lda #$00                ;2  37 ; BUGBUG: testing asymmetric
-            sta CTRLPF              ;3  40 ; BUGBUG: need?
 
 _lt_hi_draw_loop_0
             lda (player_sprite+2),y      ;5  --
@@ -411,7 +401,7 @@ _lt_lo_draw_loop_2
             sta PF0                         ;3  42
             lda SC_READ_POWER_GRID_PF4      ;4  46
             sta PF1                         ;3  49
-            lda SC_READ_POWER_GRID_PF5      ;4  53
+            lda #0                          ;4  53
             and #$0f                        ;2  55
             sta PF2                         ;3  58
             iny                             ;2  60
@@ -536,7 +526,7 @@ _lt_co_draw_loop_0
             sta PF0                         ;3  41
             lda SC_READ_POWER_GRID_PF4 + 1  ;4  45
             sta PF1                         ;3  48
-            lda SC_READ_POWER_GRID_PF5 + 1  ;4  52
+            lda #0                          ;4  52
             sta PF2                         ;3  55
         
             lda (player_sprite+2),y         ;5  -- 
@@ -556,7 +546,7 @@ _lt_co_draw_loop_0
             sta PF0                         ;3  36
             lda SC_READ_POWER_GRID_PF4 + 1  ;4  40
             sta PF1                         ;3  43
-            ldx SC_READ_POWER_GRID_PF5 + 1  ;4  47
+            ldx #0                          ;4  47
 
             ; power collision test
             lda player_state + 1            ;3  50
@@ -883,6 +873,7 @@ MTP_CPU_3
     byte $0,$18,$18,$0,$c3,$99,$c3,$0,$18; 9
 TARGET_COLOR_0
     byte $0,$0a,$0c,$0e,$0e,$0f,$0e,$0e,$0c,$0a; 9
+TARGET_RAIL_0
 TARGET_BG_0
     byte $0,$02,$04,$0b,$bc,$bc,$0b,$04,$02,$00; 9
 
