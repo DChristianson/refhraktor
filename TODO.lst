@@ -109,8 +109,12 @@ DONE
 MVP TODO
  - power glitches
     - power is just super unclear when you have it or not
-      - visual indicator of reservoir
       - have power "pull" from reservoir
+        - autofire when power reaches module and remove from grid
+        - delivery delay should be based on ship type
+        - ensure delivery delay is not too great by dynamically adjusting grid
+        - delivery can be from left or right or both at same time
+      - visual indicator of reservoir (x pixels from grid)
       - flow travels towards target based on firing pattern and draw
         - pulse laser is pulse, med draw
         - shield is continuous, low draw
