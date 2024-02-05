@@ -168,67 +168,82 @@ _power_grid_next
             ;  | 4..7 | 7......0 | 0......7 | 4..7 | 7......0 | 0......7 |
             ;  | 0      1   2      3   4      5      6   7     8
             ;  
+            lda player_input,x
+            bmi _power_grid_skip_power
+            lda #$80
+            ora SC_READ_POWER_GRID_PF5,x
+            sta SC_WRITE_POWER_GRID_PF5,x
+            lda #$10
+            ora SC_READ_POWER_GRID_PF0,x
+            sta SC_WRITE_POWER_GRID_PF0,x
+_power_grid_skip_power
             ; get playfield / 4 position for player 
             lda player_x,x
+            clc
+            adc #4 ; adjust for player midpoint
             lsr
             lsr
-            pha ; save pinch bit
+            sta local_power_pinch_x ; save pinch bit location
             lsr
             lsr
             tay ; y is approx player location
             lda TABLE_PF_COMPLEMENTARY_LOCATION,y
             pha ; save opposing position
-            ; PF0 right
-            lda SC_READ_POWER_GRID_PF0,x
-            rol 
-            sta SC_WRITE_POWER_GRID_PF0,x   
+            ; PF0 right (0:0)
             dey
             bmi _grid_continue_left
-            ; PF1 right
+            lda SC_READ_POWER_GRID_PF0,x
+            asl 
+            sta SC_WRITE_POWER_GRID_PF0,x   
+            ; PF1 right (1:2)
+            dey 
+            dey 
+            bmi _grid_continue_left 
             lda SC_READ_POWER_GRID_PF1,x
             ror
             sta SC_WRITE_POWER_GRID_PF1,x
-            dey 
-            dey 
-            bpl _grid_continue_left 
-            ; PF2 right
-            lda SC_READ_POWER_GRID_PF2,x
-            rol
-            sta SC_WRITE_POWER_GRID_PF2,x
+            ; PF2 right (3:4)
             dey
             dey
             bmi _grid_continue_left
-            ; PF3 right
+            lda SC_READ_POWER_GRID_PF2,x
+            rol
+            sta SC_WRITE_POWER_GRID_PF2,x
+            ; PF3 right (5:5)
+            dey
+            bmi _grid_continue_left
             lda SC_READ_POWER_GRID_PF3,x
             bcc _grid_bridge_pf3_right
             ora #$08
 _grid_bridge_pf3_right
             asl
             sta SC_WRITE_POWER_GRID_PF3,x
+            ; PF4 right (6:7)
+            dey
             dey
             bmi _grid_continue_left
-            ; PF4 right
             lda SC_READ_POWER_GRID_PF4,x
             ror
             sta SC_WRITE_POWER_GRID_PF4,x
 _grid_continue_left
-            pla
-            tay
-            php ; save carry bit
-            ; PF5 left
+            lda #0               ; save carry bit
+            ror                  ; .
+            sta local_power_carry ; 
+            pla ; retrieve location
+            tay ; .
+            ; PF5 left (-1)
             bmi _grid_pinch_pf5
             lda SC_READ_POWER_GRID_PF5,x
-            ror
+            lsr
             sta SC_WRITE_POWER_GRID_PF5,x
-            ; PF4 left
+            ; PF4 left (0:1)
             dey
             dey
             bmi _grid_pinch_pf4
             lda SC_READ_POWER_GRID_PF4,x
             rol
             sta SC_WRITE_POWER_GRID_PF4,x
-            ; PF3 left
-            dey
+            ; PF3 left (2)
             dey
             bmi _grid_pinch_pf3
             lda SC_READ_POWER_GRID_PF3,x
@@ -239,14 +254,14 @@ _grid_continue_left
             beq _grid_bridge_pf3_left
             sec
 _grid_bridge_pf3_left
-            ; PF2 left
+            ; PF2 left (3:4)
             dey
             dey
             bmi _grid_pinch_pf2
             lda SC_READ_POWER_GRID_PF2,x
             ror
             sta SC_WRITE_POWER_GRID_PF2,x
-            ; PF1 left
+            ; PF1 left (5:6)
             dey
             dey
             bmi _grid_pinch_pf1
@@ -255,16 +270,60 @@ _grid_bridge_pf3_left
             sta SC_WRITE_POWER_GRID_PF1,x
             ; PINCH PF0
 _grid_pinch_pf0
-            plp
-            pla
-            
-
+            ; C has right side
+            ; stack has left side
+            ;  0000xxxx .
+            ;  .0000xxx x
+            ;  c xxxxxxxx d
+            ;    cxxxx000 
+            ;    000xxxxd
+            ;  
+            ; BUGBUG: CODE SIZE; MAKE SUBROUTINE?
+            lda SC_READ_POWER_GRID_PF0,x
+            jsr sub_grid_pinch_rl
+            sta SC_WRITE_POWER_GRID_PF0,x
+            jmp _power_grid_next
 _grid_pinch_pf1
+            lda SC_READ_POWER_GRID_PF1,x
+            jsr sub_grid_pinch_lr
+            sta SC_WRITE_POWER_GRID_PF1,x
+            jmp _power_grid_next
 _grid_pinch_pf2
-_grid_pinch_pf3
+            lda SC_READ_POWER_GRID_PF2,x
+            jsr sub_grid_pinch_rl
+            sta SC_WRITE_POWER_GRID_PF2,x
+            jmp _power_grid_next
 _grid_pinch_pf4
+            lda SC_READ_POWER_GRID_PF4,x
+            jsr sub_grid_pinch_lr
+            sta SC_WRITE_POWER_GRID_PF4,x
+            jmp _power_grid_next
 _grid_pinch_pf5
-_power_grid_skip_power
+            lda SC_READ_POWER_GRID_PF5,x
+            jsr sub_grid_pinch_rl
+            sta SC_WRITE_POWER_GRID_PF5,x
+            jmp _power_grid_next
+_grid_pinch_pf3
+            lda SC_READ_POWER_GRID_PF3,x
+            ror
+            sta local_power_temp
+            lda local_power_carry
+            asl
+            lda local_power_pinch_x
+            and #$07
+            tay
+            lda TABLE_PF_MASK_RL_A,y
+            and local_power_temp
+            sta local_power_temp
+            lda SC_READ_POWER_GRID_PF3,x
+            bcc _grid_pinch_pf3_skip
+            ora #$08           
+_grid_pinch_pf3_skip
+            asl
+            and TABLE_PF_MASK_RL_B,y
+            ora local_power_temp
+            sta SC_WRITE_POWER_GRID_PF3,x
+
 _power_grid_next
 
     ENDM

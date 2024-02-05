@@ -96,8 +96,9 @@ PLAYFIELD_WIDTH = 154
 PLAYFIELD_VIEWPORT_HEIGHT = 80
 PLAYFIELD_BEAM_RES = 16
 
-PLAYER_MIN_X = 0
-PLAYER_MAX_X = 140
+PLAYER_X_LEFT_RAIL_EDGE = 10
+PLAYER_MIN_X = PLAYER_X_LEFT_RAIL_EDGE
+PLAYER_MAX_X = 129
 BALL_MIN_X = 12
 BALL_MAX_X = 132
 
@@ -253,7 +254,10 @@ local_tk_y_min ds 1  ; hold y min during text kernel
 local_fk_m0_dl      ds (FORMATION_COUNT * 2)  ; pattern for missile 0
 local_fk_p0_dl      ds (FORMATION_COUNT * 2)  ; pattern for p0 
 
-
+   ORG local_overlay
+local_power_pinch_x  ds 1
+local_power_carry    ds 1
+local_power_temp     ds 1
 
 ; BUGBUG: TODO: placeholder for to protect overwriting stack with locals
 

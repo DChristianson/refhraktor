@@ -302,38 +302,25 @@ formation_end_jmp
 ;---------------------
 ; laser track (lo)
 
+
+laser_track_lo
             lda #$c0                        ;2   2
             sta PF0                         ;3   5
-            lda player_x                    ;3   8
-            sec                             ;2  10
-_lt_lo_resp_loop
-            sbc #15                         ;2  12
-            sbcs _lt_lo_resp_loop           ;2  14
-            tay                             ;2  16+
-            lda LOOKUP_STD_HMOVE,y          ;4  20+
-            sta HMP0                        ;3  23+
-            sta RESP0                       ;3  26+
+            lda player_x
+            ldx #0
+            jsr sub_respx           ;-   9 ; RESP P0
 
 
-
-            ; stx PF1                 ;3   3
-            ; sty PF2                 ;3   6
-
-
-
-            ; top line
-            sta WSYNC
-            sta HMOVE               ;3   3
-            ldy #1                  ;2   5
-            lda (player_sprite),y   ;6  11
-            sta GRP0                ;3  14
-            lda TARGET_COLOR_0,y    ;4  18
-            sta COLUP0              ;3  21
-            lda #0                  ;2  23
-            sta PF1                 ;3  26
-            sta PF2                 ;3  29
-            sty CTRLPF              ;2  31 ; CODE: take advantage of y = 1
-            iny                     ;2  33
+            ldy #1                  ;2  11
+            lda (player_sprite),y   ;6  17
+            sta GRP0                ;3  20
+            lda TARGET_COLOR_0,y    ;4  24
+            sta COLUP0              ;3  28
+            lda #0                  ;2  30
+            sta PF1                 ;3  23
+            sta PF2                 ;3  26
+            sty CTRLPF              ;2  28 ; CODE: take advantage of y = 1
+            iny                     ;2  35
 
             ; BUGBUG: right place to end missile mask?
             lda #$00                     ;2  20 activate missile mask
@@ -391,29 +378,27 @@ _lt_lo_draw_loop_2
             sta GRP0                        ;3   8
             lda TARGET_COLOR_0,y            ;4  12
             sta COLUP0                      ;3  15
-            lda #0                          ;2  17
-            sta PF0                         ;3  20
-            lda SC_READ_POWER_GRID_PF1      ;4  24
-            sta PF1                         ;3  27
-            lda SC_READ_POWER_GRID_PF2      ;4  31
-            sta PF2                         ;3  35
-            lda SC_READ_POWER_GRID_PF3      ;4  39
-            sta PF0                         ;3  42
-            lda SC_READ_POWER_GRID_PF4      ;4  46
-            sta PF1                         ;3  49
-            lda #0                          ;4  53
-            and #$0f                        ;2  55
-            sta PF2                         ;3  58
-            iny                             ;2  60
-            cpy #PLAYER_HEIGHT - 2          ;2  62
-            bcc _lt_lo_draw_loop_2          ;2  64
+            lda SC_READ_POWER_GRID_PF0      ;4  19
+            sta PF0                         ;3  22
+            lda SC_READ_POWER_GRID_PF1      ;4  26
+            sta PF1                         ;3  29
+            lda SC_READ_POWER_GRID_PF2      ;4  33
+            sta PF2                         ;3  36
+            lda SC_READ_POWER_GRID_PF3      ;4  40
+            sta PF0                         ;3  43
+            lda SC_READ_POWER_GRID_PF4      ;4  47
+            sta PF1                         ;3  50
+            lda SC_READ_POWER_GRID_PF5      ;4  54
+            sta PF2                         ;3  57
+            iny                             ;2  59
+            cpy #PLAYER_HEIGHT - 2          ;2  61
+            bcc _lt_lo_draw_loop_2          ;2  63
 
-            lda #0                          ;2  66
-            sta PF0                         ;3  69
-            asl CXP0FB                      ;5  ; save power to carry bit
+            lda #0                          ;2  65
+            sta PF0                         ;3  68
+            asl CXP0FB                      ;5  73; save power to carry bit
 
-
-            sta WSYNC
+            SLEEP 3                         ;-- --
             lda (player_sprite),y           ;5   5
             sta GRP0                        ;3   8
             lda TARGET_COLOR_0,y            ;4  12
