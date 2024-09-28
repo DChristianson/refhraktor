@@ -102,8 +102,8 @@ PLAYER_MAX_X = 129
 BALL_MIN_X = 12
 BALL_MAX_X = 132
 
-GOAL_SCORE_DEPTH = 4
-GOAL_HEIGHT = 16
+GOAL_SCORE_DEPTH = 2
+GOAL_HEIGHT = 10
 BALL_HEIGHT = BALL_GRAPHICS_END - BALL_GRAPHICS
 PLAYER_HEIGHT = MTP_MKI_1 - MTP_MKI_0
 
@@ -553,14 +553,14 @@ ball_update
             ; collision
             ldy #0
 _ball_update_cx_bottom
-            lda #%11000000
+            lda #%10000000
             and ball_cx
             beq _ball_update_cx_top
             NEG16 ball_dy
             iny
             jmp _ball_update_cx_horiz
 _ball_update_cx_top
-            lda #%00000011
+            lda #%00000001
             and ball_cx
             beq _ball_update_cx_horiz
             ABS16 ball_dy
@@ -603,7 +603,7 @@ ball_update_hpos
 
 ball_update_vpos
             ADD16 ball_y, ball_dy
-            CLAMP_REFLECT_16 ball_y, ball_dy, 2, 127 - 2 - BALL_HEIGHT
+            CLAMP_REFLECT_16 ball_y, ball_dy, 1, 127 - 1 - BALL_HEIGHT
 
 ; TODO; friction
 ; ball_decay_velocity

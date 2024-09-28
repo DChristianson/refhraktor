@@ -107,6 +107,37 @@ DONE
  - sprinkles 
    - alternative title (full screen PF + 48 px symbol + reflections)
 MVP TODO
+ - power track graphics
+    - make same top and bottom
+    - line up with field
+    - add score or timer
+ - glitches
+    - beam now always fires to side of player
+    - lo laser wonky at extreme positions
+        - refraction could mitigate
+    - sound glitchy
+ - sounds MVP
+   - audio queue tracks
+     - menu l/r (fugue arpeggio bits)
+     - menu u/d (fugue other bits)
+     - game start (fugue pause)
+     - game end warning (countdown)
+     - game end (fugue pause)
+     - ball drop / get ready (weird noises)
+     - shot sound (blast)
+     - bounce sound (adjust tempo)
+     - minor power restore
+     - major power restore
+     - overheat warning (alarm)
+     - overheat occurred (power down)
+     - power restored (tune)
+     - goal sound (pulses)
+ - basic dynamic playfield
+   - 1 breakout level
+   - 1 animated level
+   - 1 conway level
+ - weapon effects
+    - make lasers refract off ball
  - power glitches
     - power is just super unclear when you have it or not
       - have power "pull" from reservoir
@@ -127,16 +158,6 @@ MVP TODO
       - if reservoir drains completely it has to reset
       - during reset player cannot move
     - accidental drain when game starts
- - power track graphics
-    - make same top and bottom
-    - line up with field
-    - add score or timer
- - graphical glitches
-    - beam now always fires to side of player
-    - lo laser wonky at extreme positions
-        - refraction could mitigate
- - weapon effects
-    - make lasers refract off ball
  - physics bugs
     - ball does not refract off horizontal surface correctly
     - way to detect "stuck" ball and unstick / nudge
@@ -148,26 +169,14 @@ MVP TODO
     - make power levels more obvious wrt rails
     - adjust background / foreground color
     - adjust shot color
- - sounds MVP
-   - audio queue tracks
-     - menu l/r (fugue arpeggio bits)
-     - menu u/d (fugue other bits)
-     - game start (fugue pause)
-     - game end warning (countdown)
-     - game end (fugue pause)
-     - ball drop / get ready (weird noises)
-     - shot sound (blast)
-     - bounce sound (adjust tempo)
-     - minor power restore
-     - major power restore
-     - overheat warning (alarm)
-     - overheat occurred (power down)
-     - power restored (tune)
-     - goal sound (pulses)
  - game sprinkles 
+    - startup sound
+      - quasi voice
+      - frequency pans
     - startup VCS OS
     - loading logos (randomize?)
     - title has some random patterns
+    - scrolling tiles graphics
  - basic quest mode (could be good for testing)
     - on score down penalize
     - on final goal complete
@@ -175,9 +184,6 @@ MVP TODO
     - ability to swap equipment / controls
     - no level select on menu
     - 16 quest levels
- - basic dynamic playfield
-   - 1 breakout level
-   - 1 animated level
 DELAY
  - basic special attacks
     - gravity wave (affect background)

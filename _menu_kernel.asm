@@ -11,10 +11,10 @@
             rts
 
 MENU_JUMP_TABLE_LO
-    byte <(kernel_showSplash-1),<(kernel_showSplash-1),<(kernel_showSplash-1),<(kernel_title-1)
+    byte <(kernel_showSplash-1),<(kernel_showStripes-1),<(kernel_showSplash-1),<(kernel_title-1)
     byte <(kernel_menu_game-1),<(kernel_menu_equip-1),<(kernel_menu_stage-1),<(kernel_menu_accept-1)
 MENU_JUMP_TABLE_HI
-    byte >(kernel_showSplash-1),>(kernel_showSplash-1),>(kernel_showSplash-1),>(kernel_title-1)
+    byte >(kernel_showSplash-1),>(kernel_showStripes-1),>(kernel_showSplash-1),>(kernel_title-1)
     byte >(kernel_menu_game-1),>(kernel_menu_equip-1),>(kernel_menu_stage-1),>(kernel_menu_accept-1)
 
 ;------------------
@@ -999,6 +999,36 @@ _loop_splash_grid
             sta COLUBK
 
             JMP_LBL waitOnOverscan ; BUGBUG jump
+
+;------------------------
+; stripes kernel
+
+kernel_showStripes
+            jsr waitOnVBlank_2 ; SL 34
+            sta WSYNC ; SL 35
+            lda frame
+            sta COLUBK
+            lda #6
+            sta NUSIZ0
+            sta NUSIZ1
+            lda #$ff
+            sta GRP0
+            sta GRP1
+            lda #$10
+            sta HMP0
+            sta HMP1
+            sta RESP0
+            SLEEP 2
+            sta RESP1
+
+            ldx #(SCANLINES - 69)
+drawStripes
+            sta WSYNC
+            sta HMOVE
+            dex
+            bne drawStripes         ;2/3 72
+
+            JMP_LBL waitOnOverscan ; BUGBUG jump            
 
 ;------------------------
 ; vblank sub

@@ -56,7 +56,7 @@ TRACK_GAME_OVER = . - AUDIO_TRACKS
 TRACK_BOUNCE = . - AUDIO_TRACKS
      byte $06,$18,$0a,$08,$06,$08,$0a,$08,$00,$01,$00,$08
      byte $06,$18,$05,$08,$06,$08,$05,$08,$00,$01,$00,$08
-     byte $06,$18,$05,$08,$06,$08,$05,$08,$00,255,0
+     byte $06,$18,$05,$08,$06,$08,$05,$08,$00,$01,255,0
 TRACK_ARC_BEAM = . - AUDIO_TRACKS
      byte $06,$1,$0a,$0f,255,0
 TRACK_DROP = . - AUDIO_TRACKS

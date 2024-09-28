@@ -82,9 +82,9 @@ _lo_resp_loop
             tay                     ;2  11+
             lda LOOKUP_STD_HMOVE,y  ;4  15+
             sta HMM0                ;3  18+
-            SLEEP 6                 ;3  24+ ; BUGBUG: line glitch
-            sta RESM0               ;3  27+ ; BUGBUG: GLITCH: goes over
-
+            SLEEP 4                 ;4  22+ ; BUGBUG: line glitch
+            sta RESM0               ;3  25+ ; BUGBUG: GLITCH: goes over
+            
             sta WSYNC
             lda frame               ;3   3
             and #$01                ;2   5
